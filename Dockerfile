@@ -164,3 +164,4 @@ WORKDIR /data
 # Go to Dockerfile dir & run:
 # docker build -t bwt_filtering_pipeline_docker .
 # docker tag bwt_filtering_pipeline_docker ivasilyev/bwt_filtering_pipeline_docker:latest && docker push ivasilyev/bwt_filtering_pipeline_docker:latest
+
