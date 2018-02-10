@@ -121,12 +121,9 @@ RUN for s in "intel tbb" "bioconda bowtie" "bioconda bowtie2" "bioconda samtools
 # Get the main pipeline scripts; only 'pipeline_wrapper.py' and 'queue_handler.py' are first-order affilated
 RUN mkdir ${HOME}/scripts && \
     cd ${HOME}/scripts && \
-    git clone --recursive https://github.com/ivasilyev/bwt_filtering_pipeline_docker.git && \
-    git submodule init && \
-    git submodule update && \
-    ln -s ${HOME}/scripts/bwt_filtering_pipeline_docker/pipeline_wrapper.py ${HOME}/bin/pipeline_wrapper
+    git clone --recursive https://github.com/ivasilyev/bwt_filtering_pipeline_docker.git
 
-# Human genome reference indexes, use if required 
+# Human genome reference indexes, use if required
 ENV HG19_COLORSPACE="ftp://ftp.ccb.jhu.edu/pub/data/bowtie_indexes/hg19_c.ebwt.zip"
 ENV HG19_BWT2I="ftp://ftp.ccb.jhu.edu/pub/data/bowtie2_indexes/hg19.zip"
 ENV HG37_COLORSPACE="ftp://ftp.ccb.jhu.edu/pub/data/bowtie_indexes/h_sapiens_37_asm_c.ebwt.zip"
@@ -143,7 +140,7 @@ ENV HG37_BWT2I="ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryote
 #    unzip $(ls ./*.zip) && \
 #    rm $(ls ./*.zip) && \
 #    printf "${REF_DIR}/hg19/hg19.fasta\t${REF_DIR}/hg19/hg19_c\t${REF_DIR}/hg19/hg19\tnone\tnone\tnone\n" > ${REF_DIR}/hg19/hg19.refdata
-    
+
 # The hg37 index masks are 'h_sapiens_37_asm_c' and 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index'
 # RUN mkdir ${REF_DIR}/hg37 && \
 #    cd ${REF_DIR}/hg37 && \
@@ -154,13 +151,13 @@ ENV HG37_BWT2I="ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryote
 #    tar -xvzf $(ls ./*.tar.gz) && \
 #    rm $(ls ./*.tar.gz) && \
 #    printf "${REF_DIR}/hg37/hg37.fasta\t${REF_DIR}/hg37/h_sapiens_37_asm_c\t${REF_DIR}/hg37/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index\tnone\tnone\tnone\n" > ${REF_DIR}/hg37/hg37.refdata
-    
+
 # Directories to mount
 VOLUME ["/data", "/config", "/reference"]
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 # CMD ["/bin/bash"]
-CMD ["pipeline_wrapper.py"]
+CMD ["python3", "/home/docker/scripts/bwt_filtering_pipeline_docker/pipeline_wrapper.py"]
 
 # Setup the default directory
 WORKDIR /data
