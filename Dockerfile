@@ -124,7 +124,7 @@ RUN mkdir ${HOME}/scripts && \
     git clone --recursive https://github.com/ivasilyev/bwt_filtering_pipeline_docker.git && \
     git submodule init && \
     git submodule update && \
-    lm -s ${HOME}/scripts/bwt_filtering_pipeline_docker/pipeline_wrapper.py ${HOME}/bin/pipeline_wrapper
+    ln -s ${HOME}/scripts/bwt_filtering_pipeline_docker/pipeline_wrapper.py ${HOME}/bin/pipeline_wrapper
 
 # Human genome reference indexes, use if required 
 ENV HG19_COLORSPACE="ftp://ftp.ccb.jhu.edu/pub/data/bowtie_indexes/hg19_c.ebwt.zip"

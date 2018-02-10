@@ -23,7 +23,7 @@ The pipeline employs `multiprocessing` features through the queueing of multiple
 
 Process description
 1. Align all samples on the first REFDATA;
-2. Align all non-mapped reads left from the first step on the second REFDATA:
+2. Align all non-mapped reads left from the first step on the second REFDATA;
 3. Convert sequence alignment map files and extract coverage
 
 Due to multithreading implemented in [bowtie](http://bowtie-bio.sourceforge.net)/[bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/) onboard, the relevant queues are sequental. Other participating applications do not use multiple CPU cores, so the 3rd step queue is parallel.
