@@ -116,7 +116,7 @@ RUN conda config --add channels r && \
     conda upgrade -y conda
 
 # Install additional Conda packages 
-RUN for s in "intel tbb" "bioconda bowtie" "bioconda bowtie2" "bioconda samtools" "bioconda bedtools"; do conda install -y -c ${s} && conda upgrade -y -c ${s}; done
+RUN for s in "intel tbb" "bioconda bowtie=1.1.2" "bioconda bowtie2" "bioconda samtools" "bioconda bedtools"; do conda install -y -c ${s} && conda upgrade -y -c ${s}; done
 
 # Get the main pipeline scripts; only 'pipeline_wrapper.py' and 'queue_handler.py' are first-order affilated
 RUN mkdir ${HOME}/scripts && \
