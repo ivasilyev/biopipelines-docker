@@ -119,8 +119,12 @@ RUN conda config --add channels r && \
 RUN for s in "intel tbb" "bioconda bowtie" "bioconda bowtie2" "bioconda samtools" "bioconda bedtools"; do conda install -y -c ${s} && conda upgrade -y -c ${s}; done
 
 # Get the main pipeline scripts; only 'pipeline_wrapper.py' and 'queue_handler.py' are first-order affilated
-RUN mkdir ${HOME}/scripts
-COPY bowtie-tools/nBee.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py bowtie-tools/cook_the_reference.py ./pipeline_wrapper.py ./queue_handler.py ${HOME}/scripts/
+RUN mkdir ${HOME}/scripts && \
+    cd ${HOME}/scripts && \
+    git clone --recursive https://github.com/ivasilyev/bwt_filtering_pipeline_docker.git && \
+    git submodule init && \
+    git submodule update && \
+    lm -s ${HOME}/scripts/bwt_filtering_pipeline_docker/pipeline_wrapper.py ${HOME}/bin/pipeline_wrapper
 
 # Human genome reference indexes, use if required 
 ENV HG19_COLORSPACE="ftp://ftp.ccb.jhu.edu/pub/data/bowtie_indexes/hg19_c.ebwt.zip"
@@ -164,4 +168,3 @@ WORKDIR /data
 # Go to Dockerfile dir & run:
 # docker build -t bwt_filtering_pipeline_docker .
 # docker tag bwt_filtering_pipeline_docker ivasilyev/bwt_filtering_pipeline_docker:latest && docker push ivasilyev/bwt_filtering_pipeline_docker:latest
-

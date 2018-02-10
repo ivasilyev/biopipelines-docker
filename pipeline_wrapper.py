@@ -80,15 +80,14 @@ def parse_namespace():
     return namespace.filter, namespace.coverage, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.output
 
 
-filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, outputDir = parse_namespace()
-
-scriptDir = ends_with_slash(ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0]))))
-
-print("Filtering mapping for", sampleDataFileName, "on", filteringGenomeRefData)
-external_route(["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", filteringGenomeRefData, "-m", inputMask + '_' + filename_only(filteringGenomeRefData), "-t", cpuThreadsString, "-n", "-o", outputDir])
-filteredSampleDataFileName = re.sub('[\r\n]', '', find_latest_changed_file(outputDir + "Statistics/_non-mapped_reads_" + inputMask + "*.sampledata"))
-if len(filteredSampleDataFileName) == 0:
-    raise ValueError("Only filtering alignment has been performed, but generated 'sampledata' could not be found!")
-print("Mapping and coverage extraction for", sampleDataFileName, "on", coverageGenomeRefData)
-external_route(["python3", scriptDir + 'nBee.py', "-i", filteredSampleDataFileName, "-r", coverageGenomeRefData, "-m", "_".join([inputMask, 'no', filename_only(filteringGenomeRefData), filename_only(coverageGenomeRefData)]), "-t", cpuThreadsString, "-o", outputDir])
-print("Completed processing:", " ".join([i for i in sys.argv if len(i) > 0]))
+if __name__ == '__main__':
+    filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, outputDir = parse_namespace()
+    scriptDir = ends_with_slash(ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0]))))
+    print("Filtering mapping for", sampleDataFileName, "on", filteringGenomeRefData)
+    external_route(["python3", scriptDir + 'bowtie-tools/nBee.py', "-i", sampleDataFileName, "-r", filteringGenomeRefData, "-m", inputMask + '_' + filename_only(filteringGenomeRefData), "-t", cpuThreadsString, "-n", "-o", outputDir])
+    filteredSampleDataFileName = re.sub('[\r\n]', '', find_latest_changed_file(outputDir + "Statistics/_non-mapped_reads_" + inputMask + "*.sampledata"))
+    if len(filteredSampleDataFileName) == 0:
+        raise ValueError("Only filtering alignment has been performed, but generated 'sampledata' could not be found!")
+    print("Mapping and coverage extraction for", sampleDataFileName, "on", coverageGenomeRefData)
+    external_route(["python3", scriptDir + 'nBee.py', "-i", filteredSampleDataFileName, "-r", coverageGenomeRefData, "-m", "_".join([inputMask, 'no', filename_only(filteringGenomeRefData), filename_only(coverageGenomeRefData)]), "-t", cpuThreadsString, "-o", outputDir])
+    print("Completed processing:", " ".join([i for i in sys.argv if len(i) > 0]))
