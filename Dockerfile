@@ -121,7 +121,7 @@ RUN for s in "intel tbb" "bioconda bowtie" "bioconda bowtie2" "bioconda samtools
 # Get the main pipeline scripts; only 'pipeline_wrapper.py' and 'queue_handler.py' are first-order affilated
 RUN mkdir ${HOME}/scripts && \
     cd ${HOME}/scripts && \
-    git clone --recursive https://github.com/ivasilyev/bwt_filtering_pipeline_docker.git
+    git clone --recurse-submodules https://github.com/ivasilyev/bwt_filtering_pipeline_docker.git
 
 # Human genome reference indexes, use if required
 ENV HG19_COLORSPACE="ftp://ftp.ccb.jhu.edu/pub/data/bowtie_indexes/hg19_c.ebwt.zip"
