@@ -118,10 +118,14 @@ RUN conda config --add channels r && \
 # Install additional Conda packages 
 RUN for s in "intel tbb" "bioconda bowtie=1.1.2" "bioconda bowtie2" "bioconda samtools" "bioconda bedtools"; do conda install -y -c ${s} && conda upgrade -y -c ${s}; done
 
-# Get the main pipeline scripts; only 'pipeline_wrapper.py' and 'queue_handler.py' are first-order affilated
-RUN mkdir ${HOME}/scripts && \
-    cd ${HOME}/scripts && \
-    git clone --recurse-submodules https://github.com/ivasilyev/bwt_filtering_pipeline_docker.git
+# Get the pipeline scripts
+RUN mkdir ~/scripts ~/bin && \
+    cd ~/scripts && \
+    git clone --recurse-submodules https://github.com/ivasilyev/bwt_filtering_pipeline_docker.git && \
+    cd ~/scripts/bwt_filtering_pipeline_docker && \
+    find ${PWD}/ -type d -exec chmod 755 {} \; && \
+    find ${PWD}/ -type f -exec chmod 755 {} \; && \
+    ln -s ${PWD}/bowtie-tools/nBee.py ${PWD}/bowtie-tools/cook_the_reference.py ${PWD}/bowtie-tools/sam2coverage.py ${PWD}/pipeline_wrapper.py ${PWD}/queue_handler.py /data
 
 # Human genome reference indexes, use if required
 ENV HG19_COLORSPACE="ftp://ftp.ccb.jhu.edu/pub/data/bowtie_indexes/hg19_c.ebwt.zip"
@@ -157,7 +161,7 @@ VOLUME ["/data", "/config", "/reference"]
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 # CMD ["/bin/bash"]
-CMD ["python3", "/home/docker/scripts/bwt_filtering_pipeline_docker/pipeline_wrapper.py"]
+CMD ["python3", "pipeline_wrapper.py"]
 
 # Setup the default directory
 WORKDIR /data
