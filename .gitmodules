@@ -1,0 +1,3 @@
+[submodule "worker/bowtie-tools"]
+	path = worker/bowtie-tools
+	url = git://github.com/ivasilyev/bowtie-tools.git
