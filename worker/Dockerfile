@@ -3,7 +3,7 @@ FROM ubuntu:17.10
 
 ################## METADATA ######################
 LABEL base.image="ubuntu:17.10"
-LABEL version="1.1"
+LABEL version="1.2"
 LABEL software="bwt_filtering_pipeline_docker"
 LABEL description="Docker image containing all required packages to run filtering Bowtie-based pipeline"
 LABEL website="https://github.com/ivasilyev/bowtie-tools"
@@ -41,6 +41,7 @@ RUN apt-get clean all && \
 RUN apt-get -y install \
     autotools-dev   \
     automake        \
+    build-essential \
     cmake           \
     curl            \
     grep            \
@@ -61,6 +62,8 @@ RUN apt-get -y install \
     bzip2           \
     ca-certificates \
     libglib2.0-0    \
+    libtbb2         \
+    libtbb-dev      \
     libxext6        \
     libsm6          \
     libxrender1     \
@@ -73,19 +76,19 @@ RUN apt-get clean && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Conda - a cross-platform, language-agnostic binary package manager
-RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
-    wget --quiet ${MINICONDA_URL} -O ~/miniconda.sh && \
-    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
-    rm ~/miniconda.sh
-
 # Install Tini - A tiny but valid init for containers
 RUN TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
     curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
     dpkg -i tini.deb && \
     rm tini.deb && \
     apt-get clean
-    
+
+# Install Conda - a cross-platform, language-agnostic binary package manager
+RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
+    wget --quiet ${MINICONDA_URL} -O ~/miniconda.sh && \
+    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh
+
 # Install Python3 packages
 RUN pip3 install pandas redis
 
@@ -125,7 +128,7 @@ RUN mkdir ~/scripts ~/bin && \
     cd ~/scripts/bwt_filtering_pipeline_docker && \
     find ${PWD}/ -type d -exec chmod 755 {} \; && \
     find ${PWD}/ -type f -exec chmod 755 {} \; && \
-    ln -s ${PWD}/bowtie-tools/nBee.py ${PWD}/bowtie-tools/cook_the_reference.py ${PWD}/bowtie-tools/sam2coverage.py ${PWD}/pipeline_wrapper.py ${PWD}/queue_handler.py /data
+    ln -s ${PWD}/worker/bowtie-tools/nBee.py ${PWD}/worker/bowtie-tools/cook_the_reference.py ${PWD}/worker/bowtie-tools/sam2coverage.py ${PWD}/worker/pipeline_wrapper.py ${PWD}/worker/queue_handler.py /data
 
 # Human genome reference indexes, use if required
 ENV HG19_COLORSPACE="ftp://ftp.ccb.jhu.edu/pub/data/bowtie_indexes/hg19_c.ebwt.zip"
@@ -167,5 +170,5 @@ CMD ["python3", "pipeline_wrapper.py"]
 WORKDIR /data
 
 # Go to Dockerfile dir & run:
-# docker build -t bwt_filtering_pipeline_docker .
-# docker tag bwt_filtering_pipeline_docker ivasilyev/bwt_filtering_pipeline_docker:latest && docker push ivasilyev/bwt_filtering_pipeline_docker:latest
+# docker build -t bwt_filtering_pipeline_worker .
+# docker tag bwt_filtering_pipeline_worker ivasilyev/bwt_filtering_pipeline_worker:latest && docker push ivasilyev/bwt_filtering_pipeline_worker:latest

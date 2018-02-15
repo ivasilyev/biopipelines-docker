@@ -239,6 +239,10 @@ def external_route(input_direction_list):
     return output.decode("utf-8")
 
 
+def run_pipeline():
+    external_route(["python3", scriptDir + "pipeline_wrapper.py", "-f", json_single_queue["filter"], "-c", json_single_queue["coverage"], "-s", sampleDataFileName, "-m", json_single_queue["mask"], "-o", json_single_queue["output"]])
+
+
 if __name__ == '__main__':
     # The script part is based on: https://raw.githubusercontent.com/kubernetes/website/master/docs/tasks/job/fine-parallel-processing-work-queue/worker.py
     # Uncomment next two lines if you do not have Kube-DNS working.
@@ -247,7 +251,7 @@ if __name__ == '__main__':
     hostNameString = subprocess.getoutput("hostname")
     scriptDir = ends_with_slash('/'.join(os.path.abspath(sys.argv[0]).split('/')[:-1]))
 
-    q = RedisWQ(name="bwt_filtering_pipeline_docker", host="redis")
+    q = RedisWQ(name="bwt_filtering_pipeline_queue", host="redis")
     print("Worker with sessionID: " + q.sessionID())
     print("Initial queue state: empty=" + str(q.empty()))
     sampledata_queue_list = []
@@ -263,7 +267,7 @@ if __name__ == '__main__':
                 if len(sampledata_queue_list) == int(json_single_queue["threads"]):
                     print("Loaded full queue on:", hostNameString)
                     sampleDataFileName = dump_sampledata(sampledata_queue_list)
-                    external_route(["python3", scriptDir + "pipeline_wrapper.py", "-f", json_single_queue["filter"], "-c", json_single_queue["coverage"], "-m", json_single_queue["mask"], "-o", json_single_queue["output"]])
+                    run_pipeline()
                     sampledata_queue_list = []
             except ValueError:
                 print("Cannot parse JSON:", itemstr)
@@ -274,6 +278,6 @@ if __name__ == '__main__':
         print("Processing the last queue")
         sampleDataFileName = dump_sampledata(sampledata_queue_list)
         json_single_queue = sampledata_queue_list[0]
-        external_route(["python3", scriptDir + "pipeline_wrapper.py", "-f", json_single_queue["filter"], "-c", json_single_queue["coverage"], "-m", json_single_queue["mask"], "-o", json_single_queue["output"]])
+        run_pipeline()
         sampledata_queue_list = []
     print("Queue empty, exiting")

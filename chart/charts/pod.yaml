@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bwt_filtering_pipeline_queue
+  labels:
+    app: redis
+spec:
+  containers:
+    - name: master
+      image: docker.io/ivasilyev/bwt_filtering_pipeline_master:latest
+      env:
+        - name: MASTER
+          value: "true"
+      ports:
+        - containerPort: 6379

@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bwt_filtering_pipeline_queue
+spec:
+  # Using 10 nodes
+  parallelism: 10
+  template:
+    metadata:
+      name: bwt_filtering_pipeline_queue
+    spec:
+      containers:
+      - name: bwt
+        image: docker.io/ivasilyev/bwt_filtering_pipeline_worker:latest
+        imagePullPolicy: Always
+        command: ["python3", "queue_handler.py"]
+        volumeMounts:
+        # Paste drives here
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        emptyDir: {}
+      restartPolicy: Never
