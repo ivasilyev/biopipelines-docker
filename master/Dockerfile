@@ -84,3 +84,4 @@ WORKDIR /data
 # Go to Dockerfile dir & run:
 # docker build -t bwt_filtering_pipeline_master .
 # docker tag bwt_filtering_pipeline_master ivasilyev/bwt_filtering_pipeline_master:latest && docker push ivasilyev/bwt_filtering_pipeline_master:latest
+
