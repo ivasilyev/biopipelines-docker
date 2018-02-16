@@ -95,7 +95,6 @@ RUN pip3 install pandas redis
 # Create user docker with password docker
 RUN groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
-    echo `echo "root\nroot\n" | passwd root` && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
     mkdir /data /config ${REF_DIR} && \
     chown docker:docker /data && \
@@ -128,7 +127,7 @@ RUN mkdir ~/scripts ~/bin && \
     cd ~/scripts/bwt_filtering_pipeline_docker && \
     find ${PWD}/ -type d -exec chmod 755 {} \; && \
     find ${PWD}/ -type f -exec chmod 755 {} \; && \
-    ln -s ${PWD}/worker/bowtie-tools/nBee.py ${PWD}/worker/bowtie-tools/cook_the_reference.py ${PWD}/worker/bowtie-tools/sam2coverage.py ${PWD}/worker/pipeline_wrapper.py ${PWD}/worker/queue_handler.py /data
+    ln -s ${PWD}/worker/bowtie-tools/nBee.py ${PWD}/worker/bowtie-tools/cook_the_reference.py ${PWD}/worker/bowtie-tools/sam2coverage.py ${PWD}/worker/pipeline_wrapper.py ${PWD}/worker/queue_handler.py ~
 
 # Human genome reference indexes, use if required
 ENV HG19_COLORSPACE="ftp://ftp.ccb.jhu.edu/pub/data/bowtie_indexes/hg19_c.ebwt.zip"
@@ -167,7 +166,7 @@ VOLUME ["/data", "/config", "/reference"]
 CMD ["python3", "pipeline_wrapper.py"]
 
 # Setup the default directory
-WORKDIR /data
+WORKDIR /home/docker
 
 # Go to Dockerfile dir & run:
 # docker build -t bwt_filtering_pipeline_worker .

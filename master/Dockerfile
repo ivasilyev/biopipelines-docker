@@ -15,7 +15,7 @@ LABEL tags="Genomics"
 MAINTAINER Ilya Vasilyev <u0412u0418u042e@gmail.com>
 
 ################## INSTALLATION ######################
-# Base image CLI: docker run --rm -it redis bash
+# Base image CLI:
 # Enable apt-get noninteractive install
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -50,10 +50,9 @@ RUN pip3 install redis
 # Create user docker with password docker
 RUN groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
-    echo `echo "root\nroot\n" | passwd root` && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
-    mkdir -p /data && \
-    chown docker:docker /data
+    chown docker:docker /data && \
+    chmod -R 777 /data
 
 # Change user (CLI: su - docker)
 USER docker
@@ -69,7 +68,7 @@ RUN mkdir ~/scripts ~/bin && \
     cd ~/scripts/bwt_filtering_pipeline_docker && \
     find ${PWD}/ -type d -exec chmod 777 {} \; && \
     find ${PWD}/ -type f -exec chmod 644 {} \; && \
-    ln -s ${PWD}/master/sampledata2jsons_queue.py /data/
+    ln -s ${PWD}/master/sampledata2jsons_queue.py ~/sampledata2jsons_queue.py
 
 # Directories to mount
 VOLUME ["/data"]
@@ -79,9 +78,8 @@ VOLUME ["/data"]
 CMD ["python3", "sampledata2jsons_queue.py"]
 
 # Setup the default directory
-WORKDIR /data
+WORKDIR /home/docker
 
 # Go to Dockerfile dir & run:
 # docker build -t bwt_filtering_pipeline_master .
 # docker tag bwt_filtering_pipeline_master ivasilyev/bwt_filtering_pipeline_master:latest && docker push ivasilyev/bwt_filtering_pipeline_master:latest
-
