@@ -1,13 +1,13 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: bwt_filtering_pipeline_queue
+  name: bwt-filtering-pipeline-queue
 spec:
   # Using 10 nodes
-  parallelism: 10
+  parallelism: 2
   template:
     metadata:
-      name: bwt_filtering_pipeline_queue
+      name: bwt-filtering-pipeline-queue
     spec:
       containers:
       - name: bwt

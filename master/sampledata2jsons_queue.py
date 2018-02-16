@@ -58,7 +58,7 @@ def rpush_sampledata(sampledata_line):
 
 if __name__ == '__main__':
     filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, outputDir = parse_namespace()
-    queueName = "bwt_filtering_pipeline_queue"
+    queueName = "bwt-filtering-pipeline-queue"
     external_route(["redis-cli", "-h", "redis", "flushall"])
     for sampledataLine in file_to_list(sampleDataFileName):
         rpush_sampledata(sampledataLine)

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: bwt_filtering_pipeline_queue
+  name: redis-master
   labels:
     app: redis
 spec:

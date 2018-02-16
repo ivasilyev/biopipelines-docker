@@ -2,55 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import os
-import re
 import sys
-import argparse
-import multiprocessing
 import subprocess
 import redis
 import uuid
 import hashlib
-import time
 import json
-
-
-def parse_args():
-    starting_parser = argparse.ArgumentParser(description="This script builds redis-based queue to launch the filtering pipeline")
-    starting_parser.add_argument("-f", "--filter", required=True,
-                                 help="Filtering DNA sequence REFDATA")
-    starting_parser.add_argument("-c", "--coverage", required=True,
-                                 help="DNA sequence REFDATA to calculate coverage")
-    starting_parser.add_argument("-s", "--sampledata", required=True,
-                                 help="Input list containing two tab-delimited columns for colorspace or non-colorspace sequences and three for paired-end sequences: sample name and absolute path(s). May contain a header")
-    starting_parser.add_argument("-m", "--mask", default=None,
-                                 help="(Optional) Mask to be added to resulting files. Automtically apended by both REFDATA file names")
-    starting_parser.add_argument("-t", "--threads", default=None, type=int,
-                                 help="(Optional) Number of CPU cores to use, maximal by default")
-    starting_parser.add_argument("-o", "--output", required=True,
-                                 help="Output directory")
-    return starting_parser.parse_args()
-
-
-def parse_namespace():
-    namespace = parse_args()
-    for file_name in [namespace.filter, namespace.coverage, namespace.sampledata]:
-        if not os.path.isfile(file_name):
-            raise ValueError("Not found: '" + file_name + "'\nIf you're using Docker, please make sure you have mounted required volume with the '-v' flag.")
-    default_threads = int(subprocess.getoutput("nproc"))
-    if not namespace.threads or default_threads < namespace.threads:
-        namespace.threads = default_threads
-    return namespace.filter, namespace.coverage, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.output
-
-
-def is_path_exists(path):
-    try:
-        os.makedirs(path)
-    except OSError:
-        pass
 
 # Based on http://peter-hoffmann.com/2012/python-simple-queue-redis-queue.html
 # and the suggestion in the redis documentation for RPOPLPUSH, at
 # http://redis.io/commands/rpoplpush, which suggests how to implement a work-queue.
+
 
 class RedisWQ(object):
     """Simple Finite Work Queue with Redis Backend
@@ -165,33 +127,11 @@ class RedisWQ(object):
 #  e.g. each time lease times out.
 
 
-
-
-def parse_args():
-    starting_parser = argparse.ArgumentParser(description="This tool automatically fixes, cuts and indexes DNA sequences in FASTA format. \nRequired software: bowtie, bowtie2, samtools.")
-    starting_parser.add_argument("-i", "--input", required=True,
-                                 help="Reference DNA FASTA file;")
-    starting_parser.add_argument("-s", "--size", type=float, default=3.6,
-                                 help="(Optional) Sequence chunk size in billion characters, 3.6 ;")
-    starting_parser.add_argument("-t", "--threads", type=int, default=int(multiprocessing.cpu_count()),
-                                 help="(Optional) Number of CPU cores to speed up the chunks processing, maximal by default;")
-    starting_parser.add_argument("-l", "--large_index", default=False,
-                                 help="(Optional) Force usage of a 'large' index, disables sequence splitting;")
-    starting_parser.add_argument("-o", "--output", required=True,
-                                 help="Output directory. Must not exist and shall be created.")
-    return starting_parser.parse_args()
-
-
-def parse_namespace():
-    namespace = parse_args()
-    namespace.input = str(os.path.abspath(namespace.input))
-    is_path_exists(namespace.output)
-    namespace.output = ends_with_slash(os.path.abspath(namespace.output))
-    for path in [namespace.input, namespace.output]:
-        if ' ' in path:
-            print("The path must not contain spaces: " + path + "\n Exiting...")
-            sys.exit(2)
-    return str(os.path.abspath(namespace.input)), int(float(namespace.size) * 10 ** 9), int(namespace.threads), namespace.large_index, namespace.output
+def is_path_exists(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        pass
 
 
 def var_to_file(var_to_write, file_to_write):
@@ -248,10 +188,11 @@ if __name__ == '__main__':
     # Uncomment next two lines if you do not have Kube-DNS working.
     # import os
     # host = os.getenv("REDIS_SERVICE_HOST")
+    queueName = "bwt-filtering-pipeline-queue"
     hostNameString = subprocess.getoutput("hostname")
     scriptDir = ends_with_slash('/'.join(os.path.abspath(sys.argv[0]).split('/')[:-1]))
 
-    q = RedisWQ(name="bwt_filtering_pipeline_queue", host="redis")
+    q = RedisWQ(name=queueName, host="redis")
     print("Worker with sessionID: " + q.sessionID())
     print("Initial queue state: empty=" + str(q.empty()))
     sampledata_queue_list = []
