@@ -33,7 +33,6 @@ def parse_namespace():
     return namespace.filter, namespace.coverage, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.output
 
 
-
 def file_to_list(file):
     file_buffer = open(file, 'rU')
     output_list = [j for j in [re.sub('[\r\n]', '', i) for i in file_buffer] if len(j) > 0]
@@ -52,6 +51,7 @@ def external_route(input_direction_list):
 
 def rpush_sampledata(sampledata_line):
     sampledata_list = sampledata_line.split("\t")
+    print("Pushing to queue: ", sampledata_list[0])
     # json example: {"filter": "", "coverage": "", "sampledata": {"sample_name": "", "sample_path": ""}, "mask": "", "threads": "", "output": ""}
     external_route(["redis-cli", "-h", "redis", "rpush", queueName, json.dumps({"filter": filteringGenomeRefData, "coverage": coverageGenomeRefData, "sampledata": {"sample_name": sampledata_list[0], "sample_path": "\t".join(sampledata_list[1:])}, "mask": inputMask, "threads": cpuThreadsString, "output": outputDir})])
 
@@ -59,7 +59,12 @@ def rpush_sampledata(sampledata_line):
 if __name__ == '__main__':
     filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, outputDir = parse_namespace()
     queueName = "bwt-filtering-pipeline-queue"
+    print("Using queue name:", queueName)
     external_route(["redis-cli", "-h", "redis", "flushall"])
     for sampledataLine in file_to_list(sampleDataFileName):
         rpush_sampledata(sampledataLine)
-    external_route(["redis-cli", "-h", "redis", "lrange", queueName, "0", "-1"])
+    print("Created queue: \n", external_route(["redis-cli", "-h", "redis", "lrange", queueName, "0", "-1"]))
+    try:
+        input("Press enter to continue")
+    except SyntaxError:
+        pass
