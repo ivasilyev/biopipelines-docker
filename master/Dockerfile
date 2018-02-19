@@ -3,7 +3,7 @@ FROM redis
 
 ################## METADATA ######################
 LABEL base.image="ubuntu:17.10"
-LABEL version="1.2"
+LABEL version="1.3"
 LABEL software="bwt_filtering_pipeline_docker"
 LABEL description="Docker image containing all required packages to run filtering Bowtie-based pipeline"
 LABEL website="https://github.com/ivasilyev/bowtie-tools"

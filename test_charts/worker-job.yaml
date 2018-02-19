@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bwt-fp-job
+  labels:
+    app: bwt-filtering-pipeline
+    tier: job
+spec:
+  # Using 2 nodes
+  parallelism: 2
+  template:
+    metadata:
+      name: bwt-fp-job
+      labels:
+        app: bwt-filtering-pipeline
+        tier: app
+    spec:
+      containers:
+      - name: bwt-fp-worker
+        image: docker.io/ivasilyev/bwt_filtering_pipeline_worker:latest
+        imagePullPolicy: Always
+        command: ["python3", "queue_handler.py"]
+        volumeMounts:
+        # Paste drives here
+        - name: data
+          mountPath: /data
+        - name: data1
+          mountPath: /data1
+        - name: data2
+          mountPath: /data2
+      volumes:
+      - name: data
+        hostPath:
+          path: /data
+      - name: data1
+        hostPath:
+          path: /data1
+      - name: data2
+        hostPath:
+          path: /data2
+      restartPolicy: OnFailure

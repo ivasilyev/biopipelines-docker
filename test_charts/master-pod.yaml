@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bwt-fp-scheduler
+  labels:
+    app: bwt-filtering-pipeline
+    tier: app
+spec:
+  containers:
+    - name: bwt-fp-master
+      image: docker.io/ivasilyev/bwt_filtering_pipeline_master:latest
+      imagePullPolicy: Always
+      # Paste the digested queue creation command line
+      command: ["python3", "sampledata2jsons_queue.py", "-s", "/data/sampledata.txt", "-f", "/data/reference/index/vfdb.refdata", "-c", "/data/reference/index/vfdb.refdata", "-m", "test", "-o", "/data/test"]
+      volumeMounts:
+        - mountPath: /data
+          name: data
+        - mountPath: /data1
+          name: data1
+        - mountPath: /data2
+          name: data2
+  volumes:
+    - name: data
+      hostPath:
+        path: /data
+    - name: data1
+      hostPath:
+        path: /data1
+    - name: data2
+      hostPath:
+        path: /data2
+  restartPolicy: Never
