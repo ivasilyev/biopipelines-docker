@@ -100,9 +100,9 @@ RUN for p in numpy scipy h5py biom-format pandas redis matplotlib statsmodels; d
 RUN groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
-    mkdir /data /data1 /data2 /config ${REF_DIR} && \
-    chown docker:docker /data /data1 /data2 /config ${REF_DIR} && \
-    chmod -R 755 /data /data1 /data2 /config ${REF_DIR}
+    mkdir /data /config ${REF_DIR} && \
+    chown docker:docker /data /config ${REF_DIR} && \
+    chmod -R 755 /data /config ${REF_DIR}
     
 # Give ultimate access to the Conda directory
 RUN chmod 777 -R /opt/conda
@@ -164,11 +164,11 @@ ENV HG37_BWT2I="ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryote
 #    printf "${REF_DIR}/hg37/hg37.fasta\t${REF_DIR}/hg37/h_sapiens_37_asm_c\t${REF_DIR}/hg37/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index\tnone\tnone\tnone\n" > ${REF_DIR}/hg37/hg37.refdata
 
 # Directories to mount
-VOLUME ["/data", "/data1", "/data2", "/config", "/reference"]
+VOLUME ["/data", "/config", "/reference"]
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 # CMD ["/bin/bash"]
-CMD ["pipeline_wrapper.py"]
+CMD ["python3", "/home/docker/scripts/pipeline_wrapper.py"]
 
 # Setup the default directory
 WORKDIR /home/docker

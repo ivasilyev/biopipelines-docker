@@ -40,15 +40,15 @@ RUN cd ~/scripts && \
 #    wget --quiet https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v20_m200.tar && \
 #    tar xopf mpa_v20_m200.tar && \
 #    bzip2 -d mpa_v20_m200.fna.bz2 && \
-#    python3 ~/scripts/cook_the_reference.py -i mpa_v20_m200.fna -o /reference/metaphlan2/index && \
+#    python3 ~/scripts/cook_the_reference.py -h -i mpa_v20_m200.fna -o /reference/metaphlan2/index && \
 #    rm -f mpa_v20_m200.tar
 
 # Directories to mount
-VOLUME ["/data", "/data1", "/data2", "/config", "/reference"]
+VOLUME ["/data", "/config", "/reference"]
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 # CMD ["/bin/bash"]
-CMD ["pipeline_wrapper.py"]
+CMD ["python3", "/home/docker/scripts/pipeline_wrapper.py"]
 
 # Setup the default directory
 WORKDIR /home/docker
