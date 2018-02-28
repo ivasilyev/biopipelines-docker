@@ -72,47 +72,43 @@ def find_latest_changed_file(mask):
 
 def parse_namespace():
     namespace = parse_args()
-    for file_name in [namespace.coverage, namespace.sampledata]:
-        if not os.path.isfile(file_name):
-            raise ValueError("Not found: '" + file_name + "'\nIf you're using Docker, please make sure you have mounted required volume with the '-v' flag.")
+    if not os.path.isfile(namespace.refdata):
+        raise ValueError("Not found: '" + namespace.refdata + "'\nIf you're using Docker, please make sure you have mounted required volume with the '-v' flag.")
     default_threads = int(subprocess.getoutput("nproc"))
     if not namespace.threads or default_threads < namespace.threads:
         namespace.threads = default_threads
-    return namespace.filter, namespace.coverage, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.no_coverage, namespace.output
+    namespace.output = ends_with_slash(namespace.output)
+    return namespace.refdata, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.output
 
 
 def run_metaphlan2(mapped_sampledata_file):
+    output_dir = ends_with_slash(outputDir) + "metaphlan2/"
+    is_path_exists(output_dir)
+    merging_files_names_list = []
     for i in file_to_list(mapped_sampledata_file):
         try:
-            sample_name, sample_path = i.split("\t")
+            sample_name, sam_file_path = i.split("\t")
         except ValueError:
             raise ValueError("Not found: " + i)
-        external_route([], )
+        output_file_name = output_dir + sample_name + "_" + inputMask + ".mpa2"
+        external_route(["python", scriptDir + "metaphlan2/metaphlan2.py", sam_file_path, "--input_type", "sam", "--nproc", cpuThreadsString],
+                       output_file_name)
+        merging_files_names_list.append(output_file_name)
+    external_route(["python", scriptDir + "metaphlan2/utils/merge_metaphlan_tables.py", " ".join(merging_files_names_list)],
+                   output_dir + filename_only(mapped_sampledata_file) + ".mpa2")
+    print("Completed processing mapped file:", mapped_sampledata_file)
 
 
 if __name__ == '__main__':
-    filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, noCoverageExtractionBool, outputDir = parse_namespace()
+    refDataFileName, sampleDataFileName, inputMask, cpuThreadsString, outputDir = parse_namespace()
     scriptDir = ends_with_slash(ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0]))))
-    print("Performing single alignment for", sampleDataFileName, "on", coverageGenomeRefData)
-    external_route(["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", coverageGenomeRefData, "-m", "_".join([inputMask, 'no', filename_only(filteringGenomeRefData), filename_only(coverageGenomeRefData)]), "-t", cpuThreadsString, "-n", "-o", outputDir], None)
+    if not all(os.path.isfile(i) for i in [scriptDir + "metaphlan2/metaphlan2.py", scriptDir + "metaphlan2/utils/merge_metaphlan_tables.py"]):
+        raise ValueError("MetaPhlAn2 scripts were not found! \nPlease clone the repository using the command: 'cd " + scriptDir + "; hg clone https://bitbucket.org/biobakery/metaphlan2'")
+    print("Performing single alignment for", sampleDataFileName, "on", refDataFileName)
+    external_route(["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", refDataFileName, "-m", inputMask, "-t", cpuThreadsString, "-o", outputDir], None)
     print("Completed processing:", " ".join([i for i in sys.argv if len(i) > 0]))
     mappedSampleDataFileName = re.sub('[\r\n]', '', find_latest_changed_file(outputDir + "Statistics/_mapped_reads_" + inputMask + "*.sampledata"))
     if len(mappedSampleDataFileName) == 0:
         raise ValueError("Only filtering alignment has been performed, but generated 'sampledata' could not be found!")
-    print("Launching MetaPhlAn2 to process", mappedSampleDataFileName, "on", coverageGenomeRefData)
-
-
-
-# SOLiD
-# bowtie mpa_v20 -p 20 -v 3 -t -C --sam-nohead --sam-nosq sample1.nohuman.csfasta -S bt_out/sample1.sam
-#
-# python utils/metaphlan2.py bt_out/sample1.sam --input_type sam > metaphlan2_out/sample1.txt
-#
-# Merging results
-# python utils/merge_metaphlan_tables.py metaphlan2_out/*.txt > metaphlan2_out/merged.txt
-#
-#
-# Illumina
-# python metaphlan2.py sample1_1.fastq,sample1_2.fastq --bowtie2out metagenome.bowtie2.bz2 --nproc 5 --input_type fastq > metaphlan2_out/sample1.txt
-#
-# python utils/merge_metaphlan_tables.py metaphlan2_out/*.txt > metaphlan2_out/merged.txt
+    print("Launching MetaPhlAn2 to process", mappedSampleDataFileName)
+    run_metaphlan2(mappedSampleDataFileName)

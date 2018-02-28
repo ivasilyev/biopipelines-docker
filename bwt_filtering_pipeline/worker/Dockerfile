@@ -54,7 +54,7 @@ RUN apt-get -y install \
     openjdk-8-jre   \
     pkg-config      \
     python          \
-	python-dev      \
+    python-dev      \
     python-pip      \
     python3         \
     python3-pip     \
@@ -131,6 +131,7 @@ RUN mkdir ~/scripts && \
     git clone https://github.com/ivasilyev/biopipelines-docker.git && \
     mv bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py biopipelines-docker/bwt_filtering_pipeline/worker/pipeline_wrapper.py biopipelines-docker/bwt_filtering_pipeline/worker/queue_handler.py . && \
     rm -rf bowtie-tools biopipelines-docker && \
+    chmod -R +x ~/scripts && \
     echo "export PATH=$PATH:${PWD}" | tee -a ~/.bashrc
 
 # Human genome reference indexes, use if required
@@ -167,7 +168,7 @@ VOLUME ["/data", "/data1", "/data2", "/config", "/reference"]
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 # CMD ["/bin/bash"]
-CMD ["python3", "pipeline_wrapper.py"]
+CMD ["pipeline_wrapper.py"]
 
 # Setup the default directory
 WORKDIR /home/docker
