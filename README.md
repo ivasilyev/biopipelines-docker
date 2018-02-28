@@ -1,4 +1,4 @@
-# bwt_filtering_pipeline_docker
+# bwt_filtering_pipeline
 The docker image for NGS reads reference alignment pipeline based on [bowtie-tools](https://github.com/ivasilyev/bowtie-tools) repository.
 
 ## Input formats
@@ -27,3 +27,9 @@ Process description
 3. Convert sequence alignment map files and extract coverage
 
 Due to multithreading implemented in [bowtie](http://bowtie-bio.sourceforge.net)/[bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/) onboard, the relevant queues are sequental. Other participating applications do not use multiple CPU cores, so the 3rd step queue is parallel.
+
+# metaphlan2_pipeline
+WIP
+
+# metaphlan2_pipeline
+WIP
