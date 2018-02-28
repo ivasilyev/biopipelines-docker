@@ -94,26 +94,15 @@ RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
     rm ~/miniconda.sh
 
 # Install Python packages
-RUN pip3 install numpy \
-                 scipy \
-                 h5py \
-                 biom-format \
-                 pandas \
-                 redis && \
-    pip install numpy \
-                 scipy \
-                 h5py \
-                 biom-format \
-                 pandas \
-                 redis
-
+RUN for p in numpy scipy h5py biom-format pandas redis matplotlib statsmodels; do pip install ${p}; pip3 install ${p}; done
 
 # Create user docker with password docker
 RUN groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
     mkdir /data /data1 /data2 /config ${REF_DIR} && \
-    chown docker:docker /data /data1 /data2 /config ${REF_DIR}
+    chown docker:docker /data /data1 /data2 /config ${REF_DIR} && \
+    chmod -R 755 /data /data1 /data2 /config ${REF_DIR}
     
 # Give ultimate access to the Conda directory
 RUN chmod 777 -R /opt/conda
@@ -133,7 +122,7 @@ RUN conda config --add channels r && \
     conda upgrade -y conda
 
 # Install additional Conda packages 
-RUN for s in "intel tbb" "bioconda bowtie=1.1.2" "bioconda bowtie2" "bioconda samtools" "bioconda bedtools"; do conda install -y -c ${s} && conda upgrade -y -c ${s}; done
+RUN for c in "intel tbb" "bioconda bowtie=1.1.2" "bioconda bowtie2" "bioconda samtools" "bioconda bedtools"; do conda install -y -c ${c} && conda upgrade -y -c ${c}; done
 
 # Get the pipeline scripts
 RUN mkdir ~/scripts && \

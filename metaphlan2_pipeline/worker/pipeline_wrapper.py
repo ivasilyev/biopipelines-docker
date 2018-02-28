@@ -43,13 +43,16 @@ def file_append(string, file_to_append):
     file.close()
 
 
-def external_route(input_direction_list):
+def external_route(input_direction_list, output_direction):
     process = subprocess.Popen(input_direction_list, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     (output, error) = process.communicate()
     process.wait()
     if error:
         print(error)
-    return output.decode("utf-8")
+    if not output_direction:
+        return output.decode("utf-8").replace('\r', '').replace('\n', '')
+    else:
+        file_append(output.decode("utf-8"), output_direction)
 
 
 def filename_only(string):
@@ -78,17 +81,25 @@ def parse_namespace():
     return namespace.filter, namespace.coverage, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.no_coverage, namespace.output
 
 
+def run_metaphlan2(mapped_sampledata_file):
+    for i in file_to_list(mapped_sampledata_file):
+        try:
+            sample_name, sample_path = i.split("\t")
+        except ValueError:
+            raise ValueError("Not found: " + i)
+        external_route([], )
+
+
 if __name__ == '__main__':
     filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, noCoverageExtractionBool, outputDir = parse_namespace()
     scriptDir = ends_with_slash(ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0]))))
     print("Performing single alignment for", sampleDataFileName, "on", coverageGenomeRefData)
-    external_route(["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", coverageGenomeRefData, "-m", "_".join([inputMask, 'no', filename_only(filteringGenomeRefData), filename_only(coverageGenomeRefData)]), "-t", cpuThreadsString, "-n", "-o", outputDir])
+    external_route(["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", coverageGenomeRefData, "-m", "_".join([inputMask, 'no', filename_only(filteringGenomeRefData), filename_only(coverageGenomeRefData)]), "-t", cpuThreadsString, "-n", "-o", outputDir], None)
     print("Completed processing:", " ".join([i for i in sys.argv if len(i) > 0]))
-    filteredSampleDataFileName = re.sub('[\r\n]', '', find_latest_changed_file(outputDir + "Statistics/_non-mapped_reads_" + inputMask + "*.sampledata"))
-    if len(filteredSampleDataFileName) == 0:
+    mappedSampleDataFileName = re.sub('[\r\n]', '', find_latest_changed_file(outputDir + "Statistics/_mapped_reads_" + inputMask + "*.sampledata"))
+    if len(mappedSampleDataFileName) == 0:
         raise ValueError("Only filtering alignment has been performed, but generated 'sampledata' could not be found!")
-    print("Mapping and coverage extraction for", filteredSampleDataFileName, "on", coverageGenomeRefData)
-    external_route(["python3", scriptDir + 'nBee.py', "-i", filteredSampleDataFileName, "-r", coverageGenomeRefData, "-m", "_".join([inputMask, 'no', filename_only(filteringGenomeRefData), filename_only(coverageGenomeRefData)]), "-t", cpuThreadsString, "-o", outputDir])
+    print("Launching MetaPhlAn2 to process", mappedSampleDataFileName, "on", coverageGenomeRefData)
 
 
 
