@@ -180,9 +180,11 @@ def external_route(input_direction_list):
 
 
 def run_pipeline():
-    cmd = ["python3", scriptDir + "pipeline_wrapper.py", "-f", json_single_queue["filter"], "-c", json_single_queue["coverage"], "-s", sampleDataFileName, "-m", json_single_queue["mask"], "-o", json_single_queue["output"]]
+    cmd = ["python3", scriptDir + "pipeline_wrapper.py", "-c", json_single_queue["coverage"], "-s", sampleDataFileName, "-m", json_single_queue["mask"], "-o", json_single_queue["output"]]
     if "no_coverage" in json_single_queue:
-        cmd = cmd[:-2] + ["-n"] + cmd[-2:]
+        cmd += ["-n"]
+    if "filter" in json_single_queue:
+        cmd += ["-f", json_single_queue["filter"]]
     external_route(cmd)
 
 

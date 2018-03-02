@@ -11,7 +11,7 @@ spec:
       image: docker.io/ivasilyev/bwt_filtering_pipeline_master:latest
       imagePullPolicy: Always
       # Paste the digested queue creation command line
-      command: ["python3", "/home/docker/scripts/sampledata2jsons_queue.py", "-s", "/data/sampledata.txt", "-c", "/data/reference/index/vfdb.refdata", "test", "-o", "/data/test"]
+      command: ["python3", "/home/docker/scripts/sampledata2jsons_queue.py", "-s", "/data/sampledata.txt", "-c", "/data/reference/index/vfdb.refdata", "-m", "test", "-o", "/data/test"]
       volumeMounts:
         - mountPath: /data
           name: data
