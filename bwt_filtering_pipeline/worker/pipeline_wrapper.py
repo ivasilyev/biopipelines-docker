@@ -16,7 +16,7 @@ def parse_args():
                                  help="DNA sequence REFDATA to calculate coverage")
     starting_parser.add_argument("-s", "--sampledata", required=True,
                                  help="Input list containing two tab-delimited columns for colorspace or non-colorspace sequences and three for paired-end sequences: sample name and absolute path(s). May contain a header")
-    starting_parser.add_argument("-m", "--mask", default=None,
+    starting_parser.add_argument("-m", "--mask", default="",
                                  help="(Optional) Mask to be added to resulting files. Automtically apended by both REFDATA file names")
     starting_parser.add_argument("-t", "--threads", default=None, type=int,
                                  help="(Optional) Number of CPU cores to use, maximal by default")
@@ -84,7 +84,7 @@ def parse_namespace():
 
 if __name__ == '__main__':
     filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, noCoverageExtractionBool, outputDir = parse_namespace()
-    scriptDir = ends_with_slash(ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0]))))
+    scriptDir = ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0])))
     if filteringGenomeRefData:
         print("Filtering mapping for", sampleDataFileName, "on", filteringGenomeRefData)
         external_route(["python3", scriptDir + 'bowtie-tools/nBee.py', "-i", sampleDataFileName, "-r", filteringGenomeRefData, "-m", inputMask + '_' + filename_only(filteringGenomeRefData), "-t", cpuThreadsString, "-n", "-o", outputDir])

@@ -3,16 +3,14 @@ FROM redis
 
 ################## METADATA ######################
 LABEL base.image="ubuntu:17.10"
-LABEL version="1.3"
-LABEL software="bwt_filtering_pipeline_docker"
-LABEL description="Docker image containing all required packages to run filtering Bowtie-based pipeline"
+LABEL pipeline="bwt_filtering"
+LABEL name="bwt_filtering_pipeline_master"
+LABEL description="Docker image to manage the corresponding pipeline queue using Redis & k8s features"
 LABEL website="https://github.com/ivasilyev/bowtie-tools"
 LABEL documentation="https://github.com/ivasilyev/ThreeBees"
 LABEL license="GPL-2.0"
 LABEL tags="Genomics"
-
-################## MAINTAINER ######################
-MAINTAINER Ilya Vasilyev <u0412u0418u042e@gmail.com>
+LABEL maintainer="Ilya Vasilyev <u0412u0418u042e@gmail.com>"
 
 ################## INSTALLATION ######################
 # Base image CLI:
@@ -33,18 +31,18 @@ RUN apt-get -y --force-yes install \
     dpkg \
     curl
 
+# Install Tini - A tiny but valid init for containers
+RUN TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
+    curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
+    dpkg -i tini.deb && \
+    rm tini.deb
+
 # Cleanup
 RUN apt-get clean && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Tini - A tiny but valid init for containers
-RUN TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
-    curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
-    dpkg -i tini.deb && \
-    rm tini.deb && \
-    apt-get clean
-
+# Install Python packages
 RUN pip3 install redis
 
 # Create user docker with password docker
@@ -58,28 +56,22 @@ RUN groupadd fuse && \
 USER docker
 
 # Update Path variables
-ENV PATH=$PATH:/home/docker/bin
 ENV HOME=/home/docker
 
 # Get the pipeline scripts
 RUN mkdir ~/scripts ~/bin && \
     cd ~/scripts && \
-    git clone --recurse-submodules https://github.com/ivasilyev/bwt_filtering_pipeline_docker.git && \
-    cd ~/scripts/bwt_filtering_pipeline_docker && \
-    find ${PWD}/ -type d -exec chmod 777 {} \; && \
-    find ${PWD}/ -type f -exec chmod 644 {} \; && \
-    ln -s ${PWD}/master/sampledata2jsons_queue.py ~/sampledata2jsons_queue.py
-
-# Directories to mount
-VOLUME ["/data"]
+    git clone https://github.com/ivasilyev/biopipelines-docker.git && \
+    mv biopipelines-docker/bwt_filtering_pipeline/master/sampledata2jsons_queue.py . && \
+    rm -rf biopipelines-docker && \
+    chmod -R +x ~/scripts && \
+    echo "export PATH=$PATH:${PWD}" | tee -a ~/.bashrc
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 # CMD ["/bin/bash"]
-CMD ["python3", "sampledata2jsons_queue.py"]
+CMD ["python3", "/home/docker/scripts/sampledata2jsons_queue.py"]
 
 # Setup the default directory
 WORKDIR /home/docker
 
-# Go to Dockerfile dir & run:
-# docker build -t bwt_filtering_pipeline_master .
-# docker tag bwt_filtering_pipeline_master ivasilyev/bwt_filtering_pipeline_master:latest && docker push ivasilyev/bwt_filtering_pipeline_master:latest
+# Manual build command: docker build -t bwt_filtering_pipeline_master . && docker tag bwt_filtering_pipeline_master ivasilyev/bwt_filtering_pipeline_master:latest && docker push ivasilyev/bwt_filtering_pipeline_master:latest

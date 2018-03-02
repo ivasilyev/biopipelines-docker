@@ -3,16 +3,14 @@ FROM ivasilyev/bwt_filtering_pipeline_worker
 
 ################## METADATA ######################
 LABEL base.image="ivasilyev/bwt_filtering_pipeline_worker"
-LABEL version="1.0"
-LABEL software="metaphlan2"
+LABEL pipeline="metaphlan2"
+LABEL name="metaphlan2_pipeline_worker"
 LABEL description="Docker image containing all required packages to run MetaPhlAn2"
 LABEL website="https://bitbucket.org/biobakery/metaphlan2"
 LABEL documentation="https://bitbucket.org/biobakery/biobakery/wiki/metaphlan2"
 LABEL license="GPL-2.0"
 LABEL tags="Genomics"
-
-################## MAINTAINER ######################
-MAINTAINER Ilya Vasilyev <u0412u0418u042e@gmail.com>
+LABEL maintainer="Ilya Vasilyev <u0412u0418u042e@gmail.com>"
 
 ################## INSTALLATION ######################
 # Base image CLI: docker run --rm -v /data:/data -it ivasilyev/bwt_filtering_pipeline_worker bash
@@ -52,3 +50,5 @@ CMD ["python3", "/home/docker/scripts/pipeline_wrapper.py"]
 
 # Setup the default directory
 WORKDIR /home/docker
+
+# Manual build command: docker build -t metaphlan2_pipeline_worker . && docker tag metaphlan2_pipeline_worker ivasilyev/metaphlan2_pipeline_worker:latest && docker push ivasilyev/metaphlan2_pipeline_worker:latest

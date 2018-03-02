@@ -14,7 +14,7 @@ def parse_args():
                                  help="Referent DNA sequence REFDATA")
     starting_parser.add_argument("-s", "--sampledata", required=True,
                                  help="Input list containing two tab-delimited columns for colorspace or non-colorspace sequences and three for paired-end sequences: sample name and absolute path(s). May contain a header")
-    starting_parser.add_argument("-m", "--mask", default=None,
+    starting_parser.add_argument("-m", "--mask", default="",
                                  help="(Optional) Mask to be added to resulting files. Automtically apended by both REFDATA file names")
     starting_parser.add_argument("-t", "--threads", default=None, type=int,
                                  help="(Optional) Number of CPU cores to use, maximal by default")
@@ -101,7 +101,7 @@ def run_metaphlan2(mapped_sampledata_file):
 
 if __name__ == '__main__':
     refDataFileName, sampleDataFileName, inputMask, cpuThreadsString, outputDir = parse_namespace()
-    scriptDir = ends_with_slash(ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0]))))
+    scriptDir = ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0])))
     if not all(os.path.isfile(i) for i in [scriptDir + "metaphlan2/metaphlan2.py", scriptDir + "metaphlan2/utils/merge_metaphlan_tables.py"]):
         raise ValueError("MetaPhlAn2 scripts were not found! \nPlease clone the repository using the command: 'cd " + scriptDir + "; hg clone https://bitbucket.org/biobakery/metaphlan2'")
     print("Performing single alignment for", sampleDataFileName, "on", refDataFileName)

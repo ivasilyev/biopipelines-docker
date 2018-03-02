@@ -31,5 +31,5 @@ Due to multithreading implemented in [bowtie](http://bowtie-bio.sourceforge.net)
 # metaphlan2_pipeline
 WIP
 
-# metaphlan2_pipeline
+# tuxedo2_pipeline
 WIP

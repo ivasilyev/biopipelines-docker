@@ -3,16 +3,14 @@ FROM ubuntu:17.10
 
 ################## METADATA ######################
 LABEL base.image="ubuntu:17.10"
-LABEL version="1.4"
-LABEL software="bwt_filtering_pipeline"
+LABEL pipeline="bwt_filtering"
+LABEL name="bwt_filtering_pipeline_worker"
 LABEL description="Docker image containing all required packages to run filtering Bowtie-based pipeline"
 LABEL website="https://github.com/ivasilyev/bowtie-tools"
 LABEL documentation="https://github.com/ivasilyev/ThreeBees"
 LABEL license="GPL-2.0"
 LABEL tags="Genomics"
-
-################## MAINTAINER ######################
-MAINTAINER Ilya Vasilyev <u0412u0418u042e@gmail.com>
+LABEL maintainer="Ilya Vasilyev <u0412u0418u042e@gmail.com>"
 
 ################## INSTALLATION ######################
 # Base image CLI: docker run --rm -it ubuntu:17.10 bash
@@ -79,8 +77,7 @@ RUN apt-get -y install \
 RUN TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
     curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
     dpkg -i tini.deb && \
-    rm tini.deb && \
-    apt-get clean
+    rm tini.deb
 
 # Cleanup
 RUN apt-get clean && \
@@ -173,6 +170,4 @@ CMD ["python3", "/home/docker/scripts/pipeline_wrapper.py"]
 # Setup the default directory
 WORKDIR /home/docker
 
-# Go to Dockerfile dir & run:
-# docker build -t bwt_filtering_pipeline_worker .
-# docker tag bwt_filtering_pipeline_worker ivasilyev/bwt_filtering_pipeline_worker:latest && docker push ivasilyev/bwt_filtering_pipeline_worker:latest
+# Manual build command: docker build -t bwt_filtering_pipeline_worker . && docker tag bwt_filtering_pipeline_worker ivasilyev/bwt_filtering_pipeline_worker:latest && docker push ivasilyev/bwt_filtering_pipeline_worker:latest
