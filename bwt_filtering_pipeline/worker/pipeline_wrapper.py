@@ -87,7 +87,7 @@ if __name__ == '__main__':
     scriptDir = ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0])))
     if filteringGenomeRefData:
         print("Filtering mapping for", sampleDataFileName, "on", filteringGenomeRefData)
-        external_route(["python3", scriptDir + 'bowtie-tools/nBee.py', "-i", sampleDataFileName, "-r", filteringGenomeRefData, "-m", inputMask + '_' + filename_only(filteringGenomeRefData), "-t", cpuThreadsString, "-n", "-o", outputDir])
+        external_route(["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", filteringGenomeRefData, "-m", inputMask + '_' + filename_only(filteringGenomeRefData), "-t", cpuThreadsString, "-n", "-o", outputDir])
         filteredSampleDataFileName = re.sub('[\r\n]', '', find_latest_changed_file(outputDir + "Statistics/_non-mapped_reads_" + inputMask + "*.sampledata"))
         if len(filteredSampleDataFileName) == 0:
             raise ValueError("Only filtering alignment has been performed, but generated 'sampledata' could not be found!")
