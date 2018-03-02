@@ -174,6 +174,13 @@ def external_route(input_direction_list):
     process = subprocess.Popen(input_direction_list, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     (output, error) = process.communicate()
     process.wait()
+    if process.returncode == 0:
+        pass
+    elif process.returncode == 1:
+        print("The command has returned code 1: ", str(input_direction_list))
+    else:
+        assert process.returncode > 1
+        print("The command has returned code more than 1: ", str(input_direction_list))
     if error:
         print(error)
     return output.decode("utf-8")

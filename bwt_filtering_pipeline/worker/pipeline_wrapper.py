@@ -95,7 +95,7 @@ if __name__ == '__main__':
         external_route(["python3", scriptDir + 'nBee.py', "-i", filteredSampleDataFileName, "-r", coverageGenomeRefData, "-m", "_".join([inputMask, 'no', filename_only(filteringGenomeRefData), filename_only(coverageGenomeRefData)]), "-t", cpuThreadsString, "-o", outputDir])
     else:
         print("Performing single alignment for", sampleDataFileName, "on", coverageGenomeRefData)
-        cmd = ["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", coverageGenomeRefData, "-m", "_".join([inputMask, 'no', filename_only(filteringGenomeRefData), filename_only(coverageGenomeRefData)]), "-t", cpuThreadsString, "-o", outputDir]
+        cmd = ["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", coverageGenomeRefData, "-m", "_".join([inputMask, filename_only(coverageGenomeRefData)]), "-t", cpuThreadsString, "-o", outputDir]
         if noCoverageExtractionBool:
             cmd = cmd[:-2] + ["-n"] + cmd[-2:]
         external_route(cmd)
