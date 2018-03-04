@@ -26,13 +26,17 @@ RUN cd ~/scripts && \
 RUN cd ~/scripts && \
     git clone https://github.com/ivasilyev/biopipelines-docker.git && \
     rm -f pipeline_wrapper.py && \
-    sed -i "s|'bowtie', |'bowtie', '--sam-nohead', '--sam-nosq\', '--no-unal', |g" nBee.py && \
+    sed -i "s|'bowtie', |'bowtie', '--sam-nohead', '--sam-nosq\', |g" nBee.py && \
     sed -i "s|'bowtie2', |'bowtie2', '--no-hd', '--no-sq', '--no-unal', '--very-sensitive', |g" nBee.py && \
     mv biopipelines-docker/metaphlan2_pipeline/worker/pipeline_wrapper.py . && \
     rm -rf biopipelines-docker && \
     chmod -R +x ~/scripts
 
-# Get the MetaPhlAn2 reference sequences database - not implemented due to large size (~ 250 Mb)
+# Let to MetaPhlAn2 prepare the environment
+RUN python ~/scripts/metaphlan2/metaphlan2.py --install && \
+    rm -f ~/scripts/metaphlan2/databases/mpa_v20_m200.tar ~/scripts/metaphlan2/databases/mpa_v20_m200.fna.bz2
+
+# Get the MetaPhlAn2 reference sequences database - not implemented due to automatic download
 #RUN mkdir /reference/metaphlan2 && \
 #    cd /reference/metaphlan2 && \
 #    wget --quiet https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v20_m200.tar && \

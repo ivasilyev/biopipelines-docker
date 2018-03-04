@@ -105,7 +105,7 @@ if __name__ == '__main__':
     if not all(os.path.isfile(i) for i in [scriptDir + "metaphlan2/metaphlan2.py", scriptDir + "metaphlan2/utils/merge_metaphlan_tables.py"]):
         raise ValueError("MetaPhlAn2 scripts were not found! \nPlease clone the repository using the command: 'cd " + scriptDir + "; hg clone https://bitbucket.org/biobakery/metaphlan2'")
     print("Performing single alignment for", sampleDataFileName, "on", refDataFileName)
-    external_route(["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", refDataFileName, "-m", inputMask, "-t", cpuThreadsString, "-o", outputDir], None)
+    external_route(["python3", scriptDir + 'nBee.py', "-i", sampleDataFileName, "-r", refDataFileName, "-m", inputMask, "-n", "-t", cpuThreadsString, "-o", outputDir], None)
     print("Completed processing:", " ".join([i for i in sys.argv if len(i) > 0]))
     mappedSampleDataFileName = re.sub('[\r\n]', '', find_latest_changed_file(outputDir + "Statistics/_mapped_reads_" + inputMask + "*.sampledata"))
     if len(mappedSampleDataFileName) == 0:
