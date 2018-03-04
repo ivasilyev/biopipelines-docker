@@ -19,7 +19,6 @@ LABEL maintainer="Ilya Vasilyev <u0412u0418u042e@gmail.com>"
 RUN cd ~/scripts && \
     hg clone https://bitbucket.org/biobakery/metaphlan2 && \
     cd metaphlan2 && \
-    echo "export mpa_dir=${PWD}" | tee -a ~/.bashrc && \
     echo "export PATH=$PATH:${PWD}" | tee -a ~/.bashrc
 
 # Get the new MetaPhlAn2 scripts & customize previous mapping script
@@ -33,10 +32,10 @@ RUN cd ~/scripts && \
     chmod -R +x ~/scripts
 
 # Let to MetaPhlAn2 prepare the environment
-RUN python ~/scripts/metaphlan2/metaphlan2.py --install && \
-    rm -f ~/scripts/metaphlan2/databases/mpa_v20_m200.tar ~/scripts/metaphlan2/databases/mpa_v20_m200.fna.bz2
+#RUN python ~/scripts/metaphlan2/metaphlan2.py --install && \
+#    rm -f ~/scripts/metaphlan2/databases/mpa_v20_m200.tar ~/scripts/metaphlan2/databases/mpa_v20_m200.fna.bz2
 
-# Get the MetaPhlAn2 reference sequences database - not implemented due to automatic download
+# Get the MetaPhlAn2 reference sequences database
 #RUN mkdir /reference/metaphlan2 && \
 #    cd /reference/metaphlan2 && \
 #    wget --quiet https://bitbucket.org/biobakery/metaphlan2/downloads/mpa_v20_m200.tar && \
