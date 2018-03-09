@@ -75,3 +75,4 @@ CMD ["python3", "/home/docker/scripts/sampledata2jsons_queue.py"]
 WORKDIR /home/docker
 
 # Manual build command: docker build -t bwt_filtering_pipeline_master . && docker tag bwt_filtering_pipeline_master ivasilyev/bwt_filtering_pipeline_master:latest && docker push ivasilyev/bwt_filtering_pipeline_master:latest
+
