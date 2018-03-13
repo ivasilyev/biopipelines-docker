@@ -8,6 +8,7 @@ import redis
 import uuid
 import hashlib
 import json
+import time
 
 # Based on http://peter-hoffmann.com/2012/python-simple-queue-redis-queue.html
 # and the suggestion in the redis documentation for RPOPLPUSH, at
@@ -215,8 +216,10 @@ if __name__ == '__main__':
             try:
                 json_single_queue = json.loads(itemstr)
                 # Note that all entries must have the same refdata
-                # json example: {"filter": "", "coverage": "", "sampledata": {"sample_name": "", "sample_path": ""}, "mask": "", "threads": "", "output": ""}
+                # JSON example: {"filter": "", "coverage": "", "sampledata": {"sample_name": "", "sample_path": ""}, "mask": "", "threads": "", "output": ""}
                 sampledata_queue_list.append(json_single_queue)
+                # A pause to allow other nodes access the queue
+                time.sleep(10)
                 if len(sampledata_queue_list) == int(json_single_queue["threads"]):
                     print("Loaded full queue on:", hostNameString)
                     sampleDataFileName = dump_sampledata(sampledata_queue_list)

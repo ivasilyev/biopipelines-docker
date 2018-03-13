@@ -15,63 +15,75 @@ LABEL maintainer="Ilya Vasilyev <u0412u0418u042e@gmail.com>"
 ################## INSTALLATION ######################
 # Base image CLI: docker run --rm -it ubuntu:17.10 bash
 # Declare variables
-ENV MINICONDA_URL="https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh"
 ENV REF_DIR="/reference"
 
 # Enable apt-get noninteractive install
 ENV DEBIAN_FRONTEND noninteractive
 
-# Enable repositories
-RUN mv /etc/apt/sources.list /etc/apt/sources.list.bak && \
-    bash -c 'echo -e "deb mirror://mirrors.ubuntu.com/mirrors.txt xenial main restricted universe multiverse\n\
-                      deb mirror://mirrors.ubuntu.com/mirrors.txt xenial-updates main restricted universe multiverse\n\
-                      deb mirror://mirrors.ubuntu.com/mirrors.txt xenial-backports main restricted universe multiverse\n\
-                      deb mirror://mirrors.ubuntu.com/mirrors.txt xenial-security main restricted universe multiverse\n\n" > /etc/apt/sources.list' && \
-    cat /etc/apt/sources.list.bak >> /etc/apt/sources.list && \
-    cat /etc/apt/sources.list
+# Enable repositories - disabling test
+#RUN mv /etc/apt/sources.list /etc/apt/sources.list.bak && \
+#    bash -c 'echo -e "deb mirror://mirrors.ubuntu.com/mirrors.txt xenial main restricted universe multiverse\n\
+#                      deb mirror://mirrors.ubuntu.com/mirrors.txt xenial-updates main restricted universe multiverse\n\
+#                      deb mirror://mirrors.ubuntu.com/mirrors.txt xenial-backports main restricted universe multiverse\n\
+#                      deb mirror://mirrors.ubuntu.com/mirrors.txt xenial-security main restricted universe multiverse\n\n" > /etc/apt/sources.list' && \
+#    cat /etc/apt/sources.list.bak >> /etc/apt/sources.list && \
+#    cat /etc/apt/sources.list
+
+RUN apt-get update && \
+    apt-get -y install \
+            software-properties-common \
+            apt-utils && \
+    add-apt-repository universe && \
+    add-apt-repository multiverse
 
 # Software update
 RUN apt-get clean all && \
     apt-get -y update && \
-    apt-get -y upgrade
-
-# Software installation
-RUN apt-get -y install \
-    autotools-dev   \
-    automake        \
-    build-essential \
-    cmake           \
-    curl            \
-    grep            \
-    sed             \
-    dpkg            \
-    fuse            \
-    git             \
-    wget            \
-    zip             \
-    openjdk-8-jre   \
-    pkg-config      \
-    python          \
-    python-dev      \
-    python-pip      \
-    python3         \
-    python3-pip     \
-    bzip2           \
-    ca-certificates \
-    libglib2.0-0    \
-    libtbb2         \
-    libtbb-dev      \
-    libxext6        \
-    libsm6          \
-    libxrender1     \
-    libev-dev       \
-    libblas-dev     \
-    liblapack-dev   \
-    libatlas-base-dev \
-    libhdf5-dev     \
-    mercurial       \
-    subversion      \
-    zlib1g-dev
+    apt-get -y upgrade && \
+    apt-get -y install \
+               autotools-dev   \
+               automake        \
+               autoconf        \
+               build-essential \
+               cmake           \
+               flex            \
+               curl            \
+               grep            \
+               sed             \
+               dpkg            \
+               fuse            \
+               git             \
+               wget            \
+               zip             \
+               openjdk-8-jre   \
+               pkg-config      \
+               python          \
+               python-dev      \
+               python-pip      \
+               python3         \
+               python3-pip     \
+               bzip2           \
+               ca-certificates \
+               lib32ncurses5-dev \
+               libatlas-base-dev \
+               libblas-dev     \
+               libboost-all-dev \
+               libbz2-dev      \
+               libcurl4-openssl-dev \
+               libev-dev       \
+               libglib2.0-0    \
+               libhdf5-dev     \
+               liblapack-dev   \
+               liblzma-dev     \
+               libsm6          \
+               libssl-dev      \
+               libtbb2         \
+               libtbb-dev      \
+               libxext6        \
+               libxrender1     \
+               mercurial       \
+               subversion      \
+               zlib1g-dev
 
 # Install Tini - A tiny but valid init for containers
 RUN TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
@@ -84,11 +96,72 @@ RUN apt-get clean && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Conda - a cross-platform, language-agnostic binary package manager
-RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
-    wget --quiet ${MINICONDA_URL} -O ~/miniconda.sh && \
-    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
-    rm ~/miniconda.sh
+# Compile Bowtie - crashes
+#RUN mkdir -p /tmp/bowtie && \
+#    cd /tmp/bowtie && \
+#    export BOWTIE_VERSION=1.2.2_p1 && \
+#    curl -fsSL https://github.com/BenLangmead/bowtie/archive/v${BOWTIE_VERSION}.tar.gz -o bowtie.tar.gz && \
+#    tar xf bowtie.tar.gz && \
+#    cd bowtie-${BOWTIE_VERSION} && \
+#    make
+
+# Deploy bowtie
+RUN cd /tmp && \
+    wget -q https://github.com/BenLangmead/bowtie/releases/download/v1.2.2_p1/bowtie-1.2.2-linux-x86_64.zip && \
+    unzip bowtie-1.2.2-linux-x86_64.zip && \
+    cd bowtie-1.2.2-linux-x86_64 && \
+    cp bowtie bowtie-align-l bowtie-align-s bowtie-build bowtie-build-l bowtie-build-s bowtie-inspect bowtie-inspect-l bowtie-inspect-s /usr/local/bin/ && \
+    cd /usr/local/bin/ && \
+    chmod ugo+x bowtie bowtie-align-l bowtie-align-s bowtie-build bowtie-build-l bowtie-build-s bowtie-inspect bowtie-inspect-l bowtie-inspect-s && \
+    cd /tmp && \
+    rm -rf bowtie-1.2.2-linux-x86_64 bowtie-1.2.2-linux-x86_64.zip
+
+# Deploy bowtie2
+RUN cd /tmp && \
+    wget -q https://github.com/BenLangmead/bowtie2/releases/download/v2.3.4.1/bowtie2-2.3.4.1-linux-x86_64.zip && \
+    unzip bowtie2-2.3.4.1-linux-x86_64.zip && \
+    cd bowtie2-2.3.4.1-linux-x86_64 && \
+    cp bowtie2 bowtie2-align-l bowtie2-align-s bowtie2-build bowtie2-build-l bowtie2-build-s bowtie2-inspect bowtie2-inspect-l bowtie2-inspect-s /usr/local/bin/ && \
+    cd /usr/local/bin/ && \
+    chmod ugo+x bowtie2 bowtie2-align-l bowtie2-align-s bowtie2-build bowtie2-build-l bowtie2-build-s bowtie2-inspect bowtie2-inspect-l bowtie2-inspect-s && \
+    cd /tmp && \
+    rm -rf bowtie2-2.3.4.1-linux-x86_64 bowtie2-2.3.4.1-linux-x86_64.zip
+
+# Compile samtools
+RUN mkdir -p /tmp/samtools && \
+    cd /tmp/samtools && \
+    export SAMTOOLS_VERSION=1.7 && \
+    curl -fsSL https://github.com/samtools/htslib/archive/${SAMTOOLS_VERSION}.tar.gz -o htslib.tar.gz && \
+    tar xf htslib.tar.gz && \
+    cd htslib-${SAMTOOLS_VERSION} && \
+    autoheader && \
+    autoconf && \
+    ./configure && \
+    make && \
+    make install && \
+    cd .. && \
+    curl -fsSL https://github.com/samtools/samtools/archive/${SAMTOOLS_VERSION}.tar.gz -o samtools.tar.gz && \
+    tar xf samtools.tar.gz && \
+    cd samtools-${SAMTOOLS_VERSION}/ && \
+    autoheader && \
+    autoconf -Wno-syntax && \
+    ./configure && \
+    make && \
+    make install && \
+    cd /tmp && \
+    rm -rf samtools
+
+# Compile bedtools
+RUN mkdir -p /tmp/bedtools && \
+    cd /tmp/bedtools && \
+    export BEDTOOLS_VERSION=2.27.1 && \
+    curl -fsSL https://github.com/arq5x/bedtools2/archive/v${BEDTOOLS_VERSION}.tar.gz -o bedtools.tar.gz && \
+    tar xf bedtools.tar.gz && \
+    cd bedtools2-${BEDTOOLS_VERSION} && \
+    make && \
+    make install && \
+    cd /tmp && \
+    rm -rf bedtools
 
 # Install Python packages
 RUN for p in numpy scipy h5py biom-format pandas redis matplotlib statsmodels; do pip install ${p}; pip3 install ${p}; done
@@ -100,26 +173,13 @@ RUN groupadd fuse && \
     mkdir /data /config ${REF_DIR} && \
     chown docker:docker /data /config ${REF_DIR} && \
     chmod -R 755 /data /config ${REF_DIR}
-    
-# Give ultimate access to the Conda directory
-RUN chmod 777 -R /opt/conda
 
 # Change user (CLI: su - docker)
 USER docker
 
 # Update Path variables
-ENV PATH=$PATH:/opt/conda/bin
 ENV PATH=$PATH:/home/docker/bin
 ENV HOME=/home/docker
-
-# Setup Conda
-RUN conda config --add channels r && \
-    conda config --add channels bioconda && \
-    conda config --add channels intel && \
-    conda upgrade -y conda
-
-# Install additional Conda packages 
-RUN for c in "intel tbb" "bioconda bowtie=1.1.2" "bioconda bowtie2" "bioconda samtools" "bioconda bedtools"; do conda install -y -c ${c} && conda upgrade -y -c ${c}; done
 
 # Get the pipeline scripts
 RUN mkdir ~/scripts && \
@@ -170,4 +230,5 @@ CMD ["python3", "/home/docker/scripts/pipeline_wrapper.py"]
 # Setup the default directory
 WORKDIR /home/docker
 
-# Manual build command: docker build -t bwt_filtering_pipeline_worker . && docker tag bwt_filtering_pipeline_worker ivasilyev/bwt_filtering_pipeline_worker:latest && docker push ivasilyev/bwt_filtering_pipeline_worker:latest
+# MANUAL BUILD COMMAND:
+# docker build -t bwt_filtering_pipeline_worker . && docker tag bwt_filtering_pipeline_worker ivasilyev/bwt_filtering_pipeline_worker:latest && docker push ivasilyev/bwt_filtering_pipeline_worker:latest
