@@ -29,7 +29,7 @@ ENV DEBIAN_FRONTEND noninteractive
 #    cat /etc/apt/sources.list.bak >> /etc/apt/sources.list && \
 #    cat /etc/apt/sources.list
 
-RUN apt-get update && \
+RUN apt-get -y update && \
     apt-get -y install \
             software-properties-common \
             apt-utils && \
@@ -55,6 +55,7 @@ RUN apt-get clean all && \
                git             \
                wget            \
                zip             \
+               nano            \
                openjdk-8-jre   \
                pkg-config      \
                python          \
@@ -186,7 +187,7 @@ RUN mkdir ~/scripts && \
     cd ~/scripts && \
     git clone --recurse-submodules https://github.com/ivasilyev/bowtie-tools.git && \
     git clone https://github.com/ivasilyev/biopipelines-docker.git && \
-    mv bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py biopipelines-docker/bwt_filtering_pipeline/worker/pipeline_wrapper.py biopipelines-docker/bwt_filtering_pipeline/worker/queue_handler.py . && \
+    mv bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py biopipelines-docker/bwt_filtering_pipeline/worker/pipeline_wrapper.py biopipelines-docker/bwt_filtering_pipeline/worker/queue_handler.py . && \
     rm -rf bowtie-tools biopipelines-docker && \
     chmod -R +x ~/scripts && \
     echo "export PATH=$PATH:${PWD}" | tee -a ~/.bashrc

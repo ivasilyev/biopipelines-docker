@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import argparse
 import os
 import sys
 import subprocess
@@ -128,6 +129,18 @@ class RedisWQ(object):
 #  e.g. each time lease times out.
 
 
+def parse_args():
+    starting_parser = argparse.ArgumentParser(description="The script exports items JSON-based queue to per-node sample data and triggers its processing")
+    starting_parser.add_argument("-q", "--queue", required=True,
+                                 help="Redis queue name")
+    return starting_parser.parse_args()
+
+
+def parse_namespace():
+    namespace = parse_args()
+    return namespace.queue
+
+
 def is_path_exists(path):
     try:
         os.makedirs(path)
@@ -201,7 +214,7 @@ if __name__ == '__main__':
     # Uncomment next two lines if you do not have Kube-DNS working.
     # import os
     # host = os.getenv("REDIS_SERVICE_HOST")
-    queueName = "bwt-filtering-pipeline-queue"
+    queueName = parse_namespace()
     hostNameString = subprocess.getoutput("hostname")
     scriptDir = ends_with_slash('/'.join(os.path.abspath(sys.argv[0]).split('/')[:-1]))
 

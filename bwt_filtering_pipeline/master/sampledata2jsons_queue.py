@@ -23,6 +23,8 @@ def parse_args():
                                  help="(Optional) (Only for single alignment) If selected, cancels coverage extraction")
     starting_parser.add_argument("-o", "--output", required=True,
                                  help="Output directory")
+    starting_parser.add_argument("-q", "--queue", required=True,
+                                 help="Redis queue name")
     return starting_parser.parse_args()
 
 
@@ -31,7 +33,7 @@ def parse_namespace():
     default_threads = int(subprocess.getoutput("nproc"))
     if not namespace.threads or default_threads < namespace.threads:
         namespace.threads = default_threads
-    return namespace.filter, namespace.coverage, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.no_coverage, namespace.output
+    return namespace.filter, namespace.coverage, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.no_coverage, namespace.output, namespace.queue
 
 
 def file_to_list(file):
@@ -63,8 +65,7 @@ def rpush_sampledata(sampledata_line):
 
 
 if __name__ == '__main__':
-    filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, noCoverageExtractionBool, outputDir = parse_namespace()
-    queueName = "bwt-filtering-pipeline-queue"
+    filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, noCoverageExtractionBool, outputDir, queueName = parse_namespace()
     print("Using queue name:", queueName)
     external_route(["redis-cli", "-h", "redis", "flushall"])
     rpush_counter_num = 0
