@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ job_name }}
+  labels:
+    pipeline: bwt-filtering
+    tier: job
+spec:
+  # Nodes number
+  parallelism: 5
+  template:
+    metadata:
+      name: {{ job_name }}
+      labels:
+        pipeline: bwt-filtering
+        tier: worker
+    spec:
+      containers:
+      - name: {{ worker_container_name }}
+        image: docker.io/ivasilyev/bwt_filtering_pipeline_worker:latest
+        imagePullPolicy: Always
+        # Paste the digested queue consumption command line. Note the queue name.
+        command: ["python3", "/home/docker/scripts/queue_handler.py", "-q", {{ queue_name }}]
+        # Persistent volumes (container side)
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: data1
+          mountPath: /data1
+        - name: data2
+          mountPath: /data2
+      # Persistent volumes (host side)
+      volumes:
+      - name: data
+        hostPath:
+          path: /data
+      - name: data1
+        hostPath:
+          path: /data1
+      - name: data2
+        hostPath:
+          path: /data2
+      restartPolicy: OnFailure

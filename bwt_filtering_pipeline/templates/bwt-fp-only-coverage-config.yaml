@@ -1,0 +1,8 @@
+queue_name:
+master_container_name:
+job_name:
+worker_container_name:
+sampledata:
+refdata:
+mask:
+output_dir:
