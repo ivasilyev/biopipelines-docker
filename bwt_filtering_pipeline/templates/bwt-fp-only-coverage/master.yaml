@@ -1,17 +1,18 @@
+---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ queue_name }}
+  name: {{ QUEUE_NAME }}
   labels:
     pipeline: bwt-filtering
     tier: queue
 spec:
   containers:
-    - name: {{ master_container_name }}
+    - name: {{ MASTER_CONTAINER_NAME }}
       image: docker.io/ivasilyev/bwt_filtering_pipeline_master:latest
       imagePullPolicy: Always
       # Paste the digested queue creation command line. Note the queue name.
-      command: ["python3", "/home/docker/scripts/sampledata2jsons_queue.py", "-s", {{ sampledata }}, "-c", {{ refdata }}, "-m", {{ mask }}, "-o", {{ output_dir }}, "-q", {{ queue_name }}]
+      command: ["python3", "/home/docker/scripts/sampledata2jsons_queue.py", "-s", {{ SAMPLEDATA }}, "-c", {{ REFDATA }}, "-m", {{ OUTPUT_MASK }}, "-o", {{ OUTPUT_DIR }}, "-q", {{ QUEUE_NAME }}]
       # Persistent volumes (container side)
       volumeMounts:
         - mountPath: /data

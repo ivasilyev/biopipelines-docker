@@ -1,26 +1,27 @@
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ job_name }}
+  name: {{ JOB_NAME }}
   labels:
     pipeline: bwt-filtering
     tier: job
 spec:
   # Nodes number
-  parallelism: 5
+  parallelism: {{ ACTIVE_NODES_NUMBER }}
   template:
     metadata:
-      name: {{ job_name }}
+      name: {{ JOB_NAME }}
       labels:
         pipeline: bwt-filtering
         tier: worker
     spec:
       containers:
-      - name: {{ worker_container_name }}
+      - name: {{ WORKER_CONTAINER_NAME }}
         image: docker.io/ivasilyev/bwt_filtering_pipeline_worker:latest
         imagePullPolicy: Always
         # Paste the digested queue consumption command line. Note the queue name.
-        command: ["python3", "/home/docker/scripts/queue_handler.py", "-q", {{ queue_name }}]
+        command: ["python3", "/home/docker/scripts/queue_handler.py", "-q", {{ QUEUE_NAME }}]
         # Persistent volumes (container side)
         volumeMounts:
         - name: data
