@@ -165,7 +165,7 @@ RUN mkdir -p /tmp/bedtools && \
     rm -rf bedtools
 
 # Install Python packages
-RUN for p in numpy scipy h5py biom-format pandas redis matplotlib statsmodels; do pip install ${p}; pip3 install ${p}; done
+RUN pip3 install numpy pandas redis
 
 # Create user docker with password docker
 RUN groupadd fuse && \

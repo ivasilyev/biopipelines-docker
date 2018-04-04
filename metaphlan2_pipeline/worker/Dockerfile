@@ -14,6 +14,7 @@ LABEL maintainer="Ilya Vasilyev <u0412u0418u042e@gmail.com>"
 
 ################## INSTALLATION ######################
 # Base image CLI: docker run --rm -v /data:/data -it ivasilyev/bwt_filtering_pipeline_worker bash
+RUN pip3 install numpy matplotlib scipy pylab biom h5py hclust2
 
 # Clone the MetaPhlAn2 repository and add it to PATH:
 RUN cd ~/scripts && \
@@ -54,4 +55,5 @@ CMD ["python3", "/home/docker/scripts/pipeline_wrapper.py"]
 # Setup the default directory
 WORKDIR /home/docker
 
-# Manual build command: docker build -t metaphlan2_pipeline_worker . && docker tag metaphlan2_pipeline_worker ivasilyev/metaphlan2_pipeline_worker:latest && docker push ivasilyev/metaphlan2_pipeline_worker:latest
+# Manual build command:
+# docker build -t metaphlan2_pipeline_worker . && docker tag metaphlan2_pipeline_worker ivasilyev/metaphlan2_pipeline_worker:latest && docker push ivasilyev/metaphlan2_pipeline_worker:latest

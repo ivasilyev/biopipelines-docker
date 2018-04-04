@@ -25,6 +25,8 @@ def parse_args():
                                  help="Output directory")
     starting_parser.add_argument("-q", "--queue", required=True,
                                  help="Redis queue name")
+    starting_parser.add_argument("-r", "--reset", default=False, action='store_true',
+                                 help="Flush all Redis queues")
     return starting_parser.parse_args()
 
 
@@ -33,7 +35,7 @@ def parse_namespace():
     default_threads = int(subprocess.getoutput("nproc"))
     if not namespace.threads or default_threads < namespace.threads:
         namespace.threads = default_threads
-    return namespace.filter, namespace.coverage, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.no_coverage, namespace.output, namespace.queue
+    return namespace.filter, namespace.coverage, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.no_coverage, namespace.output, namespace.queue, namespace.reset
 
 
 def file_to_list(file):
@@ -65,9 +67,10 @@ def rpush_sampledata(sampledata_line):
 
 
 if __name__ == '__main__':
-    filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, noCoverageExtractionBool, outputDir, queueName = parse_namespace()
+    filteringGenomeRefData, coverageGenomeRefData, sampleDataFileName, inputMask, cpuThreadsString, noCoverageExtractionBool, outputDir, queueName, resetBool = parse_namespace()
     print("Using queue name:", queueName)
-    external_route(["redis-cli", "-h", "redis", "flushall"])
+    if resetBool:
+        external_route(["redis-cli", "-h", "redis", "flushall"])
     rpush_counter_num = 0
     for sampledataLine in file_to_list(sampleDataFileName):
         rpush_sampledata(sampledataLine)
