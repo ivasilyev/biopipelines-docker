@@ -238,6 +238,8 @@ if __name__ == '__main__':
                     json_single_queue["threads"] = int(maxThreadsNumber / 2)
                 elif json_single_queue["threads"] == "third":
                     json_single_queue["threads"] = int(maxThreadsNumber / 3)
+                elif json_single_queue["threads"] == "two_thirds":
+                    json_single_queue["threads"] = int(maxThreadsNumber * 2 / 3)
                 if len(sampledata_queue_list) == int(json_single_queue["threads"]):
                     print("Loaded full queue on: '{}'".format(hostNameString))
                     sampleDataFileName = dump_sampledata(sampledata_queue_list)
