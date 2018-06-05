@@ -201,11 +201,9 @@ def external_route(input_direction_list):
 
 
 def run_pipeline():
-    cmd = ["python3", scriptDir + "pipeline_wrapper.py", "-c", json_single_queue["coverage"], "-s", sampleDataFileName, "-m", json_single_queue["mask"], "-o", json_single_queue["output"]]
+    cmd = ["python3", scriptDir + "pipeline_wrapper.py", "-r", json_single_queue["refdata"], "-s", sampleDataFileName, "-m", json_single_queue["mask"], "-o", json_single_queue["output"]]
     if "no_coverage" in json_single_queue:
-        cmd += ["-n"]
-    if "filter" in json_single_queue:
-        cmd += ["-f", json_single_queue["filter"]]
+        cmd.append("-n")
     external_route(cmd)
 
 
@@ -215,7 +213,8 @@ if __name__ == '__main__':
     # import os
     # host = os.getenv("REDIS_SERVICE_HOST")
     queueName = parse_namespace()
-    hostNameString = subprocess.getoutput("hostname")
+    hostNameString = subprocess.getoutput("hostname").strip()
+    maxThreadsNumber = int(subprocess.getoutput("nproc").strip())
     scriptDir = ends_with_slash('/'.join(os.path.abspath(sys.argv[0]).split('/')[:-1]))
 
     q = RedisWQ(name=queueName, host="redis")
@@ -229,12 +228,18 @@ if __name__ == '__main__':
             try:
                 json_single_queue = json.loads(itemstr)
                 # Note that all entries must have the same refdata
-                # JSON example: {"filter": "", "coverage": "", "sampledata": {"sample_name": "", "sample_path": ""}, "mask": "", "threads": "", "output": ""}
+                # JSON keys: {"refdata": "", "sampledata": {"sample_name": "", "sample_path": ""}, "mask": "", "threads": "", "output": ""}
                 sampledata_queue_list.append(json_single_queue)
                 # A pause to allow other nodes access the queue
                 time.sleep(10)
+                if json_single_queue["threads"] == "max":
+                    json_single_queue["threads"] = maxThreadsNumber
+                elif json_single_queue["threads"] == "half":
+                    json_single_queue["threads"] = int(maxThreadsNumber / 2)
+                elif json_single_queue["threads"] == "third":
+                    json_single_queue["threads"] = int(maxThreadsNumber / 3)
                 if len(sampledata_queue_list) == int(json_single_queue["threads"]):
-                    print("Loaded full queue on:", hostNameString)
+                    print("Loaded full queue on: '{}'".format(hostNameString))
                     sampleDataFileName = dump_sampledata(sampledata_queue_list)
                     run_pipeline()
                     sampledata_queue_list = []
