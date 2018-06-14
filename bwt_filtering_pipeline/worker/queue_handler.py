@@ -221,7 +221,8 @@ if __name__ == '__main__':
     print("Worker with sessionID: " + q.sessionID())
     print("Initial queue state: empty=" + str(q.empty()))
     sampledata_queue_list = []
-    while not q.empty():
+    idle_counter = 0
+    while not q.empty() or idle_counter > 99:
         item = q.lease(lease_secs=10, block=True, timeout=2)
         if item is not None:
             itemstr = item.decode("utf=8")
@@ -231,7 +232,7 @@ if __name__ == '__main__':
                 # JSON keys: {"refdata": "", "sampledata": {"sample_name": "", "sample_path": ""}, "mask": "", "threads": "", "output": ""}
                 sampledata_queue_list.append(json_single_queue)
                 # A pause to allow other nodes access the queue
-                time.sleep(10)
+                time.sleep(5)
                 if json_single_queue["threads"] == "max":
                     json_single_queue["threads"] = maxThreadsNumber
                 elif json_single_queue["threads"] == "half":
@@ -247,6 +248,7 @@ if __name__ == '__main__':
                     sampledata_queue_list = []
             except ValueError:
                 print("Cannot parse JSON:", itemstr)
+                idle_counter += 1
             q.complete(item)
         else:
             print("Waiting for work")
