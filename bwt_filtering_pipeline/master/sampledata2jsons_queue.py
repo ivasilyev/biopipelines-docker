@@ -30,7 +30,7 @@ def parse_args():
 
 def parse_namespace():
     namespace = parse_args()
-    return namespace.refdata, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.no_coverage, namespace.output, namespace.queue, namespace.reset
+    return namespace.refdata, namespace.sampledata, namespace.mask, str(namespace.threads), namespace.no_coverage, namespace.output, namespace.queue, namespace.flush
 
 
 def file_to_list(file):
