@@ -11,7 +11,7 @@ spec:
       image: docker.io/ivasilyev/bwt_filtering_pipeline_master:latest
       imagePullPolicy: Always
       # Paste the digested queue creation command line. Note the queue name.
-      command: ["python3", "/home/docker/scripts/sampledata2jsons_queue.py", "-s", {{ SAMPLEDATA }}, "-r", {{ REFDATA }}, "-m", {{ OUTPUT_MASK }}, "-t", {{ THREADS_NUMBER }} "-o", {{ OUTPUT_DIR }}, "-q", {{ QUEUE_NAME }}]
+      command: [python3, /home/docker/scripts/sampledata2jsons_queue.py, -s, {{ SAMPLEDATA }}, -r, {{ REFDATA }}, -m, {{ OUTPUT_MASK }}, -t, {{ THREADS_NUMBER }}, -o, {{ OUTPUT_DIR }}, -q, {{ QUEUE_NAME }}]
       # Persistent volumes (container side)
       volumeMounts:
         - mountPath: /data

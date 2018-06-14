@@ -20,7 +20,7 @@ spec:
         image: docker.io/ivasilyev/bwt_filtering_pipeline_worker:latest
         imagePullPolicy: Always
         # Paste the digested queue consumption command line. Note the queue name.
-        command: ["python3", "/home/docker/scripts/queue_handler.py", "-q", {{ QUEUE_NAME }}]
+        command: [python3, /home/docker/scripts/queue_handler.py, -q, {{ QUEUE_NAME }}]
         # Persistent volumes (container side)
         volumeMounts:
         - name: data

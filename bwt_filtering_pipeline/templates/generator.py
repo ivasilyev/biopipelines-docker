@@ -65,7 +65,7 @@ def external_route(*args):
 def template2yaml(buffered_template, output_file_name):
     template = jinja2.Template(buffered_template)
     with open(output_file_name, 'w') as file:
-        file.write("---\n" + template.render(yaml.load(bufferedCFG)) + "\n")
+        file.write("---\n{}\n".format(template.render(yaml.load(bufferedCFG))))
 
 
 if __name__ == '__main__':
