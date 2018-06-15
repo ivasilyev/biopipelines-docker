@@ -222,7 +222,7 @@ if __name__ == '__main__':
     print("Initial queue state: empty=" + str(q.empty()))
     sampledata_queue_list = []
     idle_counter = 0
-    while not q.empty() or idle_counter > 99:
+    while not q.empty() and idle_counter < 100:
         item = q.lease(lease_secs=10, block=True, timeout=2)
         if item is not None:
             itemstr = item.decode("utf=8")
@@ -252,7 +252,7 @@ if __name__ == '__main__':
             q.complete(item)
         else:
             print("Waiting for work")
-    if q.empty() and len(sampledata_queue_list) > 0:
+    if len(sampledata_queue_list) > 0:
         print("Processing the last queue")
         sampleDataFileName = dump_sampledata(sampledata_queue_list)
         json_single_queue = sampledata_queue_list[0]
