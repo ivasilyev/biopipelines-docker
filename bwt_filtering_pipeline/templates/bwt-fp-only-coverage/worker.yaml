@@ -29,6 +29,17 @@ spec:
           mountPath: /data1
         - name: data2
           mountPath: /data2
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1
+            preference:
+              matchExpressions:
+              - key: cpu
+                operator: In
+                values:
+                - xeon-e5-2630-v2
+                - xeon-e5-2630-v3
       # Persistent volumes (host side)
       volumes:
       - name: data

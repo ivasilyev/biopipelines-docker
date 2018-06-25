@@ -141,18 +141,29 @@ def parse_namespace():
     return namespace.queue
 
 
-def is_path_exists(path):
-    try:
-        os.makedirs(path)
-    except OSError:
-        pass
-
-
-def var_to_file(var_to_write, file_to_write):
-    file = open(file_to_write, 'w')
-    file.write(var_to_write)
-    var_to_write = None
-    file.close()
+def _parse_threads_number(s):
+    t = int(subprocess.getoutput("nproc").strip())
+    o = 0
+    if len(s) > 0:
+        if s.isnumeric():
+            s = int(s)
+            if s > 0:
+                o = min(t, s)
+            else:
+                o = t
+        else:
+            if s == "max":
+                o = t
+            elif s == "half":
+                o = int(t / 2)
+            elif s == "third":
+                o = int(t / 3)
+            elif s == "two_thirds":
+                o = int(t * 2 / 3)
+    if o == 0:
+        print("Cannot parse the threads number: '{s}'. Using threads number: '{t}'".format(s=s, t=t))
+        o = t
+    return o
 
 
 def get_time():
@@ -177,10 +188,12 @@ def ends_with_slash(string):
 def dump_sampledata(jsons_list):
     output_buffer = ""
     for i in jsons_list:
-        output_buffer += i["sampledata"]["sample_name"] + "\t" + i["sampledata"]["sample_path"] + "\n"
-    output_file = ends_with_slash(jsons_list[0]["output"]) + "sampledata_" + jsons_list[0]["mask"] + "/" + hostNameString + "_" + get_time() + ".sampledata"
-    is_path_exists(ends_with_slash(jsons_list[0]["output"]) + "sampledata_" + jsons_list[0]["mask"])
-    var_to_file(output_buffer, output_file)
+        output_buffer += "{a}\t{b}\n".format(a=i["sampledata"]["sample_name"], b=i["sampledata"]["sample_path"])
+    output_dir = "{a}sampledata_{b}".format(a=ends_with_slash(jsons_list[0]["output"]), b=jsons_list[0]["mask"])
+    output_file = "{a}/{b}_{c}.sampledata".format(a=output_dir, b=hostNameString, c=get_time())
+    os.makedirs(path=output_dir, exist_ok=True)
+    with open(file=output_file, mode='r') as f:
+        f.write(output_buffer)
     return output_file
 
 
@@ -214,7 +227,6 @@ if __name__ == '__main__':
     # host = os.getenv("REDIS_SERVICE_HOST")
     queueName = parse_namespace()
     hostNameString = subprocess.getoutput("hostname").strip()
-    maxThreadsNumber = int(subprocess.getoutput("nproc").strip())
     scriptDir = ends_with_slash('/'.join(os.path.abspath(sys.argv[0]).split('/')[:-1]))
 
     q = RedisWQ(name=queueName, host="redis")
@@ -233,25 +245,18 @@ if __name__ == '__main__':
                 sampledata_queue_list.append(json_single_queue)
                 # A pause to allow other nodes access the queue
                 time.sleep(5)
-                if json_single_queue["threads"] == "max":
-                    json_single_queue["threads"] = maxThreadsNumber
-                elif json_single_queue["threads"] == "half":
-                    json_single_queue["threads"] = int(maxThreadsNumber / 2)
-                elif json_single_queue["threads"] == "third":
-                    json_single_queue["threads"] = int(maxThreadsNumber / 3)
-                elif json_single_queue["threads"] == "two_thirds":
-                    json_single_queue["threads"] = int(maxThreadsNumber * 2 / 3)
-                if len(sampledata_queue_list) == int(json_single_queue["threads"]):
+                threadsNumber = _parse_threads_number(json_single_queue["threads"])
+                if len(sampledata_queue_list) == threadsNumber:
                     print("Loaded full queue on: '{}'".format(hostNameString))
                     sampleDataFileName = dump_sampledata(sampledata_queue_list)
                     run_pipeline()
                     sampledata_queue_list = []
             except ValueError:
                 print("Cannot parse JSON:", itemstr)
-                idle_counter += 1
             q.complete(item)
         else:
             print("Waiting for work")
+            idle_counter += 1
     if len(sampledata_queue_list) > 0:
         print("Processing the last queue")
         sampleDataFileName = dump_sampledata(sampledata_queue_list)

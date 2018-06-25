@@ -8,70 +8,57 @@ import jinja2
 import os
 
 
-def parse_args():
-    starting_parser = argparse.ArgumentParser(description="The generator for 'bwt_filtering_pipeline' templates")
-    starting_parser.add_argument("-c", "--cfg", required=True,
-                                 help="Configuration file or URL")
-    starting_parser.add_argument("-m", "--master", required=True,
-                                 help="MASTER file or URL")
-    starting_parser.add_argument("-w", "--worker", required=True,
-                                 help="WORKER file or URL")
-    starting_parser.add_argument("-o", "--output", required=True,
-                                 help="Output directory")
-    return starting_parser.parse_args()
+class Initializer:
+    def __init__(self):
+        self._namespace = self.parse_args()
+        self.config = self._namespace.config
+        self.master = self._namespace.master
+        self.worker = self._namespace.worker
+        self.output = self._namespace.output
+    @staticmethod
+    def parse_args():
+        starting_parser = argparse.ArgumentParser(description="The generator for 'bwt_filtering_pipeline' templates")
+        starting_parser.add_argument("-c", "--config", required=True,
+                                     help="Configuration file or URL")
+        starting_parser.add_argument("-m", "--master", required=True,
+                                     help="MASTER file or URL")
+        starting_parser.add_argument("-w", "--worker", required=True,
+                                     help="WORKER file or URL")
+        starting_parser.add_argument("-o", "--output", required=True,
+                                     help="Output directory")
+        return starting_parser.parse_args()
 
 
-def is_path_exists(path):
-    try:
-        os.makedirs(path)
-    except OSError:
-        pass
-
-
-def ends_with_slash(string):
-    if string.endswith("/"):
-        return string
-    else:
-        return str(string + "/")
-
-
-def read_file_or_url(path):
-    if os.path.isfile(path):
-        with open(path, 'r') as file:
-            return file.read()
-    else:
-        if path.startswith("http") or path.startswith("www."):
-            return external_route("curl", "-fsSL", path)
+class KubernetesJobChartsGenerator:
+    def __init__(self, config, master, worker):
+        self._bufferedCFG = self._read_file_or_url(config)
+        self._exportDict = {"master": self._read_file_or_url(master),
+                            "worker": self._read_file_or_url(worker)}
+    @staticmethod
+    def _read_file_or_url(path):
+        if os.path.isfile(path):
+            open(file=path, mode="r", encoding="utf-8")
+            with open(path, 'r') as f:
+                return f.read()
         else:
-            raise ValueError("Cannot load  file or URL!")
-
-
-def parse_namespace():
-    namespace = parse_args()
-    is_path_exists(namespace.output)
-    namespace.cfg, namespace.master, namespace.worker = [read_file_or_url(i) for i in [namespace.cfg, namespace.master, namespace.worker]]
-    return namespace.cfg, namespace.master, namespace.worker, ends_with_slash(namespace.output)
-
-
-def external_route(*args):
-    process = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    (output, error) = process.communicate()
-    process.wait()
-    if error:
-        print(error)
-    return output.decode("utf-8")
-
-
-def template2yaml(buffered_template, output_file_name):
-    template = jinja2.Template(buffered_template)
-    with open(output_file_name, 'w') as file:
-        file.write("---\n{}\n".format(template.render(yaml.load(bufferedCFG))))
+            if path.startswith("http") or path.startswith("www."):
+                return subprocess.getoutput("curl -fsSL {}".format(path))
+            else:
+                raise ValueError("Cannot load  file or URL: '{}'".format(path))
+    def _template2yaml(self, buffered_template):
+        template = jinja2.Template(buffered_template)
+        return "---\n{}\n".format(template.render(yaml.load(self._bufferedCFG)))
+    def export_yaml(self, output_dir):
+        output_dir = (output_dir + "/", output_dir)[output_dir.endswith("/")]
+        for template_name in self._exportDict:
+            s = self._template2yaml(self._exportDict[template_name])
+            with open(file="{a}{b}.yaml".format(a=output_dir, b=template_name), mode="w", encoding="utf-8") as f:
+                f.write(s)
 
 
 if __name__ == '__main__':
-    bufferedCFG, bufferedMaster, bufferedWorker, outputDir = parse_namespace()
-    # Paste template URLs here
-    exportDict = {"master": bufferedMaster,
-                  "worker": bufferedWorker}
-    for templateName in exportDict:
-        template2yaml(exportDict[templateName], outputDir + templateName + ".yaml")
+    mainInitializer = Initializer()
+    generator = KubernetesJobChartsGenerator(config=mainInitializer.config,
+                                             master=mainInitializer.master,
+                                             worker=mainInitializer.worker)
+    generator.export_yaml(mainInitializer.output)

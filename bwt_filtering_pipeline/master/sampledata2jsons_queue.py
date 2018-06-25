@@ -16,7 +16,7 @@ def parse_args():
     starting_parser.add_argument("-m", "--mask", default=None,
                                  help="(Optional) Mask to be added to resulting files. Automtically apended by both REFDATA file names")
     starting_parser.add_argument("-t", "--threads", default="max",
-                                 help="(Optional) Number of CPU cores to use. Also may utilize 'max' (default), 'half', 'third' and 'two_thirds' of total available cores")
+                                 help="(Optional) Number of CPU cores to use. Also may utilize 'max' (default), 'half', 'third' and 'two_thirds' of total available threads")
     starting_parser.add_argument("-n", "--no_coverage", default=False, action='store_true',
                                  help="(Optional) (Only for single alignment) If selected, cancels coverage extraction")
     starting_parser.add_argument("-o", "--output", required=True,
