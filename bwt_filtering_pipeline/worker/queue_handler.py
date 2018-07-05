@@ -225,6 +225,10 @@ if __name__ == '__main__':
     # Uncomment next two lines if you do not have Kube-DNS working.
     # import os
     # host = os.getenv("REDIS_SERVICE_HOST")
+
+    print("Wait while master deploys & pushes")
+    time.sleep(60)
+
     queueName = parse_namespace()
     hostNameString = subprocess.getoutput("hostname").strip()
     scriptDir = ends_with_slash('/'.join(os.path.abspath(sys.argv[0]).split('/')[:-1]))
@@ -234,12 +238,16 @@ if __name__ == '__main__':
     print("Initial queue state: empty=" + str(q.empty()))
     sampledata_queue_list = []
     idle_counter = 0
-    while not q.empty() and idle_counter < 100:
+    if q.empty():
+        print("The queue is empty! Paused for 60 seconds")
+        time.sleep(60)
+    max_idle_counter = 100
+    while not q.empty() and idle_counter < max_idle_counter:
         item = q.lease(lease_secs=10, block=True, timeout=2)
         if item is not None:
-            itemstr = item.decode("utf=8")
+            item_string = item.decode("utf=8")
             try:
-                json_single_queue = json.loads(itemstr)
+                json_single_queue = json.loads(item_string)
                 # Note that all entries must have the same refdata
                 # JSON keys: {"refdata": "", "sampledata": {"sample_name": "", "sample_path": ""}, "mask": "", "threads": "", "output": ""}
                 sampledata_queue_list.append(json_single_queue)
@@ -250,12 +258,14 @@ if __name__ == '__main__':
                     print("Loaded full queue on: '{}'".format(hostNameString))
                     sampleDataFileName = dump_sampledata(sampledata_queue_list)
                     run_pipeline()
+                    print("Processing is finished, loading next queue")
                     sampledata_queue_list = []
             except ValueError:
-                print("Cannot parse JSON:", itemstr)
+                print("Cannot parse JSON: '{}'".format(item_string))
             q.complete(item)
+            idle_counter = 0
         else:
-            print("Waiting for work")
+            print("Waiting for work, {} attempts left".format(max_idle_counter - idle_counter))
             idle_counter += 1
     if len(sampledata_queue_list) > 0:
         print("Processing the last queue")
@@ -263,4 +273,4 @@ if __name__ == '__main__':
         json_single_queue = sampledata_queue_list[0]
         run_pipeline()
         sampledata_queue_list = []
-    print("Queue empty, exiting")
+    print("Queue is empty, exiting")
