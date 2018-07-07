@@ -238,10 +238,12 @@ if __name__ == '__main__':
     print("Initial queue state: empty=" + str(q.empty()))
     sampledata_queue_list = []
     idle_counter = 0
-    if q.empty():
-        print("The queue is empty! Paused for 60 seconds")
-        time.sleep(60)
     max_idle_counter = 100
+    while q.empty() and idle_counter < max_idle_counter:
+        print("The queue is empty! Paused for 60 seconds, {} attempts left".format(max_idle_counter - idle_counter))
+        time.sleep(60)
+        idle_counter += 1
+    idle_counter = 0
     while not q.empty() and idle_counter < max_idle_counter:
         item = q.lease(lease_secs=10, block=True, timeout=2)
         if item is not None:
