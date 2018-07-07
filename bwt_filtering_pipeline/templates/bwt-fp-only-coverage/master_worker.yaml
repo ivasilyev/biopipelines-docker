@@ -56,11 +56,7 @@ spec:
         - name: {{ WORKER_CONTAINER_NAME }}
           image: docker.io/ivasilyev/bwt_filtering_pipeline_worker:latest
           imagePullPolicy: Always
-          command: [/bin/sh, -c]
-          args:
-            - echo "Worker deployed" && \
-              python3 /home/docker/scripts/queue_handler.py -q {{ QUEUE_NAME }} && \
-              echo "Worker finished a job"
+          command: [python3, /home/docker/scripts/queue_handler.py, -q, {{ QUEUE_NAME }}]
           volumeMounts:
             - name: data
               mountPath: /data

@@ -191,7 +191,7 @@ def dump_sampledata(jsons_list):
         output_buffer += "{a}\t{b}\n".format(a=i["sampledata"]["sample_name"], b=i["sampledata"]["sample_path"])
     output_dir = "{a}sampledata_{b}".format(a=ends_with_slash(jsons_list[0]["output"]), b=jsons_list[0]["mask"])
     output_file = "{a}/{b}_{c}.sampledata".format(a=output_dir, b=hostNameString, c=get_time())
-    os.makedirs(path=output_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     with open(file=output_file, mode='r') as f:
         f.write(output_buffer)
     return output_file

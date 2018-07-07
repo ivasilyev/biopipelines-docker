@@ -25,13 +25,6 @@ def parse_args():
     return starting_parser.parse_args()
 
 
-def is_path_exists(path):
-    try:
-        os.makedirs(path)
-    except OSError:
-        pass
-
-
 def ends_with_slash(string):
     if string.endswith("/"):
         return string
