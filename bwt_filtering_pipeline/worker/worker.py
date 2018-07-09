@@ -204,8 +204,9 @@ class QueueHandler(object):
         self._queue_name = mainInitializer.queue_name
         self._host_name = "redis"
         self._local_name = subprocess.getoutput("hostname").strip()
+        print("Started queue loading on '{}'".format(self._local_name))
         self._queue_connection = RedisWQ(name=self._queue_name, host=self._host_name)
-        print("Started worker with sessionID: '{}'".format(self._queue_connection.session_id()))
+        print("Started queue connection with sessionID: '{}'".format(self._queue_connection.session_id()))
         print("Initial queue '{a}' state: empty={b}".format(a=self._queue_name, b=str(self._queue_connection.empty())))
 
     @staticmethod
@@ -248,13 +249,16 @@ class QueueHandler(object):
         os.makedirs(sampledata_dir, exist_ok=True)
         sampledata_file = "{a}{b}_{c}.sampledata".format(a=sampledata_dir, b=self._local_name, c=Utilities.get_time())
         self._dump_sampledata(input_list=json_items_list, output_file=sampledata_file)
-        pipeline = PipelineWrapper(sampledata=sampledata_file,
-                                   refdata=j["refdata"],
-                                   mask=j["mask"],
-                                   threads=j["threads"],
-                                   output=Utilities.ends_with_slash(j["output"]),
-                                   no_coverage="no_coverage" in list(j))
-        pipeline.run()
+        try:
+            pipeline = PipelineWrapper(sampledata=sampledata_file,
+                                       refdata=j["refdata"],
+                                       mask=j["mask"],
+                                       threads=j["threads"],
+                                       output=Utilities.ends_with_slash(j["output"]),
+                                       no_coverage="no_coverage" in list(j))
+            pipeline.run()
+        except KeyError:
+            print("Bad JSON: '{}'".format(j))
 
     def consume(self):
         json_items_list = []
@@ -281,7 +285,7 @@ class QueueHandler(object):
                     # A pause to allow other nodes access the queue
                     time.sleep(5)
                     if threads_number and len(json_items_list) == threads_number:
-                        print("Loaded full queue on '{}'".format(self._local_name))
+                        print("Loaded full queue with {a} items on '{b}'".format(a=threads_number, b=self._local_name))
                         self._run_pipeline(json_items_list)
                         print("Processing is finished, loading next queue on '{}'".format(self._local_name))
                         json_items_list = []

@@ -40,39 +40,34 @@ def file_to_list(file):
     return output_list
 
 
-def external_route(input_direction_list):
-    process = subprocess.Popen(input_direction_list, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    (output, error) = process.communicate()
-    process.wait()
-    if error:
-        print(error)
-    return output.decode("utf-8")
-
-
 def rpush_sampledata(sampledata_line):
     sampledata_list = sampledata_line.split("\t")
     print("Pushing to queue: ", sampledata_list[0])
     # json example: {"sampledata": {"sample_name": "", "sample_path": ""}, "filter": "", "coverage": "", "mask": "", "threads": "", "output": ""}
-    j = {"sampledata": {"sample_name": sampledata_list[0], "refdata": refDataFileName, "sample_path": "\t".join(sampledata_list[1:])}, "mask": inputMask, "output": outputDir}
+    j = {"sampledata": {"sample_name": sampledata_list[0],
+                        "sample_path": "\t".join(sampledata_list[1:])},
+         "refdata": refDataFileName,
+         "mask": inputMask,
+         "threads": "max",
+         "output": outputDir}
     if cpuThreadsString:
         j["threads"] = cpuThreadsString
     if noCoverageExtractionBool:
         j["no_coverage"] = True
-    external_route(["redis-cli", "-h", "redis", "rpush", queueName, json.dumps(j)])
+    c = "redis-cli -h redis rpush {a} {b}".format(a=queueName, b=json.dumps(j))
+    o = subprocess.getoutput(c).strip()
+    print("Pushed item '{j}': {o}".format(j=j, o=o))
 
 
 if __name__ == '__main__':
     refDataFileName, sampleDataFileName, inputMask, cpuThreadsString, noCoverageExtractionBool, outputDir, queueName, resetBool = parse_namespace()
-    print("Using queue name:", queueName)
     if resetBool:
-        external_route(["redis-cli", "-h", "redis", "flushall"])
+        print("Flush Redis DB: {}".format(subprocess.getoutput("redis-cli -h redis flushall").strip()))
     rpush_counter_num = 0
+    print("Pushing to Redis queue: '{}'".format(queueName))
     for sampledataLine in file_to_list(sampleDataFileName):
         rpush_sampledata(sampledataLine)
         rpush_counter_num += 1
-    # Not implemented due to huge output
-    # print("Created queue:")
-    # print(external_route(["redis-cli", "-h", "redis", "lrange", queueName, "0", "-1"]))
     print("""
 Completed filling the Redis queue '{}' with {} items
           """.format(queueName, str(rpush_counter_num)))
