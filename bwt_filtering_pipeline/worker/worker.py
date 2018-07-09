@@ -32,9 +32,11 @@ class Utilities(object):
     @staticmethod
     def ends_with_slash(string):
         return (string + "/", string)[string.endswith("/")]
+
     @staticmethod
     def get_script_dir():
         return Utilities.ends_with_slash(os.path.dirname(os.path.realpath(sys.argv[0])))
+
     @staticmethod
     def get_time():
         from datetime import datetime
@@ -46,6 +48,7 @@ class Utilities(object):
                 time_unit = '0' + time_unit
             output_list.append(time_unit)
         return '-'.join(output_list)
+
     @staticmethod
     def external_route(args):
         process = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -235,8 +238,9 @@ class QueueHandler(object):
         output_buffer = ""
         for i in input_list:
             output_buffer += "{a}\t{b}\n".format(a=i["sampledata"]["sample_name"], b=i["sampledata"]["sample_path"])
-        with open(file=output_file, mode='r') as f:
+        with open(file=output_file, mode='w', encoding="utf-8") as f:
             f.write(output_buffer)
+        print("Dumped sample data: '{}'".format(output_file))
 
     def _run_pipeline(self, json_items_list):
         j = json_items_list[0]
