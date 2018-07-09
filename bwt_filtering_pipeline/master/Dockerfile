@@ -19,11 +19,12 @@ ENV DEBIAN_FRONTEND noninteractive
 
 # Software update
 RUN apt-get clean all && \
-    apt-get -y --force-yes update && \
-    apt-get -y --force-yes upgrade
+    apt-get -y update && \
+    apt-get -y upgrade
 
 # Software installation
-RUN apt-get -y --force-yes install \
+RUN apt-get -y install \
+    apt-utils \
     git \
     fuse \
     python3 \
@@ -62,7 +63,7 @@ ENV HOME=/home/docker
 RUN mkdir ~/scripts ~/bin && \
     cd ~/scripts && \
     git clone https://github.com/ivasilyev/biopipelines-docker.git && \
-    mv biopipelines-docker/bwt_filtering_pipeline/master/sampledata2jsons_queue.py . && \
+    mv biopipelines-docker/bwt_filtering_pipeline/master/master.py . && \
     rm -rf biopipelines-docker && \
     chmod -R +x ~/scripts && \
     echo "export PATH=$PATH:${PWD}" | tee -a ~/.bashrc

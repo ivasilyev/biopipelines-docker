@@ -52,8 +52,8 @@ def external_route(input_direction_list):
 def rpush_sampledata(sampledata_line):
     sampledata_list = sampledata_line.split("\t")
     print("Pushing to queue: ", sampledata_list[0])
-    # json example: {"filter": "", "coverage": "", "sampledata": {"sample_name": "", "sample_path": ""}, "mask": "", "threads": "", "output": ""}
-    j = {"refdata": refDataFileName, "sampledata": {"sample_name": sampledata_list[0], "sample_path": "\t".join(sampledata_list[1:])}, "mask": inputMask, "output": outputDir}
+    # json example: {"sampledata": {"sample_name": "", "sample_path": ""}, "filter": "", "coverage": "", "mask": "", "threads": "", "output": ""}
+    j = {"sampledata": {"sample_name": sampledata_list[0], "refdata": refDataFileName, "sample_path": "\t".join(sampledata_list[1:])}, "mask": inputMask, "output": outputDir}
     if cpuThreadsString:
         j["threads"] = cpuThreadsString
     if noCoverageExtractionBool:
@@ -73,4 +73,6 @@ if __name__ == '__main__':
     # Not implemented due to huge output
     # print("Created queue:")
     # print(external_route(["redis-cli", "-h", "redis", "lrange", queueName, "0", "-1"]))
-    print("\n\nCompleted filling the Redis queue '{}' with {} items".format(queueName, str(rpush_counter_num)))
+    print("""
+Completed filling the Redis queue '{}' with {} items
+          """.format(queueName, str(rpush_counter_num)))

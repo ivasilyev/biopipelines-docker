@@ -16,39 +16,39 @@ spec:
         tier: worker
     spec:
       containers:
-      - name: {{ WORKER_CONTAINER_NAME }}
-        image: docker.io/ivasilyev/bwt_filtering_pipeline_worker:latest
-        imagePullPolicy: Always
-        # Paste the digested queue consumption command line. Note the queue name.
-        command: [python3, /home/docker/scripts/queue_handler.py, -q, {{ QUEUE_NAME }}]
-        # Persistent volumes (container side)
-        volumeMounts:
-        - name: data
-          mountPath: /data
-        - name: data1
-          mountPath: /data1
-        - name: data2
-          mountPath: /data2
+        - name: {{ WORKER_CONTAINER_NAME }}
+          image: docker.io/ivasilyev/bwt_filtering_pipeline_worker:latest
+          imagePullPolicy: Always
+          # Paste the digested queue consumption command line. Note the queue name.
+          command: [python3, /home/docker/scripts/worker.py, -q, {{ QUEUE_NAME }}]
+          # Persistent volumes (container side)
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: data1
+              mountPath: /data1
+            - name: data2
+              mountPath: /data2
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 1
-            preference:
-              matchExpressions:
-              - key: cpu
-                operator: In
-                values:
-                - xeon-e5-2630-v2
-                - xeon-e5-2630-v3
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: cpu
+                    operator: In
+                    values:
+                    - xeon-e5-2630-v2
+                    - xeon-e5-2630-v3
       # Persistent volumes (host side)
       volumes:
-      - name: data
-        hostPath:
-          path: /data
-      - name: data1
-        hostPath:
-          path: /data1
-      - name: data2
-        hostPath:
-          path: /data2
-      restartPolicy: OnFailure
+        - name: data
+          hostPath:
+            path: /data
+        - name: data1
+          hostPath:
+            path: /data1
+        - name: data2
+          hostPath:
+            path: /data2
+      restartPolicy: Never

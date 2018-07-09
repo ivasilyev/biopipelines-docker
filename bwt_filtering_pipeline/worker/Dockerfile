@@ -169,7 +169,7 @@ RUN mkdir ~/scripts && \
     cd ~/scripts && \
     git clone --recurse-submodules https://github.com/ivasilyev/bowtie-tools.git && \
     git clone https://github.com/ivasilyev/biopipelines-docker.git && \
-    mv bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py biopipelines-docker/bwt_filtering_pipeline/worker/pipeline_wrapper.py biopipelines-docker/bwt_filtering_pipeline/worker/queue_handler.py . && \
+    mv bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py biopipelines-docker/bwt_filtering_pipeline/worker/worker.py . && \
     rm -rf bowtie-tools biopipelines-docker && \
     chmod -R +x ~/scripts && \
     echo "export PATH=$PATH:${PWD}" | tee -a ~/.bashrc
