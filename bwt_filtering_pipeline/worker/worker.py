@@ -249,7 +249,7 @@ class QueueHandler(object):
         sampledata_file = "{a}{b}_{c}.sampledata".format(a=sampledata_dir, b=self._local_name, c=Utilities.get_time())
         self._dump_sampledata(input_list=json_items_list, output_file=sampledata_file)
         pipeline = PipelineWrapper(sampledata=sampledata_file,
-                                   refdata=j[["refdata"]],
+                                   refdata=j["refdata"],
                                    mask=j["mask"],
                                    threads=j["threads"],
                                    output=Utilities.ends_with_slash(j["output"]),
