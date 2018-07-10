@@ -3,8 +3,8 @@
 
 import re
 import argparse
-import subprocess
 import json
+import redis
 
 
 def parse_args():
@@ -40,31 +40,48 @@ def file_to_list(file):
     return output_list
 
 
+class RedisMQ(object):
+    def __init__(self, name, **redis_kwargs):
+        """The default connection parameters are: host='localhost', port=6379, db=0
+
+        The work queue is identified by "name".  The library may create other
+        keys with "name" as a prefix.
+        """
+        self._db = redis.StrictRedis(**redis_kwargs)
+        self._main_q_key = name
+        print("Connected to Redis DB queue: {}".format(self._main_q_key))
+
+    def flushall(self):
+        print("Flushed Redis DB: {}".format(self._db.flushdb()))
+
+    def rpush(self, value):
+        o = self._db.rpush(self._main_q_key, value)
+        print("Item '{a}' pushed to queue '{b}' with number {c}".format(a=value, b=self._main_q_key, c=o))
+
+    def disconnect(self):
+        self._db.connection_pool.disconnect()
+
+
 def rpush_sampledata(sampledata_line):
     sampledata_list = sampledata_line.split("\t")
-    print("Pushing to queue: ", sampledata_list[0])
     # json example: {"sampledata": {"sample_name": "", "sample_path": ""}, "filter": "", "coverage": "", "mask": "", "threads": "", "output": ""}
     j = {"sampledata": {"sample_name": sampledata_list[0],
                         "sample_path": "\t".join(sampledata_list[1:])},
          "refdata": refDataFileName,
          "mask": inputMask,
-         "threads": "max",
+         "threads": cpuThreadsString,
          "output": outputDir}
-    if cpuThreadsString:
-        j["threads"] = cpuThreadsString
     if noCoverageExtractionBool:
         j["no_coverage"] = True
-    c = "redis-cli -h redis rpush {a} {b}".format(a=queueName, b=json.dumps(j))
-    o = subprocess.getoutput(c).strip()
-    print("Pushed item '{j}': {o}".format(j=j, o=o))
+    redisConnection.rpush(json.dumps(j))
 
 
 if __name__ == '__main__':
     refDataFileName, sampleDataFileName, inputMask, cpuThreadsString, noCoverageExtractionBool, outputDir, queueName, resetBool = parse_namespace()
+    redisConnection = RedisMQ(name=queueName, host="redis")
     if resetBool:
-        print("Flush Redis DB: {}".format(subprocess.getoutput("redis-cli -h redis flushall").strip()))
+        redisConnection.flushall()
     rpush_counter_num = 0
-    print("Pushing to Redis queue: '{}'".format(queueName))
     for sampledataLine in file_to_list(sampleDataFileName):
         rpush_sampledata(sampledataLine)
         rpush_counter_num += 1
