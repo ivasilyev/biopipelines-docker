@@ -137,7 +137,7 @@ RUN echo "Install SAMtools" && \
     cd /tmp && \
     rm -rf samtools
 
-RUN echo "Compile BEDtools2"
+RUN echo "Compile BEDtools2" && \
     mkdir -p /tmp/bedtools2 && \
     cd /tmp/bedtools2 && \
     export BEDTOOLS_VERSION="2.27.1" && \
