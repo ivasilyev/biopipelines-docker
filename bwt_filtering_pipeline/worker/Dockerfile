@@ -101,8 +101,8 @@ RUN echo "Deploy Bowtie" && \
 
 RUN echo "Deploy Bowtie2" && \
     cd /tmp && \
-    export BOWTIE2_VERSION="2.3.4.2-alpha.2" && \
-    curl -fsSL https://github.com/BenLangmead/bowtie2/releases/download/v2.3.4.2-alpha.2/bowtie2-2.3.4.2-alpha.2-linux-x86_64.zip -o bowtie2.zip && \
+    export BOWTIE2_VERSION="2.3.4.2" && \
+    curl -fsSL https://github.com/BenLangmead/bowtie2/releases/download/v${BOWTIE2_VERSION}/bowtie2-${BOWTIE2_VERSION}-linux-x86_64.zip -o bowtie2.zip && \
     unzip bowtie2.zip && \
     cd bowtie2-${BOWTIE2_VERSION}-linux-x86_64 && \
     cp bowtie2 bowtie2-align-l bowtie2-align-s bowtie2-build bowtie2-build-l bowtie2-build-s bowtie2-inspect bowtie2-inspect-l bowtie2-inspect-s /usr/local/bin/ && \
@@ -172,7 +172,7 @@ RUN mkdir ~/scripts && \
     cd ~/scripts && \
     git clone --recurse-submodules https://github.com/ivasilyev/bowtie-tools.git && \
     git clone https://github.com/ivasilyev/biopipelines-docker.git && \
-    mv -r bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py bowtie-tools/modules biopipelines-docker/bwt_filtering_pipeline/worker/worker.py . && \
+    mv bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py bowtie-tools/modules biopipelines-docker/bwt_filtering_pipeline/worker/worker.py . && \
     rm -rf bowtie-tools biopipelines-docker && \
     chmod -R +x ~/scripts && \
     echo "export PATH=$PATH:${PWD}" | tee -a ~/.bashrc
