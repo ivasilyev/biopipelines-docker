@@ -149,8 +149,8 @@ RUN echo "Compile BEDtools2" && \
     cd /tmp && \
     rm -rf bedtools2
 
-# Install Python packages
-RUN pip3 install numpy pandas redis
+RUN echo "Install Python packages" && \
+    pip3 install numpy pandas redis
 
 # Create user docker with password docker
 RUN groupadd fuse && \
@@ -172,7 +172,7 @@ RUN mkdir ~/scripts && \
     cd ~/scripts && \
     git clone --recurse-submodules https://github.com/ivasilyev/bowtie-tools.git && \
     git clone https://github.com/ivasilyev/biopipelines-docker.git && \
-    mv bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py biopipelines-docker/bwt_filtering_pipeline/worker/worker.py . && \
+    mv -r bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py bowtie-tools/modules biopipelines-docker/bwt_filtering_pipeline/worker/worker.py . && \
     rm -rf bowtie-tools biopipelines-docker && \
     chmod -R +x ~/scripts && \
     echo "export PATH=$PATH:${PWD}" | tee -a ~/.bashrc
