@@ -101,7 +101,7 @@ RUN echo "Deploy Bowtie" && \
 
 RUN echo "Deploy Bowtie2" && \
     cd /tmp && \
-    export BOWTIE2_VERSION="2.3.4.2" && \
+    export BOWTIE2_VERSION="2.3.4.3" && \
     curl -fsSL https://github.com/BenLangmead/bowtie2/releases/download/v${BOWTIE2_VERSION}/bowtie2-${BOWTIE2_VERSION}-linux-x86_64.zip -o bowtie2.zip && \
     unzip bowtie2.zip && \
     cd bowtie2-${BOWTIE2_VERSION}-linux-x86_64 && \
