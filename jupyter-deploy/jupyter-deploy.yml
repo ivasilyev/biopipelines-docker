@@ -1,0 +1,79 @@
+# Service for Jupyter Lab
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyter-deploy
+  labels:
+    app: jupyter-deploy
+spec:
+  ports:
+  - name: http
+    nodePort: 31521
+    protocol: TCP
+    port: 31522
+    targetPort: 31522
+  selector:
+    app: jupyter-deploy
+  type: LoadBalancer
+
+# Main Jupyter Lab Pod
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jupyter-deploy
+  labels:
+    app: jupyter-deploy
+spec:
+  containers:
+    - name: jupyter-deploy
+      image: ivasilyev/jupyter-deploy:latest
+      imagePullPolicy: Always
+      ports:
+      - name: http
+        protocol: TCP
+        containerPort: 31522
+      command: ["bash", "/home/docker/jupyter-deploy.sh"]
+      volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: data1
+          mountPath: /data1
+        - name: data2
+          mountPath: /data2
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: ram
+                operator: In
+                values:
+                - "128"
+  volumes:
+  - name: data
+    hostPath:
+      path: /data
+  - name: data1
+    hostPath:
+      path: /data1
+  - name: data2
+    hostPath:
+      path: /data2
+  restartPolicy: OnFailure
+
+# Get pods info:
+# kubectl get pods
+
+# Get node info:
+# kubectl describe pod jupyter-deploy | grep Node:
+
+# Get token:
+# kubectl logs jupyter-deploy | grep token
+
+# Connect to <node ip>:31521 and enter the token
+
+# Cleanup:
+# kubectl delete svc,pod jupyter-deploy
