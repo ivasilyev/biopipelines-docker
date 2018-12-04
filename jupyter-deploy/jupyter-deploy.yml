@@ -34,7 +34,7 @@ spec:
       - name: http
         protocol: TCP
         containerPort: 31522
-      command: ["bash", "/home/docker/jupyter-deploy.sh"]
+      command: ["bash", "/home/docker/scripts/jupyter-deploy.sh"]
       volumeMounts:
         - name: data
           mountPath: /data

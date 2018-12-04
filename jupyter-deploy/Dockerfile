@@ -62,13 +62,14 @@ RUN groupadd fuse && \
 # Change user (CLI: su - docker)
 USER docker
 
+# Get the automation script for Jupyter Lab instances
+RUN mkdir -p /home/docker/scripts && \
+    curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/jupyter-deploy.sh" -o /home/docker/scripts/jupyter-deploy.sh
+
 # Update environment variables
 ENV PATH=$PATH:/home/docker/bin
 ENV HOME=/home/docker
 WORKDIR /home/docker
-
-# Get the automation script for Jupyter Lab instances
-RUN curl -fsSL "" -o
 
 CMD ["/bin/bash"]
 
