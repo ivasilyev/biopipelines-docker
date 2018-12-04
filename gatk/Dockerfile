@@ -1,7 +1,7 @@
 # Source: https://github.com/broadinstitute/gatk/blob/master/Dockerfile
 
 # Using OpenJDK 8
-FROM broadinstitute/gatk
+FROM broadinstitute/gatk:latest
 
 ENV DEBIAN_FRONTEND noninteractive
 
