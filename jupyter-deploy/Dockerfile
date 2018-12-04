@@ -5,6 +5,8 @@ FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get -y update && \
+    apt-get -y upgrade && \
+    apt-get -y autoremove && \
     apt-get -y install \
             # Base packages
             ca-certificates \
@@ -30,7 +32,8 @@ RUN TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o
     rm tini.deb
 
 # Cleanup
-RUN apt-get clean && \
+RUN apt-get -y autoremove && \
+    apt-get clean && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
