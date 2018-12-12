@@ -5,8 +5,8 @@ FROM qiime2/core
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN echo "Software update" && \
-    apt-get -y update ; \
-    apt-get -y upgrade ; \
+    apt-get -y update && \
+    apt-get -y upgrade && \
     apt-get -y autoremove
 
 RUN echo "Software install" && \
@@ -27,7 +27,7 @@ RUN echo "Create user" && \
     groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
-    mkdir /data /config /home/docker/bin && \
+    mkdir -p /data /config /home/docker/bin && \
     chown docker:docker /data /config /home/docker/bin && \
     chmod -R 755 /data /config /home/docker/bin
 

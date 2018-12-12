@@ -24,7 +24,7 @@ RUN apt-get clean && \
 RUN groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
-    mkdir /data /config /home/docker/bin && \
+    mkdir -p /data /config /home/docker/bin && \
     chown docker:docker /data /config /home/docker/bin && \
     chmod -R 755 /data /config /home/docker/bin
 
