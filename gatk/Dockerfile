@@ -24,16 +24,12 @@ RUN apt-get clean && \
 RUN groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
-    mkdir /data /config ${REF_DIR} && \
-    chown docker:docker /data /config ${REF_DIR} && \
-    chmod -R 755 /data /config ${REF_DIR}
+    mkdir /data /config /home/docker/bin && \
+    chown docker:docker /data /config /home/docker/bin && \
+    chmod -R 755 /data /config /home/docker/bin
 
 # Change user (CLI: su - docker)
 USER docker
-
-# Get the automation script for Jupyter Lab instances
-RUN mkdir -p /home/docker/scripts && \
-    curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/jupyter-deploy.sh" -o /home/docker/scripts/jupyter-deploy.sh
 
 # Update environment variables
 ENV PATH=$PATH:/home/docker/bin
