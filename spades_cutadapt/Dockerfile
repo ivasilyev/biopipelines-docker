@@ -13,19 +13,22 @@ RUN echo Cleanup && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-ENV REPO="ablab/spades"
-ENV VER=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
+RUN echo Download SPAdes && \
+    REPO="ablab/spades" && \
+    VER=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
     grep "tag_name" | \
     cut -d ":" -f 2,3 | \
-    tr -d '\", ')
-ENV URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
+    tr -d '\", ') && \
+    \
+    echo Version ${VER} found && \
+    URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
     grep "browser_download_url" | \
     grep "Linux" | \
     cut -d ":" -f 2,3 | \
-    tr -d '\"')
-
-RUN echo Download SPAdes ${VER} && \
+    tr -d '\"') && \
+    \
     mkdir -p /opt /tmp && \
+    echo Download started && \
     curl -fsSL ${URL} -o /tmp/spades.tar.gz && \
     tar -xvzf /tmp/spades.tar.gz -C /opt/ && \
     rm -f /tmp/spades.tar.gz && \
