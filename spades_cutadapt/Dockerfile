@@ -51,6 +51,6 @@ RUN groupadd fuse && \
 USER docker
 
 # Update PATH
-ENV PATH=$(ls -d /opt/* | grep SPAdes)/bin/:${PATH}
+ENV PATH="$(ls -d /opt/* | grep SPAdes)/bin/:${PATH}"
 ENV HOME=/home/docker
 WORKDIR /home/docker
