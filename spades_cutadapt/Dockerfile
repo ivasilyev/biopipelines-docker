@@ -4,7 +4,7 @@ FROM ubuntu:18.04
 
 RUN echo Install packages && \
     apt-get -qq update && apt-get -y upgrade && \
-	apt-get install -y python3-pip python3-dev build-essential curl bzip2 libz-dev
+	apt-get install -y apt-utils python3-pip python3-dev build-essential curl bzip2 libz-dev
 
 RUN pip3 install regex cutadapt
 
@@ -19,19 +19,18 @@ RUN echo Download SPAdes && \
     grep "tag_name" | \
     cut -d ":" -f 2,3 | \
     tr -d '\", ') && \
-    \
     echo Version ${VER} found && \
     URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
     grep "browser_download_url" | \
     grep "Linux" | \
     cut -d ":" -f 2,3 | \
     tr -d '\"') && \
-    \
     mkdir -p /opt /tmp && \
     echo Download started && \
     curl -fsSL ${URL} -o /tmp/spades.tar.gz && \
     tar -xvzf /tmp/spades.tar.gz -C /opt/ && \
     rm -f /tmp/spades.tar.gz && \
+    echo Installation complete
 
 RUN echo Install Tini - A tiny but valid init for containers && \
     TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
