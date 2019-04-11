@@ -52,7 +52,7 @@ RUN pip3 install ipython jupyter jupyterlab
 RUN pip3 install scikit-learn tensorflow
 
 # Web port forwarding
-EXPOSE 80 443
+EXPOSE 80 443 31522
 
 # Create user docker with password docker
 RUN groupadd fuse && \
