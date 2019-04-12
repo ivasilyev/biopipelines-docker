@@ -30,6 +30,8 @@ RUN echo Download SPAdes && \
     curl -fsSL ${URL} -o /tmp/spades.tar.gz && \
     tar -xvzf /tmp/spades.tar.gz -C /opt/ && \
     rm -f /tmp/spades.tar.gz && \
+    mv $(ls -d /opt/* | grep SPAdes) /opt/spades && \
+    chmod a+x -R /opt/spades/bin && \
     echo Installation complete
 
 RUN echo Install Tini - A tiny but valid init for containers && \
@@ -50,6 +52,6 @@ RUN groupadd fuse && \
 USER docker
 
 # Update PATH
-ENV PATH="$(ls -d /opt/* | grep SPAdes)/bin/:${PATH}"
+ENV PATH=/opt/spades/bin/:${PATH}
 ENV HOME=/home/docker
 WORKDIR /home/docker
