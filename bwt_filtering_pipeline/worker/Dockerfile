@@ -73,15 +73,15 @@ RUN echo "Cleanup" && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN export TOOL="bowtie" && \
+RUN TOOL="bowtie" && \
     echo "Download ${TOOL}" && \
-    export REPO="BenLangmead/bowtie" && \
-    export PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    export VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    REPO="BenLangmead/bowtie" && \
+    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
     echo "Version ${VER} found" && \
-    export URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux" | cut -d ":" -f 2,3 | tr -d '\"') && \
     mkdir -p /opt /tmp && \
-    export ZIP=/tmp/${TOOL}.zip && \
+    ZIP=/tmp/${TOOL}.zip && \
     curl -fsSL ${URL} -o ${ZIP} && \
     echo "${TOOL} downloaded" && \
     unzip ${ZIP} -d /opt/ && \
@@ -90,14 +90,14 @@ RUN export TOOL="bowtie" && \
     chmod a+x -R /opt/${TOOL} && \
     echo "${TOOL} installed"
 
-RUN export TOOL="bowtie2" && \
+RUN TOOL="bowtie2" && \
     echo "Download ${TOOL}" && \
-    export REPO="BenLangmead/bowtie2" && \
-    export PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    export VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    REPO="BenLangmead/bowtie2" && \
+    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
     echo "Version ${VER} found" && \
-    export URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux" | grep -v "sra" | cut -d ":" -f 2,3 | tr -d '\"') && \
-    export ZIP=/tmp/${TOOL}.zip && \
+    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux" | grep -v "sra" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    ZIP=/tmp/${TOOL}.zip && \
     curl -fsSL ${URL} -o ${ZIP} && \
     echo "${TOOL} downloaded" && \
     unzip ${ZIP} -d /opt/ && \
@@ -106,14 +106,14 @@ RUN export TOOL="bowtie2" && \
     chmod a+x -R /opt/${TOOL} && \
     echo "${TOOL} installed"
 
-RUN export TOOL="samtools" && \
+RUN TOOL="samtools" && \
     echo "Download ${TOOL}" && \
-    export REPO="samtools/samtools" && \
-    export PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    export VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    REPO="samtools/samtools" && \
+    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
     echo "Version ${VER} found" && \
-    export URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.bz2" | cut -d ":" -f 2,3 | tr -d '\"') && \
-    export ZIP=/tmp/${TOOL}.tar.bz2 && \
+    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.bz2" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    ZIP=/tmp/${TOOL}.tar.bz2 && \
     curl -fsSL ${URL} -o ${ZIP} && \
     echo "${TOOL} downloaded" && \
     tar xvjf ${ZIP} -C /opt/ && \
@@ -130,14 +130,14 @@ RUN export TOOL="samtools" && \
     rm -rf /opt/${TOOL} && \
     echo "${TOOL} installed"
 
-RUN export TOOL="bedtools2" && \
+RUN TOOL="bedtools2" && \
     echo "Download ${TOOL}" && \
-    export REPO="arq5x/bedtools2" && \
-    export PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    export VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    REPO="arq5x/bedtools2" && \
+    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
     echo "Version ${VER} found" && \
-    export URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.gz" | cut -d ":" -f 2,3 | tr -d '\"') && \
-    export ZIP=/tmp/${TOOL}.tar.gz && \
+    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.gz" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    ZIP=/tmp/${TOOL}.tar.gz && \
     curl -fsSL ${URL} -o ${ZIP} && \
     echo "${TOOL} downloaded" && \
     tar xf ${ZIP} -C /opt/ && \
