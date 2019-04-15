@@ -1,21 +1,8 @@
-################## BASE IMAGE ######################
-FROM ubuntu:17.10
-
-################## METADATA ######################
-LABEL base.image="ubuntu:18.04"
-LABEL pipeline="bwt_filtering"
-LABEL name="bwt_filtering_pipeline_worker"
-LABEL description="Docker image containing all required packages to run filtering Bowtie-based pipeline"
-LABEL website="https://github.com/ivasilyev/bowtie-tools"
-LABEL documentation="https://github.com/ivasilyev/ThreeBees"
-LABEL license="GPL-2.0"
-LABEL tags="Genomics"
-LABEL maintainer="Ilya Vasilyev <u0412u0418u042e@gmail.com>"
-
-################## INSTALLATION ######################
+FROM ubuntu:18.04
 # Base image CLI: docker run --rm --net=host -it ubuntu:18.04 bash
+# In the case of network failure, try:
+# echo deb http://mirror.truenetwork.ru/ubuntu/ bionic-backports main restricted universe multiverse | tee -a /etc/apt/sources.list
 
-# Enable apt-get noninteractive install
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN echo "Software update" && \
@@ -48,7 +35,6 @@ RUN echo "Install packages" && \
                nano            \
                openjdk-8-jre   \
                pkg-config      \
-               python          \
                python-dev      \
                python-pip      \
                python3         \
@@ -87,67 +73,82 @@ RUN echo "Cleanup" && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN echo "Deploy Bowtie" && \
-    cd /tmp && \
-    export BOWTIE_VERSION="1.2.2" && \
-    curl -fsSL https://github.com/BenLangmead/bowtie/releases/download/v1.2.2_p1/bowtie-1.2.2-linux-x86_64.zip -o bowtie.zip && \
-    unzip bowtie.zip && \
-    cd bowtie-${BOWTIE_VERSION}-linux-x86_64 && \
-    cp bowtie bowtie-align-l bowtie-align-s bowtie-build bowtie-build-l bowtie-build-s bowtie-inspect bowtie-inspect-l bowtie-inspect-s /usr/local/bin/ && \
-    cd /usr/local/bin/ && \
-    chmod ugo+x bowtie bowtie-align-l bowtie-align-s bowtie-build bowtie-build-l bowtie-build-s bowtie-inspect bowtie-inspect-l bowtie-inspect-s && \
-    cd /tmp && \
-    rm -rf bowtie-${BOWTIE_VERSION}-linux-x86_64 bowtie.zip
+RUN export TOOL="bowtie" && \
+    echo "Download ${TOOL}" && \
+    export REPO="BenLangmead/bowtie" && \
+    export PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    export VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    echo "Version ${VER} found" && \
+    export URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    mkdir -p /opt /tmp && \
+    export ZIP=/tmp/${TOOL}.zip && \
+    curl -fsSL ${URL} -o ${ZIP} && \
+    echo "${TOOL} downloaded" && \
+    unzip ${ZIP} -d /opt/ && \
+    rm -f ${ZIP} && \
+    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
+    chmod a+x -R /opt/${TOOL} && \
+    echo "${TOOL} installed"
 
-RUN echo "Deploy Bowtie2" && \
-    cd /tmp && \
-    export BOWTIE2_VERSION="2.3.4.3" && \
-    curl -fsSL https://github.com/BenLangmead/bowtie2/releases/download/v${BOWTIE2_VERSION}/bowtie2-${BOWTIE2_VERSION}-linux-x86_64.zip -o bowtie2.zip && \
-    unzip bowtie2.zip && \
-    cd bowtie2-${BOWTIE2_VERSION}-linux-x86_64 && \
-    cp bowtie2 bowtie2-align-l bowtie2-align-s bowtie2-build bowtie2-build-l bowtie2-build-s bowtie2-inspect bowtie2-inspect-l bowtie2-inspect-s /usr/local/bin/ && \
-    cd /usr/local/bin/ && \
-    chmod ugo+x bowtie2 bowtie2-align-l bowtie2-align-s bowtie2-build bowtie2-build-l bowtie2-build-s bowtie2-inspect bowtie2-inspect-l bowtie2-inspect-s && \
-    cd /tmp && \
-    rm -rf bowtie2-${BOWTIE2_VERSION}-linux-x86_64 bowtie2.zip
+RUN export TOOL="bowtie2" && \
+    echo "Download ${TOOL}" && \
+    export REPO="BenLangmead/bowtie2" && \
+    export PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    export VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    echo "Version ${VER} found" && \
+    export URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux" | grep -v "sra" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    export ZIP=/tmp/${TOOL}.zip && \
+    curl -fsSL ${URL} -o ${ZIP} && \
+    echo "${TOOL} downloaded" && \
+    unzip ${ZIP} -d /opt/ && \
+    rm -f ${ZIP} && \
+    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
+    chmod a+x -R /opt/${TOOL} && \
+    echo "${TOOL} installed"
 
-RUN echo "Install SAMtools" && \
-    mkdir -p /tmp/samtools && \
-    cd /tmp/samtools && \
-    export SAMTOOLS_VERSION="1.9" && \
-    printf "\nCompile HTSlib\n\n" && \
-    curl -fsSL https://github.com/samtools/htslib/releases/download/${SAMTOOLS_VERSION}/htslib-${SAMTOOLS_VERSION}.tar.bz2 -o htslib.tar.bz2 && \
-    tar xvjf htslib.tar.bz2 && \
-    cd htslib-${SAMTOOLS_VERSION} && \
-    autoheader && \
-    autoconf && \
-    ./configure && \
-    make && \
-    make install && \
-    cd .. && \
-    printf "\nCompile SAMtools\n\n" && \
-    curl -fsSL https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2 -o samtools.tar.bz2 && \
-    tar xvjf samtools.tar.bz2 && \
-    cd samtools-${SAMTOOLS_VERSION} && \
+RUN export TOOL="samtools" && \
+    echo "Download ${TOOL}" && \
+    export REPO="samtools/samtools" && \
+    export PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    export VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    echo "Version ${VER} found" && \
+    export URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.bz2" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    export ZIP=/tmp/${TOOL}.tar.bz2 && \
+    curl -fsSL ${URL} -o ${ZIP} && \
+    echo "${TOOL} downloaded" && \
+    tar xvjf ${ZIP} -C /opt/ && \
+    rm -f ${ZIP} && \
+    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
+    chmod a+x -R /opt/${TOOL} && \
+    cd /opt/${TOOL} && \
     autoheader && \
     autoconf -Wno-syntax && \
     ./configure && \
     make && \
     make install && \
-    cd /tmp && \
-    rm -rf samtools
+    cd / && \
+    rm -rf /opt/${TOOL} && \
+    echo "${TOOL} installed"
 
-RUN echo "Compile BEDtools2" && \
-    mkdir -p /tmp/bedtools2 && \
-    cd /tmp/bedtools2 && \
-    export BEDTOOLS_VERSION="2.27.1" && \
-    curl -fsSL https://github.com/arq5x/bedtools2/releases/download/v${BEDTOOLS_VERSION}/bedtools-${BEDTOOLS_VERSION}.tar.gz -o bedtools2.tar.gz && \
-    tar xf bedtools2.tar.gz && \
-    cd bedtools2 && \
+RUN export TOOL="bedtools2" && \
+    echo "Download ${TOOL}" && \
+    export REPO="arq5x/bedtools2" && \
+    export PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    export VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    echo "Version ${VER} found" && \
+    export URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.gz" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    export ZIP=/tmp/${TOOL}.tar.gz && \
+    curl -fsSL ${URL} -o ${ZIP} && \
+    echo "${TOOL} downloaded" && \
+    tar xf ${ZIP} -C /opt/ && \
+    rm -f ${ZIP} && \
+    chmod a+x -R /opt/${TOOL} && \
+    cd /opt/${TOOL} && \
     make && \
     make install && \
-    cd /tmp && \
-    rm -rf bedtools2
+    cd / && \
+    rm -rf /opt/${TOOL} && \
+    echo "${TOOL} installed"
 
 RUN echo "Install Python packages" && \
     pip3 install numpy pandas redis
@@ -163,19 +164,18 @@ RUN groupadd fuse && \
 # Change user (CLI: su - docker)
 USER docker
 
-# Update Path variables
-ENV PATH=$PATH:/home/docker/bin
-ENV HOME=/home/docker
-
 # Get the pipeline scripts
-RUN mkdir ~/scripts && \
-    cd ~/scripts && \
+RUN mkdir -p /home/docker/scripts && \
+    cd /home/docker/scripts && \
     git clone --recurse-submodules https://github.com/ivasilyev/bowtie-tools.git && \
     git clone https://github.com/ivasilyev/biopipelines-docker.git && \
     mv bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py bowtie-tools/modules biopipelines-docker/bwt_filtering_pipeline/worker/worker.py . && \
     rm -rf bowtie-tools biopipelines-docker && \
-    chmod -R +x ~/scripts && \
-    echo "export PATH=$PATH:${PWD}" | tee -a ~/.bashrc
+    chmod a+x -R /home/docker/scripts
+
+# Update Path variables
+ENV PATH=$PATH:/opt/bowtie:/opt/bowtie2:/home/docker/bin:/home/docker/scripts
+ENV HOME=/home/docker
 
 # Directories to mount
 VOLUME ["/data", "/config", "/reference"]
