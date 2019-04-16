@@ -6,35 +6,34 @@ RUN echo Install packages && \
     apt-get -qq update && apt-get -y upgrade && \
 	apt-get install -y apt-utils python3-pip python3-dev build-essential curl bzip2 libz-dev
 
-RUN pip3 install regex cutadapt
+RUN echo "Install packages for Python 3" && \
+    ln -s /usr/bin/python3 /usr/bin/python && \
+    ln -s /usr/bin/pip3 /usr/bin/pip && \
+    pip3 install regex cutadapt
 
-RUN echo Cleanup && \
+RUN echo "Cleanup" && \
     apt-get clean && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN echo Download SPAdes && \
+RUN TOOL="SPAdes" && \
+    echo "Download ${TOOL}" && \
     REPO="ablab/spades" && \
-    VER=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
-    grep "tag_name" | \
-    cut -d ":" -f 2,3 | \
-    tr -d '\", ') && \
-    echo Version ${VER} found && \
-    URL=$(curl -s https://api.github.com/repos/${REPO}/releases/latest | \
-    grep "browser_download_url" | \
-    grep "Linux" | \
-    cut -d ":" -f 2,3 | \
-    tr -d '\"') && \
+    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    echo "Version ${VER} found" && \
+    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "Linux" | cut -d ":" -f 2,3 | tr -d '\" ') && \
     mkdir -p /opt /tmp && \
-    echo Download started && \
-    curl -fsSL ${URL} -o /tmp/spades.tar.gz && \
-    tar -xvzf /tmp/spades.tar.gz -C /opt/ && \
-    rm -f /tmp/spades.tar.gz && \
-    mv $(ls -d /opt/* | grep SPAdes) /opt/spades && \
-    chmod a+x -R /opt/spades/bin && \
-    echo Installation complete
+    ZIP=/tmp/${TOOL}.tar.gz && \
+    curl -fsSL ${URL} -o ${ZIP} && \
+    echo "${TOOL} downloaded" && \
+    tar -xvzf ${ZIP} -C /opt/ && \
+    rm -f ${ZIP} && \
+    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
+    chmod a+x -R /opt/${TOOL} && \
+    echo "${TOOL} installed"
 
-RUN echo Install Tini - A tiny but valid init for containers && \
+RUN echo "Install Tini - A tiny but valid init for containers" && \
     TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
     curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
     dpkg -i tini.deb && \
@@ -52,6 +51,6 @@ RUN groupadd fuse && \
 USER docker
 
 # Update PATH
-ENV PATH=/opt/spades/bin/:${PATH}
+ENV PATH=/opt/SPAdes/bin/:${PATH}
 ENV HOME=/home/docker
 WORKDIR /home/docker
