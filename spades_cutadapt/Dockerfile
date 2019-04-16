@@ -4,7 +4,7 @@ FROM ubuntu:18.04
 
 RUN echo Install packages && \
     apt-get -qq update && apt-get -y upgrade && \
-	apt-get install -y apt-utils python3-pip python3-dev build-essential curl bzip2 libz-dev
+	apt-get install -y apt-utils python3-dev python3-pip build-essential curl bzip2 libz-dev
 
 RUN echo "Install packages for Python 3" && \
     ln -s /usr/bin/python3 /usr/bin/python && \
@@ -30,6 +30,7 @@ RUN TOOL="SPAdes" && \
     tar -xvzf ${ZIP} -C /opt/ && \
     rm -f ${ZIP} && \
     mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
+    ln -s /opt/${TOOL}/spades.py /opt/${TOOL}/${TOOL} && \
     chmod a+x -R /opt/${TOOL} && \
     echo "${TOOL} installed"
 
