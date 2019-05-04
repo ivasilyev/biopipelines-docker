@@ -186,6 +186,7 @@ RUN TOOL="vcftools" && \
     echo "${TOOL} downloaded" && \
     tar xf ${ZIP} -C /opt/ && \
     rm -f ${ZIP} && \
+    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
     chmod a+x -R /opt/${TOOL} && \
     cd /opt/${TOOL} && \
     ./configure && \
