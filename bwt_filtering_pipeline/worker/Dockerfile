@@ -30,14 +30,10 @@ RUN echo "Install packages" && \
                dpkg            \
                fuse            \
                git             \
-               wget            \
                zip             \
                nano            \
-               openjdk-8-jre   \
                pkg-config      \
-               python-dev      \
-               python-pip      \
-               python3         \
+               python3-dev     \
                python3-pip     \
                bzip2           \
                ca-certificates \
@@ -58,9 +54,10 @@ RUN echo "Install packages" && \
                libtbb-dev      \
                libxext6        \
                libxrender1     \
-               mercurial       \
-               subversion      \
                zlib1g-dev
+
+RUN echo "Create directories" && \
+    mkdir -p /opt /tmp /data /config
 
 RUN echo "Install Tini - A tiny but valid init for containers" && \
     TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
@@ -80,7 +77,6 @@ RUN TOOL="bowtie" && \
     VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
     echo "Version ${VER} found" && \
     URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux" | cut -d ":" -f 2,3 | tr -d '\"') && \
-    mkdir -p /opt /tmp && \
     ZIP=/tmp/${TOOL}.zip && \
     curl -fsSL ${URL} -o ${ZIP} && \
     echo "${TOOL} downloaded" && \
@@ -150,16 +146,17 @@ RUN TOOL="bedtools2" && \
     rm -rf /opt/${TOOL} && \
     echo "${TOOL} installed"
 
-RUN echo "Install Python packages" && \
+RUN echo "Install packages for Python 3" && \
+    ln -s /usr/bin/python3 /usr/bin/python && \
+    ln -s /usr/bin/pip3 /usr/bin/pip && \
     pip3 install numpy pandas redis
 
 # Create user docker with password docker
 RUN groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
-    mkdir /data /config ${REF_DIR} && \
-    chown docker:docker /data /config ${REF_DIR} && \
-    chmod -R 755 /data /config ${REF_DIR}
+    chown docker:docker /data /config  && \
+    chmod -R 755 /data /config
 
 # Change user (CLI: su - docker)
 USER docker

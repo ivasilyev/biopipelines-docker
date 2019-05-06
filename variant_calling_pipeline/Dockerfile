@@ -30,14 +30,10 @@ RUN echo "Install packages" && \
                dpkg            \
                fuse            \
                git             \
-               wget            \
                zip             \
                nano            \
-               openjdk-8-jre   \
                pkg-config      \
-               python-dev      \
-               python-pip      \
-               python3         \
+               python3-dev     \
                python3-pip     \
                bzip2           \
                ca-certificates \
@@ -58,9 +54,10 @@ RUN echo "Install packages" && \
                libtbb-dev      \
                libxext6        \
                libxrender1     \
-               mercurial       \
-               subversion      \
                zlib1g-dev
+
+RUN echo "Create directories" && \
+    mkdir -p /opt /tmp
 
 RUN echo "Install Tini - A tiny but valid init for containers" && \
     TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
@@ -72,39 +69,6 @@ RUN echo "Cleanup" && \
     apt-get clean && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-RUN TOOL="bowtie" && \
-    echo "Download ${TOOL}" && \
-    REPO="BenLangmead/bowtie" && \
-    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
-    echo "Version ${VER} found" && \
-    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux" | cut -d ":" -f 2,3 | tr -d '\"') && \
-    mkdir -p /opt /tmp && \
-    ZIP=/tmp/${TOOL}.zip && \
-    curl -fsSL ${URL} -o ${ZIP} && \
-    echo "${TOOL} downloaded" && \
-    unzip ${ZIP} -d /opt/ && \
-    rm -f ${ZIP} && \
-    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
-    chmod a+x -R /opt/${TOOL} && \
-    echo "${TOOL} installed"
-
-RUN TOOL="bowtie2" && \
-    echo "Download ${TOOL}" && \
-    REPO="BenLangmead/bowtie2" && \
-    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
-    echo "Version ${VER} found" && \
-    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux" | grep -v "sra" | cut -d ":" -f 2,3 | tr -d '\"') && \
-    ZIP=/tmp/${TOOL}.zip && \
-    curl -fsSL ${URL} -o ${ZIP} && \
-    echo "${TOOL} downloaded" && \
-    unzip ${ZIP} -d /opt/ && \
-    rm -f ${ZIP} && \
-    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
-    chmod a+x -R /opt/${TOOL} && \
-    echo "${TOOL} installed"
 
 RUN TOOL="samtools" && \
     echo "Download ${TOOL}" && \
@@ -196,8 +160,10 @@ RUN TOOL="vcftools" && \
     rm -rf /opt/${TOOL} && \
     echo "${TOOL} installed"
 
-RUN echo "Install Python packages" && \
-    pip3 install numpy pandas redis
+RUN echo "Install packages for Python 3" && \
+    ln -s /usr/bin/python3 /usr/bin/python && \
+    ln -s /usr/bin/pip3 /usr/bin/pip && \
+    pip3 install redis
 
 # Create user docker with password docker
 RUN groupadd fuse && \
@@ -210,15 +176,6 @@ RUN groupadd fuse && \
 # Change user (CLI: su - docker)
 USER docker
 
-# Get the pipeline scripts
-RUN mkdir -p /home/docker/scripts && \
-    cd /home/docker/scripts && \
-    git clone --recurse-submodules https://github.com/ivasilyev/bowtie-tools.git && \
-    git clone https://github.com/ivasilyev/biopipelines-docker.git && \
-    mv bowtie-tools/nBee.py bowtie-tools/cook_the_reference.py bowtie-tools/sam2coverage.py bowtie-tools/verify_coverages.py bowtie-tools/modules biopipelines-docker/bwt_filtering_pipeline/worker/worker.py . && \
-    rm -rf bowtie-tools biopipelines-docker && \
-    chmod a+x -R /home/docker/scripts
-
 # Update Path variables
 ENV PATH=$PATH:/opt/bowtie:/opt/bowtie2:/home/docker/bin:/home/docker/scripts
 ENV HOME=/home/docker
@@ -227,10 +184,7 @@ ENV HOME=/home/docker
 VOLUME ["/data", "/config", "/reference"]
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
-CMD ["python3", "/home/docker/scripts/pipeline_wrapper.py"]
+CMD ["bash"]
 
 # Setup the default directory
 WORKDIR /home/docker
-
-# MANUAL BUILD COMMAND:
-# docker build -t bwt_filtering_pipeline_worker . && docker tag bwt_filtering_pipeline_worker ivasilyev/bwt_filtering_pipeline_worker:latest && docker push ivasilyev/bwt_filtering_pipeline_worker:latest
