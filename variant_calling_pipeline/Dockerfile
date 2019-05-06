@@ -56,6 +56,11 @@ RUN echo "Install packages" && \
                libxrender1     \
                zlib1g-dev
 
+RUN echo "Install packages for Python 3" && \
+    ln -sfn /usr/bin/python3 /usr/bin/python && \
+    ln -sfn /usr/bin/pip3 /usr/bin/pip && \
+    pip3 install redis
+
 RUN echo "Create directories" && \
     mkdir -p /opt /tmp
 
@@ -159,11 +164,6 @@ RUN TOOL="vcftools" && \
     cd / && \
     rm -rf /opt/${TOOL} && \
     echo "${TOOL} installed"
-
-RUN echo "Install packages for Python 3" && \
-    ln -s /usr/bin/python3 /usr/bin/python && \
-    ln -s /usr/bin/pip3 /usr/bin/pip && \
-    pip3 install redis
 
 # Create user docker with password docker
 RUN groupadd fuse && \

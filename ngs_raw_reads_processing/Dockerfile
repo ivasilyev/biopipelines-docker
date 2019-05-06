@@ -57,8 +57,8 @@ RUN echo "Install packages" && \
                zlib1g-dev
 
 RUN echo "Install packages for Python 3" && \
-    ln -s /usr/bin/python3 /usr/bin/python && \
-    ln -s /usr/bin/pip3 /usr/bin/pip && \
+    ln -sfn /usr/bin/python3 /usr/bin/python && \
+    ln -sfn /usr/bin/pip3 /usr/bin/pip && \
     pip3 install redis
 
 RUN echo "Create directories" && \
