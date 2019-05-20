@@ -9,7 +9,7 @@ RUN echo "Software update" && \
     apt-get -y update && \
     apt-get -y install \
             software-properties-common \
-            apt-utils && \
+            apt-utils \
             apt-transport-https && \
     add-apt-repository universe && \
     add-apt-repository multiverse
