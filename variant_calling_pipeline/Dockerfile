@@ -188,7 +188,7 @@ RUN TOOL="Canvas" && \
     REPO="Illumina/canvas" && \
     PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
     VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
-    echo "Version ${VER} found" && \f
+    echo "Version ${VER} found" && \
     URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.gz" | cut -d ":" -f 2,3 | tr -d '\"') && \
     ZIP=/tmp/${TOOL}.tar.gz && \
     curl -fsSL ${URL} -o ${ZIP} && \
