@@ -101,7 +101,6 @@ RUN groupadd fuse && \
 USER docker
 
 # Update Path variables
-ENV PATH=$PATH:/opt/bowtie:/opt/bowtie2:/home/docker/bin:/home/docker/scripts
 ENV HOME=/home/docker
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile

@@ -10,6 +10,7 @@ RUN echo "Software update" && \
     apt-get -y install \
             software-properties-common \
             apt-utils && \
+            apt-transport-https && \
     add-apt-repository universe && \
     add-apt-repository multiverse
 
@@ -64,11 +65,28 @@ RUN echo "Install packages for Python 3" && \
 RUN echo "Create directories" && \
     mkdir -p /opt /tmp
 
-RUN echo "Install Tini - A tiny but valid init for containers" && \
-    TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
-    curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
-    dpkg -i tini.deb && \
-    rm tini.deb
+RUN TOOL="tini" && \
+    echo "Download ${TOOL}" && \
+    REPO="krallin/tini" && \
+    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    echo "Version ${VER} found" && \
+    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep -Po "\"http.+\.deb\"" | sed 's/\"//g' | sort | tail -n 1) && \
+    ZIP=/tmp/${TOOL}.deb && \
+    curl -fsSL ${URL} -o ${ZIP} && \
+    echo "${TOOL} downloaded" && \
+    dpkg -i ${ZIP} && \
+    rm -f ${ZIP} && \
+    echo "${TOOL} installed"
+
+# .NET is required by Illumina Canvas, details: https://github.com/Illumina/canvas/issues/99
+RUN echo "Install M$ .NET Core SDK x64" && \
+    ZIP=/tmp/packages-microsoft-prod.deb && \
+    curl -fsSL https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb -o ${ZIP} && \
+    dpkg -i ${ZIP} && \
+    rm -f ${ZIP} && \
+    apt-get update -y && \
+    apt-get install -y dotnet-sdk-2.2
 
 RUN echo "Cleanup" && \
     apt-get clean && \
@@ -165,6 +183,22 @@ RUN TOOL="vcftools" && \
     rm -rf /opt/${TOOL} && \
     echo "${TOOL} installed"
 
+RUN TOOL="Canvas" && \
+    echo "Download ${TOOL}" && \
+    REPO="Illumina/canvas" && \
+    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
+    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    echo "Version ${VER} found" && \f
+    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.gz" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    ZIP=/tmp/${TOOL}.tar.gz && \
+    curl -fsSL ${URL} -o ${ZIP} && \
+    echo "${TOOL} downloaded" && \
+    tar xf ${ZIP} -C /opt/ && \
+    # The archive also contains the redundant empty folder
+    rm -rf ${ZIP} /opt/${VER} && \
+    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
+    chmod a+x -R /opt/${TOOL}
+
 # Create user docker with password docker
 RUN groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
@@ -177,7 +211,7 @@ RUN groupadd fuse && \
 USER docker
 
 # Update Path variables
-ENV PATH=$PATH:/opt/bowtie:/opt/bowtie2:/home/docker/bin:/home/docker/scripts
+ENV PATH=$PATH:/opt/Canvas
 ENV HOME=/home/docker
 
 # Directories to mount
