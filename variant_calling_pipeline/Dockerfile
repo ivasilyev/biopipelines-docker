@@ -7,9 +7,7 @@ ENV DEBIAN_FRONTEND noninteractive
 
 RUN echo "Software update" && \
     apt-get -y update && \
-    apt-get -y install \
-            software-properties-common \
-            apt-utils \
+    apt-get -y install software-properties-common apt-utils && \
     add-apt-repository universe && \
     add-apt-repository multiverse
 
@@ -55,11 +53,6 @@ RUN echo "Install packages" && \
                libxext6        \
                libxrender1     \
                zlib1g-dev
-
-RUN echo "Install packages for Python 3" && \
-    ln -sfn /usr/bin/python3 /usr/bin/python && \
-    ln -sfn /usr/bin/pip3 /usr/bin/pip && \
-    pip3 install redis
 
 RUN echo "Create directories" && \
     mkdir -p /opt /tmp
@@ -207,6 +200,11 @@ RUN TOOL="Canvas" && \
     rm -rf ${ZIP} /opt/${VER} && \
     mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
     chmod a+x -R /opt/${TOOL}
+
+RUN echo "Install packages for Python 3" && \
+    ln -sfn /usr/bin/python3 /usr/bin/python && \
+    ln -sfn /usr/bin/pip3 /usr/bin/pip && \
+    pip3 install redis
 
 # Create user docker with password docker
 RUN groupadd fuse && \
