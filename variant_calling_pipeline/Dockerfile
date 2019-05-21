@@ -10,7 +10,6 @@ RUN echo "Software update" && \
     apt-get -y install \
             software-properties-common \
             apt-utils \
-            apt-transport-https && \
     add-apt-repository universe && \
     add-apt-repository multiverse
 
@@ -81,12 +80,20 @@ RUN TOOL="tini" && \
 
 # .NET is required by Illumina Canvas, details: https://github.com/Illumina/canvas/issues/99
 RUN echo "Install M$ .NET Core SDK x64" && \
+    apt-get install -y apt-transport-https && \
     ZIP=/tmp/packages-microsoft-prod.deb && \
     curl -fsSL https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb -o ${ZIP} && \
     dpkg -i ${ZIP} && \
     rm -f ${ZIP} && \
     apt-get update -y && \
     apt-get install -y dotnet-sdk-2.2
+
+RUN echo "Install Mono" && \
+    apt-get install -y gnupg ca-certificates && \
+    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF && \
+    echo "deb https://download.mono-project.com/repo/ubuntu stable-bionic main" | tee /etc/apt/sources.list.d/mono-official-stable.list && \
+    apt-get update -y && \
+    apt-get install -y mono-devel
 
 RUN echo "Cleanup" && \
     apt-get clean && \
@@ -187,11 +194,11 @@ RUN TOOL="Canvas" && \
     echo "Download ${TOOL}" && \
     REPO="Illumina/canvas" && \
     PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    # VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
-    VER="1.35.1.1316+master" && \
+    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    # VER="1.35.1.1316+master" && \
     echo "Version ${VER} found" && \
-    # URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.gz" | cut -d ":" -f 2,3 | tr -d '\"') && \
-    URL="https://github.com/Illumina/canvas/releases/download/1.35.1.1316%2Bmaster/Canvas-1.35.1.1316.master_x64.tar.gz" && \
+    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.gz" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    # URL="https://github.com/Illumina/canvas/releases/download/1.35.1.1316%2Bmaster/Canvas-1.35.1.1316.master_x64.tar.gz" && \
     ZIP=/tmp/${TOOL}.tar.gz && \
     curl -fsSL ${URL} -o ${ZIP} && \
     echo "${TOOL} downloaded" && \
