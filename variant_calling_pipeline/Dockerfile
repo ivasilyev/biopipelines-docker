@@ -82,7 +82,9 @@ RUN echo "Install M$ .NET Core SDK x64" && \
     apt-get update -y && \
     apt-get install -y $(apt-cache search dotnet-runtime-deps- | tail -n -1 | cut -d ' ' -f1) \
                        $(apt-cache search dotnet-runtime-[0-9] | tail -n -1 | cut -d ' ' -f1) \
+                       $(apt-cache search dotnet-host$ | tail -n -1 | cut -d ' ' -f1) \
                        $(apt-cache search dotnet-hostfxr- | tail -n -1 | cut -d ' ' -f1) \
+                       $(apt-cache search dotnet-sharedframework-microsoft.netcore.app- | tail -n -1 | cut -d ' ' -f1) \
                        $(apt-cache search dotnet-sdk- | tail -n -1 | cut -d ' ' -f1)
 
 RUN echo "Cleanup" && \
