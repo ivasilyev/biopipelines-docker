@@ -186,11 +186,11 @@ RUN TOOL="Canvas" && \
     echo "Download ${TOOL}" && \
     REPO="Illumina/canvas" && \
     PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    # VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
-    VER="1.35.1.1316+master" && \
+    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
+    # VER="1.35.1.1316+master" && \
     echo "Version ${VER} found" && \
-    # URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.gz" | cut -d ":" -f 2,3 | tr -d '\"') && \
-    URL="https://github.com/Illumina/canvas/releases/download/1.35.1.1316%2Bmaster/Canvas-1.35.1.1316.master_x64.tar.gz" && \
+    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "tar.gz" | cut -d ":" -f 2,3 | tr -d '\"') && \
+    # URL="https://github.com/Illumina/canvas/releases/download/1.35.1.1316%2Bmaster/Canvas-1.35.1.1316.master_x64.tar.gz" && \
     ZIP=/tmp/${TOOL}.tar.gz && \
     curl -fsSL ${URL} -o ${ZIP} && \
     echo "${TOOL} downloaded" && \
