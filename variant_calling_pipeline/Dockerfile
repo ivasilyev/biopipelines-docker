@@ -74,13 +74,16 @@ RUN TOOL="tini" && \
 # .NET is required by Illumina Canvas, details: https://github.com/Illumina/canvas/issues/99
 RUN echo "Install M$ .NET Core SDK x64" && \
     apt-get install -y apt-transport-https && \
-    ZIP=/tmp/packages-microsoft-prod.deb && \
     URL="https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb" && \
+    ZIP=/tmp/packages-microsoft-prod.deb && \
     curl -fsSL ${URL} -o ${ZIP} && \
     dpkg -i ${ZIP} && \
     rm -f ${ZIP} && \
     apt-get update -y && \
-    apt-get install -y $(apt-cache search dotnet-sdk- | tail -n -1 | cut -d ' ' -f1)
+    apt-get install -y $(apt-cache search dotnet-runtime-deps- | tail -n -1 | cut -d ' ' -f1) \
+                       $(apt-cache search dotnet-runtime-[0-9] | tail -n -1 | cut -d ' ' -f1) \
+                       $(apt-cache search dotnet-hostfxr- | tail -n -1 | cut -d ' ' -f1) \
+                       $(apt-cache search dotnet-sdk- | tail -n -1 | cut -d ' ' -f1)
 
 RUN echo "Cleanup" && \
     apt-get clean && \
