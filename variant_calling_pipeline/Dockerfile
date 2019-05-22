@@ -75,11 +75,12 @@ RUN TOOL="tini" && \
 RUN echo "Install M$ .NET Core SDK x64" && \
     apt-get install -y apt-transport-https && \
     ZIP=/tmp/packages-microsoft-prod.deb && \
-    curl -fsSL https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb -o ${ZIP} && \
+    URL="https://packages.microsoft.com/config/ubuntu/18.04/packages-microsoft-prod.deb" && \
+    curl -fsSL ${URL} -o ${ZIP} && \
     dpkg -i ${ZIP} && \
     rm -f ${ZIP} && \
     apt-get update -y && \
-    apt-get install -y dotnet-sdk-2.1
+    apt-get install -y $(apt-cache search dotnet-sdk- | tail -n -1 | cut -d ' ' -f1)
 
 RUN echo "Cleanup" && \
     apt-get clean && \
