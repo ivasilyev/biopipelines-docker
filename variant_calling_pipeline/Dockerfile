@@ -196,7 +196,8 @@ RUN TOOL="Canvas" && \
     # The archive also contains the redundant empty folder
     rm -rf ${ZIP} /opt/${VER} && \
     mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
-    chmod a+x -R /opt/${TOOL}
+    chmod a+x -R /opt/${TOOL} && \
+    echo "${TOOL} placed into \"/opt/${TOOL}\""
 
 RUN TOOL="Canvas-1.35.1.1316+master_x64" && \
     echo "Download ${TOOL}" && \
