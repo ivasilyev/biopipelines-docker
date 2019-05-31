@@ -211,6 +211,20 @@ RUN TOOL="Canvas-1.35.1.1316+master_x64" && \
     rm -rf ${ZIP} /opt/${VER} && \
     chmod a+x -R /opt/${TOOL}
 
+RUN TOOL="snpEff" && \
+    echo "Download ${TOOL}" && \
+    REPO="s-andrews/FastQC" && \
+    URL="https://netix.dl.sourceforge.net/project/snpeff/snpEff_latest_core.zip" && \
+    ZIP=/tmp/${TOOL}.zip && \
+    curl -fsSL ${URL} -o ${ZIP} && \
+    echo "${TOOL} downloaded" && \
+    unzip ${ZIP} -d /opt/ && \
+    rm -f ${ZIP} && \
+    # The archive also contains the 'clinEff' tool dir
+    chmod a+x -R /opt/${TOOL} /opt/clinEff && \
+    ln -s "/opt/${TOOL}/fastqc" /usr/local/bin/fastqc && \
+    echo "${TOOL} placed into \"/opt/${TOOL}\""
+
 RUN echo "Install packages for Python 3" && \
     ln -sfn /usr/bin/python3 /usr/bin/python && \
     ln -sfn /usr/bin/pip3 /usr/bin/pip && \
