@@ -48,6 +48,7 @@ RUN TOOL="miniconda" && \
     echo 'export PATH=${PATH}:/opt/conda/bin' > /etc/profile.d/conda.sh && \
     bash ${_SH} -b -p "/opt/conda" && \
     rm -f ${_SH} && \
+    chmod 777 -R /opt/conda && \
     echo "${TOOL} was installed"
 
 RUN echo "Cleanup" && \
@@ -66,6 +67,7 @@ USER docker
 
 # Update Path variables
 ENV HOME=/home/docker
+ENV PATH=${PATH}:/opt/conda/bin
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 CMD ["bash"]
