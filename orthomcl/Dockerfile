@@ -22,7 +22,7 @@ RUN echo "Software install" && \
             mysql-server \
             libmysqlclient-dev \
             perl \
-            python3 \
+            python3-dev \
             python3-pip
 
 RUN echo "Cleanup" && \
@@ -76,7 +76,7 @@ RUN TOOL="mcl" && \
     mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
     chmod a+x -R /opt/${TOOL} && \
     cd /opt/${TOOL} && \
-    ./configure --enable-blast --prefix=/opt/${TOOL} && \
+    ./configure --enable-blast && \
     make && \
     make install \ &&
     cd / && \
@@ -97,7 +97,19 @@ RUN TOOL="diamond" && \
     tar xf ${ZIP} -C /opt/${TOOL} && \
     rm -f ${ZIP} && \
     chmod a+x -R /opt/${TOOL} && \
-    ln -s "/opt/${TOOL}/fastqc" /usr/local/bin/diamond && \
+    ln -s "/opt/${TOOL}/diamond" /usr/local/bin/diamond && \
+    echo "${TOOL} was placed into \"/opt/${TOOL}\""
+
+RUN TOOL="orthomcl" && \
+    echo "Download ${TOOL}" && \
+    URL="https://orthomcl.org/common/downloads/software/v2.0/orthomclSoftware-v2.0.9.tar.gz" && \
+    ZIP=/tmp/${TOOL}.tar.gz && \
+    curl -fsSL ${URL} -o ${ZIP} && \
+    echo "${TOOL} was downloaded" && \
+    tar xf ${ZIP} -C /opt/ && \
+    rm -f ${ZIP} && \
+    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
+    chmod a+x -R /opt/${TOOL} && \
     echo "${TOOL} was placed into \"/opt/${TOOL}\""
 
 
@@ -112,68 +124,10 @@ USER docker
 
 # Update Path variables
 ENV HOME=/home/docker
-ENV PATH=$PATH:/opt/ncbi-blast
+ENV PATH=$PATH:/opt/ncbi-blast:/opt/orthomcl/bin
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 CMD ["bash"]
 
 # Setup the default directory
 WORKDIR /home/docker
-
-
-
-
-
-RUN echo "Install NCBI BLAST" && \
-    mkdir -p /opt /tmp && \
-    curl -fsSL ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/ncbi-blast-2.9.0+-x64-linux.tar.gz -o /tmp/ncbi-blast.tar.gz && \
-    tar -xzvf /tmp/ncbi-blast.tar.gz -C /opt/ && \
-    rm -f /tmp/ncbi-blast.tar.gz && \
-    mv $(ls -d /opt/* | grep ncbi-blast) /opt/ncbi-blast
-
-RUN echo "Install MCL" && \
-    curl -fsSL https://micans.org/mcl/src/mcl-latest.tar.gz -o /tmp/mcl.tar.gz && \
-    tar -xzvf /tmp/mcl.tar.gz -C /tmp/ && \
-    rm -f /tmp/mcl.tar.gz && \
-    mv $(ls -d /tmp/* | grep mcl) /tmp/mcl && \
-    cd /tmp/mcl && \
-    ./configure --enable-blast --prefix=/tmp/mcl \ &&
-    make install \ &&
-    cd .. \ &&
-    rm -rf /tmp/mcl
-
-RUN echo "Install OrthoMCL"
-
-# Install some utilities
-RUN yum install -y wget tar perl perl-DBI perl-DBD-MySQL gcc make mysql
-
-# Make a software folder
-RUN mkdir /software
-
-# Install blast
-RUN cd /software \
-    && wget ftp://ftp.ncbi.nlm.nih.gov/blast/executables/release/LATEST/blast-2.2.26-x64-linux.tar.gz \
-    && tar -xzvf blast-2.2.26-x64-linux.tar.gz \
-    && rm blast-2.2.26-x64-linux.tar.gz
-
-# Install MCL
-RUN cd /software \
-    && wget http://micans.org/mcl/src/mcl-14-137.tar.gz \
-    && tar -xzvf mcl-14-137.tar.gz \
-    && rm mcl-14-137.tar.gz \
-    && cd /software/mcl-14-137 \
-    && ./configure --enable-blast --prefix=/software/mcl \
-    && make install \
-    && cd /software \
-    && rm -rf /software/mcl-14-137
-
-# Install OrthoMCL
-RUN cd /software \
-    && wget http://www.orthomcl.org/common/downloads/software/v2.0/orthomclSoftware-v2.0.9.tar.gz \
-    && tar -xzvf orthomclSoftware-v2.0.9.tar.gz \
-    && rm orthomclSoftware-v2.0.9.tar.gz
-
-# Setup the paths
-ENV PATH $PATH:/software/blast-2.2.26/bin
-ENV PATH $PATH:/software/mcl/bin
-ENV PATH $PATH:/software/orthomclSoftware-v2.0.9/bin
