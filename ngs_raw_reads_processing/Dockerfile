@@ -45,7 +45,7 @@ RUN TOOL="tini" && \
 
 RUN TOOL="bcl2fastq" && \
     echo "Download ${TOOL}" && \
-    PAGE=$(curl -s https://support.illumina.com/downloads/bcl2fastq-conversion-software-v2-20.html) && \
+    PAGE=$(curl -fsSL "https://support.illumina.com/downloads/bcl2fastq-conversion-software-v2-20.html") && \
     VER=$(echo "${PAGE}" | grep "Linux tarball" | grep -Po 'v[^ a-z]+') && \
     echo "Version ${VER} found" && \
     URL="https://support.illumina.com/content/dam/illumina-support/documents/downloads/software/bcl2fastq/bcl2fastq2-v2-20-0-linux-x86-64.zip" && \
