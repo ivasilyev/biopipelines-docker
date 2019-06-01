@@ -115,9 +115,8 @@ RUN TOOL="orthomcl" && \
 
 # Create user docker with password docker
 RUN groupadd fuse && \
-    useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups fuse docker && \
-    usermod -aG wheel docker && \
-    echo -e "docker\ndocker" | passwd docker
+    useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
+    echo `echo "docker\ndocker\n" | passwd docker`
 
 # Change user (CLI: su - docker)
 USER docker
