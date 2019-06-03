@@ -1,111 +1,39 @@
-FROM ubuntu:19.04
+FROM ivasilyev/conda-base:latest
 # Base image CLI:
-# IMG=ubuntu:19.04 && docker pull ${IMG} && docker run --rm --net=host -it ${IMG} bash
-
-ENV DEBIAN_FRONTEND noninteractive
-
-RUN echo "Software update" && \
-    apt-get -y update && \
-    apt-get -y install \
-            software-properties-common \
-            apt-utils && \
-    add-apt-repository universe && \
-    add-apt-repository multiverse
+# IMG=ivasilyev/conda-base:latest && docker pull ${IMG} && docker run --rm --net=host -it ${IMG} bash
 
 RUN echo "Software install" && \
-    apt-get clean all && \
     apt-get update -y && \
     apt-get upgrade -y && \
     apt-get install -y  \
-            build-essential \
-            curl \
+            cpanminus \
             mysql-server \
-            libmysqlclient-dev \
-            perl \
-            python3-dev \
-            python3-pip
+            libmysqlclient-dev
 
 RUN echo "Cleanup" && \
-    apt-get clean && \
+    apt-get autoremove --purge -y && \
+    apt-get clean all && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN TOOL="tini" && \
-    echo "Download ${TOOL}" && \
-    REPO="krallin/tini" && \
-    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
-    echo "Version ${VER} was found" && \
-    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep -Po "\"http.+\.deb\"" | sed 's/\"//g' | sort | tail -n 1) && \
-    ZIP=/tmp/${TOOL}.deb && \
-    curl -fsSL ${URL} -o ${ZIP} && \
-    echo "${TOOL} was downloaded" && \
-    dpkg -i ${ZIP} && \
-    rm -f ${ZIP} && \
-    echo "${TOOL} was installed"
+RUN conda config --add channels bioconda && \
+    conda upgrade -y conda
 
-RUN TOOL="mcl" && \
-    echo "Download ${TOOL}" && \
-    URL="https://micans.org/mcl/src/mcl-latest.tar.gz" && \
-    ZIP=/tmp/${TOOL}.tar.gz && \
-    curl -fsSL ${URL} -o ${ZIP} && \
-    echo "${TOOL} was downloaded" && \
-    tar xf ${ZIP} -C /opt/ && \
-    rm -f ${ZIP} && \
-    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
-    chmod a+x -R /opt/${TOOL} && \
-    cd /opt/${TOOL} && \
-    ./configure --enable-blast && \
-    make && \
-    make install \ &&
-    cd / && \
-    rm -rf /opt/${TOOL} && \
-    echo "${TOOL} was installed"
+RUN echo "Install software via Conda" && \
+    conda install -c bioconda -y diamond blast mcl orthomcl && \
+    conda update --all -y
 
-RUN TOOL="diamond" && \
-    echo "Download ${TOOL}" && \
-    REPO="bbuchfink/diamond" && \
-    PAGE=$(curl -s https://api.github.com/repos/${REPO}/releases/latest) && \
-    VER=$(echo "${PAGE}" | grep "tag_name" | cut -d ":" -f 2,3 | tr -d '\", ') && \
-    echo "Version ${VER} was found" && \
-    URL=$(echo "${PAGE}" | grep "browser_download_url" | grep "linux64.tar.gz" | awk '{print $NF}' | tr -d '\", ') && \
-    ZIP=/tmp/${TOOL}.tar.gz && \
-    curl -fsSL ${URL} -o ${ZIP} && \
-    echo "${TOOL} was downloaded" && \
-    mkdir -p /opt/${TOOL} && \
-    tar xf ${ZIP} -C /opt/${TOOL} && \
-    rm -f ${ZIP} && \
-    chmod a+x -R /opt/${TOOL} && \
-    ln -s "/opt/${TOOL}/diamond" /usr/local/bin/diamond && \
-    echo "${TOOL} was placed into \"/opt/${TOOL}\""
+RUN echo "Install modules via CPANM" && \
+    cpanm DBI DBD::mysql
 
-RUN TOOL="orthomcl" && \
-    echo "Download ${TOOL}" && \
-    URL="https://orthomcl.org/common/downloads/software/v2.0/orthomclSoftware-v2.0.9.tar.gz" && \
-    ZIP=/tmp/${TOOL}.tar.gz && \
-    curl -fsSL ${URL} -o ${ZIP} && \
-    echo "${TOOL} was downloaded" && \
-    tar xf ${ZIP} -C /opt/ && \
-    rm -f ${ZIP} && \
-    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
-    chmod a+x -R /opt/${TOOL} && \
-    echo "${TOOL} was placed into \"/opt/${TOOL}\""
+# update-alternatives: using /etc/mysql/mysql.cnf to provide /etc/mysql/my.cnf (my.cnf) in auto mode
+COPY my.cnf /etc/mysql/
 
-
-# Create user docker with password docker
-RUN groupadd fuse && \
-    useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
-    echo `echo "docker\ndocker\n" | passwd docker`
-
-# Change user (CLI: su - docker)
-USER docker
-
-# Update Path variables
-ENV HOME=/home/docker
-ENV PATH=$PATH:/opt/orthomcl/bin
+# Add scripts to the image
+RUN mkdir -p /opt/my_tools
+COPY run_orthomcl.py pipeline_handler.py orthomcl.config /opt/my_tools/
+RUN chmod a+x /opt/my_tools/*
+ENV PATH=${PATH}:/opt/my_tools
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
-CMD ["bash"]
-
-# Setup the default directory
-WORKDIR /home/docker
+CMD ["pipeline_handler.py"]

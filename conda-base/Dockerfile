@@ -21,6 +21,7 @@ RUN echo "Software install" && \
             build-essential \
             curl \
             fuse \
+            nano \
             python3-dev \
             python3-pip \
             unzip
@@ -50,7 +51,7 @@ RUN TOOL="miniconda" && \
     echo "${TOOL} was installed"
 
 RUN echo "Cleanup" && \
-    apt-get autoremove --purge && \
+    apt-get autoremove --purge -y && \
     apt-get clean all && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
