@@ -102,7 +102,7 @@ USER docker
 
 # Update Path variables
 ENV HOME=/home/docker
-ENV PATH=$PATH:/opt/ncbi-blast:/opt/orthomcl/bin
+ENV PATH=$PATH:/opt/orthomcl/bin
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 CMD ["bash"]
