@@ -21,9 +21,6 @@ RUN echo "Software install" && \
             build-essential \
             curl \
             fuse \
-            git \
-            curl \
-            openjdk-8-jre \
             python3-dev \
             python3-pip \
             unzip
@@ -58,20 +55,10 @@ RUN echo "Cleanup" && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Create user docker with password docker
-RUN groupadd fuse && \
-    useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
-    echo `echo "docker\ndocker\n" | passwd docker`
-
-# Change user (CLI: su - docker)
-USER docker
-
-# Update Path variables
-ENV HOME=/home/docker
 ENV PATH=${PATH}:/opt/conda/bin
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 CMD ["bash"]
 
 # Setup the default directory
-WORKDIR /home/docker
+WORKDIR /
