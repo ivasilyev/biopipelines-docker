@@ -21,8 +21,8 @@ Stages:
 3 - Database processing, 
 4 - Post processing (MCL)
 """)
-        parser.add_argument('-t', '--table', metavar='<input_table.tsv>', required=True,
-                            help="A table containing the absolute paths of proteome FASTA in the first column "
+        parser.add_argument('-a', '--abbr_table', metavar='<input_table.tsv>', required=True,
+                            help="A table containing paths of proteome FASTA in the first column "
                                  "and species abbreviations to use (column 2)")
         parser.add_argument('-s', '--start', help='Stage to start the pipeline', type=int, default=1,
                             metavar='<1|2|3|4>', choices=[1, 2, 3, 4])
