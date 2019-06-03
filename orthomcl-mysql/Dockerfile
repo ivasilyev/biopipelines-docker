@@ -27,11 +27,11 @@ RUN echo "Install modules via CPANM" && \
     cpanm DBI DBD::mysql
 
 # update-alternatives: using /etc/mysql/mysql.cnf to provide /etc/mysql/my.cnf (my.cnf) in auto mode
-COPY my.cnf /etc/mysql/
+COPY orthomcl-mysql/my.cnf /etc/mysql/
 
 # Add scripts to the image
 RUN mkdir -p /opt/my_tools
-COPY run_orthomcl.py pipeline_handler.py orthomcl.config /opt/my_tools/
+COPY orthomcl-mysql/run_orthomcl.py orthomcl-mysql/pipeline_handler.py orthomcl-mysql/orthomcl.config /opt/my_tools/
 RUN chmod a+x /opt/my_tools/*
 ENV PATH=${PATH}:/opt/my_tools
 
