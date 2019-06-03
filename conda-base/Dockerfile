@@ -3,6 +3,7 @@ FROM ubuntu:19.04
 # IMG=ubuntu:19.04 && docker pull ${IMG} && docker run --rm -it --net=host ${IMG} bash
 
 ENV DEBIAN_FRONTEND noninteractive
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 RUN echo "Software update" && \
     apt-get update -y && \
