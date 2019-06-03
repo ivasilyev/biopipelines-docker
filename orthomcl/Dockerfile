@@ -44,27 +44,6 @@ RUN TOOL="tini" && \
     rm -f ${ZIP} && \
     echo "${TOOL} was installed"
 
-RUN TOOL="ncbi-blast" && \
-    echo "Download ${TOOL}" && \
-    URL1="ftp://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/LATEST/" && \
-    PAGE=$(curl -fsSL ${URL1}) && \
-    URL2=${URL1}$(echo "${PAGE}" | grep "src.tar.gz$" | awk '{print $NF}') && \
-    ZIP=/tmp/${TOOL}.tar.gz && \
-    curl -fsSL ${URL2} -o ${ZIP} && \
-    echo "${TOOL} was downloaded" && \
-    tar xf ${ZIP} -C /opt/ && \
-    rm -f ${ZIP} && \
-    mv $(ls -d /opt/${TOOL}*) /opt/${TOOL} && \
-    chmod a+x -R /opt/${TOOL} && \
-    cd /opt/${TOOL}/c++ && \
-    ./configure && \
-    cd /opt/${TOOL}/c++/ReleaseMT/build && \
-    make all_r && \
-    cp -r /opt/${TOOL}/c++/ReleaseMT/bin/* /opt/${TOOL}/ && \
-    cd / && \
-    rm -rf /opt/${TOOL}/c++ && \
-    echo "${TOOL} was installed"
-
 RUN TOOL="mcl" && \
     echo "Download ${TOOL}" && \
     URL="https://micans.org/mcl/src/mcl-latest.tar.gz" && \
