@@ -11,8 +11,8 @@ import subprocess
 class SampleDataLine:
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
-        self.sample_name = sample_name
-        self.sample_reads = sample_reads
+        self.name = sample_name
+        self.reads = sample_reads
         self.taxa = taxa
         _MAX_PREFIX_LENGTH = 4
         if len(self.taxa[1]) >= _MAX_PREFIX_LENGTH - 1:
@@ -20,7 +20,7 @@ class SampleDataLine:
         else:
             self.prefix = self.taxa[0][:_MAX_PREFIX_LENGTH - len(self.taxa[1])].capitalize() + self.taxa[1].lower()
     def update_reads(self, reads: list):
-        return SampleDataLine(sample_name=self.sample_name, sample_reads=reads, taxa=self.taxa.copy())
+        return SampleDataLine(sample_name=self.name, sample_reads=reads, taxa=self.taxa.copy())
 
 
 class Handler:
@@ -32,7 +32,8 @@ class Handler:
             logging.WARNING("The path exists: '{}'".format(self.output_dir_root))
         os.makedirs(self.output_dir_root, exist_ok=True)
         # Output paths for each step
-        self.output_dirs = {i: os.path.normpath(os.path.join(self.output_dir_root, "{}_{}".format(idx, i))) for idx, i in self.TOOLS}
+        self.output_dirs = {i: os.path.normpath(os.path.join(self.output_dir_root, "{}_{}".format(idx, i))) for idx, i
+                            in enumerate(self.TOOLS)}
     @staticmethod
     def filename_only(path):
         return os.path.splitext(os.path.basename(os.path.normpath(path)))[0]
@@ -67,17 +68,36 @@ class Handler:
     # Pipeline steps
     def run_fastqc(self, single_reads_file: str):
         # One per read file (two per paired-end sample)
+        # TODO implement for loop to make it call one per sample
         stage_dir = os.path.join(self.output_dirs["FastQC"], self.filename_only(single_reads_file))
         self.clean_path(stage_dir)
         os.chdir(stage_dir)
         cmd = 'bash -c "fastqc {} && chmod -R 777 {}"'.format(single_reads_file, stage_dir)
-        os.chdir(self.output_dir_root)
         log = self.run_quay_image("fastqc", cmd=cmd)
         print(log)
+        os.chdir(self.output_dir_root)
     def run_trimmomatic(self, sampledata: SampleDataLine):
         # One per sample
         stage_dir = os.path.join(self.output_dirs["Trimmomatic"])
         self.clean_path(stage_dir)
+        os.chdir(stage_dir)
+        trimmed_reads = [
+            os.path.join(stage_dir, "{}_trimmomatic.{}.{}".format(sampledata.name, idx, os.path.splitext(i)[-1])) for
+            idx, i in enumerate(sampledata.reads)]
+        untrimmed_reads = [os.path.join(
+            stage_dir, "{}_trimmomatic_untrinned.{}.{}".format(
+                sampledata.name, idx, os.path.splitext(i)[-1])) for idx, i in enumerate(sampledata.reads)]
+        cmd = """
+        bash -c \
+            "trimmomatic PE -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
+             ILLUMINACLIP:adapters.fasta:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 && \
+             chmod -R 777 {o}"
+        """.format(r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0], t2=trimmed_reads[1],
+                   u1=untrimmed_reads[0], u2=untrimmed_reads[1], o=stage_dir)
+        log = self.run_quay_image("trimmomatic", cmd=cmd)
+        print(log)
+        os.chdir(self.output_dir_root)
+        return sampledata.update_reads(trimmed_reads)
     def run_prokka(self, genus: str, species: str, sample_name: str, assembly: str, out_dir: str):
         out_dir = "\'{}\'".format(os.path.normpath(out_dir))
         cmd = """
