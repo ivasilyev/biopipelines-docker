@@ -9,17 +9,15 @@ import subprocess
 
 
 class SampleDataLine:
-    def __init__(self, sample_name: str, sample_reads: list, taxa: list):
+    def __init__(self, sample_name: str, sample_reads: list, taxa: list, genome: str = None, plasmid: str = None):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
         self.name = sample_name.strip()
         self.reads = [i.strip() for i in sample_reads]
         self.extension = self.get_extension(self.reads[0].strip())
-        self.taxa = taxa
-        _MAX_PREFIX_LENGTH = 4
-        if len(self.taxa[1]) >= _MAX_PREFIX_LENGTH - 1:
-            self.prefix = self.taxa[0][0].upper() + self.taxa[1][:_MAX_PREFIX_LENGTH - 1].lower()
-        else:
-            self.prefix = self.taxa[0][:_MAX_PREFIX_LENGTH - len(self.taxa[1])].capitalize() + self.taxa[1].lower()
+        self.taxa = self._parse_taxa(taxa)
+        self.prefix = self._set_prefix()
+        self.genome = genome
+        self.plasmid = plasmid
     @staticmethod
     def get_extension(path):
         import pathlib  # Since Python 3.4
@@ -27,8 +25,34 @@ class SampleDataLine:
         if len(suf) > 1:  # e.g. '*.fq.gz'
             return "".join(suf[-2:])
         return "".join(suf)
+    @staticmethod
+    def _parse_taxa(taxa: list):
+        out = {i: "" for i in ("genus", "species", "strain")}
+        taxa = [j for j in [i.strip() for i in taxa] if len(j) > 0]
+        if len(taxa) == 0:
+            raise ValueError("Empty taxon data!")
+        out["genus"] = taxa[0].capitalize()
+        if len(taxa) > 0:
+            if not any(i.isdigit() for i in taxa[1]):
+                sp = taxa[1].replace(".", "").lower()
+                if sp != "sp":
+                    out["species"] = sp
+            else:
+                out["strain"] = taxa[1]
+        if len(taxa) > 1:
+            out["strain"] = taxa[2]
+        return out
+    def _set_prefix(self):
+        _MAX_PREFIX_LENGTH = 4
+        if len(self.taxa[1]) >= _MAX_PREFIX_LENGTH - 1:
+            return self.taxa[0][0].upper() + self.taxa[1][:_MAX_PREFIX_LENGTH - 1].lower()
+        else:
+            return self.taxa[0][:_MAX_PREFIX_LENGTH - len(self.taxa[1])].capitalize() + self.taxa[1].lower()
     def update_reads(self, reads: list):
-        return SampleDataLine(sample_name=self.name, sample_reads=reads, taxa=self.taxa.copy())
+        import copy
+        dc = copy.deepcopy(self)
+        dc.reads = reads
+        return dc
 
 
 class Handler:
