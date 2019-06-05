@@ -13,12 +13,20 @@ class SampleDataLine:
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
         self.name = sample_name
         self.reads = sample_reads
+        self.extension = self.get_extension(self.reads[0])
         self.taxa = taxa
         _MAX_PREFIX_LENGTH = 4
         if len(self.taxa[1]) >= _MAX_PREFIX_LENGTH - 1:
             self.prefix = self.taxa[0][0].upper() + self.taxa[1][:_MAX_PREFIX_LENGTH - 1].lower()
         else:
             self.prefix = self.taxa[0][:_MAX_PREFIX_LENGTH - len(self.taxa[1])].capitalize() + self.taxa[1].lower()
+    @staticmethod
+    def get_extension(path):
+        import pathlib  # Since Python 3.4
+        suf = pathlib.Path(path).suffixes
+        if len(suf) > 1:  # e.g. '*.fq.gz'
+            return "".join(suf[-2:])
+        return "".join(suf)
     def update_reads(self, reads: list):
         return SampleDataLine(sample_name=self.name, sample_reads=reads, taxa=self.taxa.copy())
 
