@@ -11,9 +11,9 @@ import subprocess
 class SampleDataLine:
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
-        self.name = sample_name
-        self.reads = sample_reads
-        self.extension = self.get_extension(self.reads[0])
+        self.name = sample_name.strip()
+        self.reads = [i.strip() for i in sample_reads]
+        self.extension = self.get_extension(self.reads[0].strip())
         self.taxa = taxa
         _MAX_PREFIX_LENGTH = 4
         if len(self.taxa[1]) >= _MAX_PREFIX_LENGTH - 1:
@@ -71,41 +71,92 @@ class Handler:
         if os.path.exists(path):
             logging.WARNING("The path exists and will be replaced with the new data: '{}'".format(path))
             if path != "/":  # I know this is useless
-                _ = subprocess.getoutput("rm -rf {}".format(os.path.normpath(path)))
-        os.makedirs(path, exist_ok=True)  # path could be created under root
+                print(subprocess.getoutput("rm -rf {}".format(os.path.normpath(path))))
+        os.makedirs(path, exist_ok=True)  # path could be created under root and could not be deleted easily
+    @staticmethod
+    def process_reads(sampledata: SampleDataLine, out_dir: str, suffix: str):
+        out_dir, suffix = [i.strip() for i in (out_dir, suffix)]
+        processed_reads = [
+            os.path.join(out_dir, "{}_{}.{}{}".format(sampledata.name, suffix, idx + 1, sampledata.extension)) for
+            idx, i in enumerate(sampledata.reads)]
+        return sampledata.update_reads(processed_reads)
     # Pipeline steps
-    def run_fastqc(self, single_reads_file: str):
-        # One per read file (two per paired-end sample)
-        # TODO implement for loop to make it call one per sample
-        stage_dir = os.path.join(self.output_dirs["FastQC"], self.filename_only(single_reads_file))
-        self.clean_path(stage_dir)
-        os.chdir(stage_dir)
-        cmd = 'bash -c "fastqc {} && chmod -R 777 {}"'.format(single_reads_file, stage_dir)
-        log = self.run_quay_image("fastqc", cmd=cmd)
-        print(log)
+    def run_fastqc(self, sampledata: SampleDataLine):
+        # One per read sample
+        for idx, reads_file in enumerate(sampledata.reads):
+            stage_dir = os.path.join(self.output_dirs["FastQC"], "{}_{}".format(sampledata.name, idx + 1))
+            self.clean_path(stage_dir)
+            os.chdir(stage_dir)
+            cmd = "bash -c 'fastqc {} && chmod -R 777 {}'".format(reads_file, stage_dir)
+            log = self.run_quay_image("fastqc", cmd=cmd)
+            print(log)
         os.chdir(self.output_dir_root)
+        # Reads are unchanged, so there is nothing to return
     def run_trimmomatic(self, sampledata: SampleDataLine):
         # One per sample
-        stage_dir = os.path.join(self.output_dirs["Trimmomatic"])
+        _TOOL = "trimmomatic"
+        stage_dir = os.path.join(self.output_dirs["Trimmomatic"], sampledata.name)
         self.clean_path(stage_dir)
         os.chdir(stage_dir)
-        trimmed_reads = [
-            os.path.join(stage_dir, "{}_trimmomatic.{}.{}".format(sampledata.name, idx, os.path.splitext(i)[-1])) for
-            idx, i in enumerate(sampledata.reads)]
-        untrimmed_reads = [os.path.join(
-            stage_dir, "{}_trimmomatic_untrinned.{}.{}".format(
-                sampledata.name, idx, os.path.splitext(i)[-1])) for idx, i in enumerate(sampledata.reads)]
+        trimmed_sampledata = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
+        untrimmed_sampledata = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrinned".format(_TOOL))
         cmd = """
         bash -c \
-            "trimmomatic PE -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
-             ILLUMINACLIP:adapters.fasta:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 && \
-             chmod -R 777 {o}"
-        """.format(r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0], t2=trimmed_reads[1],
-                   u1=untrimmed_reads[0], u2=untrimmed_reads[1], o=stage_dir)
-        log = self.run_quay_image("trimmomatic", cmd=cmd)
+            '{T} PE -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
+                         ILLUMINACLIP:adapters.fasta:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 && \
+             chmod -R 777 {o}'
+        """.format(T=_TOOL, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_sampledata.reads[0],
+                   t2=trimmed_sampledata.reads[1], u1=untrimmed_sampledata.reads[0], u2=untrimmed_sampledata.reads[1])
+        log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
         os.chdir(self.output_dir_root)
-        return sampledata.update_reads(trimmed_reads)
+        return trimmed_sampledata
+    def run_cutadapt(self, sampledata: SampleDataLine):
+        # One per sample
+        _TOOL = "cutadapt"
+        _ADAPTER = "AGATCGGAAGAG"
+        stage_dir = os.path.join(self.output_dirs["cutadapt"], sampledata.name)
+        self.clean_path(stage_dir)
+        os.chdir(stage_dir)
+        trimmed_sampledata = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
+        cmd = """
+        bash -c 'cutadapt -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2} && chmod -R 777 {o}'
+        """.format(a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_sampledata.reads[0],
+                   t2=trimmed_sampledata.reads[1], o=stage_dir)
+        log = self.run_quay_image(_TOOL, cmd=cmd)
+        print(log)
+        os.chdir(self.output_dir_root)
+        return trimmed_sampledata
+    def run_spades(self, sampledata: SampleDataLine):
+        _TOOL = "spades"
+        """
+        Sample launch:
+        IMG=quay.io/biocontainers/spades:3.13.1--0 && \ 
+        docker pull $IMG && \
+        docker run --rm --net=host -it $IMG bash -c \
+            'TOOL=$(find /usr/local/share/ -name spades.py | grep spades | head -n 1) && $TOOL -v'
+        """
+        stage_dir = os.path.join(self.output_dirs["cutadapt"], sampledata.name)
+        self.clean_path(stage_dir)
+        os.chdir(stage_dir)
+        assemblies = {"genome": "", "plasmid": ""}
+        for assembly_type in assemblies:
+            assembly_dir = os.path.join(stage_dir, assembly_type)
+            cmd_append = ""
+            if assembly_type == "plasmid":
+                cmd_append = " --plasmid"
+            cmd = """
+            bash -c \
+                'TOOL=$(find /usr/local/share/ -name {t}.py | grep {t} | head -n 1) && \
+                 $TOOL --careful -o {o} -1 {r1} -2 {r2}{a} && \
+                 chmod -R 777 {o}'
+            """.format(o=assembly_dir, t=_TOOL, r1=sampledata.reads[0], r2=sampledata.reads[1], a=cmd_append)
+            log = self.run_quay_image(_TOOL, cmd=cmd)
+            print(log)
+            assemblies[assembly_type] = os.path.join(assembly_dir, "contigs.fasta")
+        os.chdir(self.output_dir_root)
+        assemblies["name"] = sampledata.name
+        return assemblies
     def run_prokka(self, genus: str, species: str, sample_name: str, assembly: str, out_dir: str):
         out_dir = "\'{}\'".format(os.path.normpath(out_dir))
         cmd = """
