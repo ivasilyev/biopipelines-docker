@@ -203,46 +203,74 @@ class Handler:
                 taxa_append = "{} --{} {}".format(taxa_append, taxon_name, taxon_value)
         cmd = """
         bash -c \
-            'prokka --cpu $(nproc) --outdir {o} --force --prefix {p} --locustag prokka {t} {a} && \
-             chmod -R 777 {o}'
-        """.format(a=sampledata.genome, t=taxa_append, p=sampledata.prefix, o=stage_dir)
+            '{t} --cpu $(nproc) --outdir {o} --force --prefix {p} --locustag prokka {a} {g} && chmod -R 777 {o}'
+        """.format(t=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
         os.chdir(self.output_dir_root)
         # TODO Implement return format
-    def run_srst2(self, genus: str, species: str, pe_fasta_1: str, pe_fasta_2: str, out_dir: str):
-        genus = genus.strip().capitalize()
-        species = species.strip().lower()
-        out_dir = "\'{}\'".format(os.path.normpath(out_dir))
-        mlst_db_local = "\'{}_{}.fasta\'".format(genus, species)
-        mlst_definitions_local = "\'{}{}.txt\'".format(genus.lower()[0], species)
+    def run_srst2(self, sampledata: SampleDataLine):
+        # One per sample, full cleaning is NOT required
+        _TOOL = "srst2"
+        """
+        # Sample launch:
+        IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \ 
+        docker pull $IMG && \
+        docker run --rm --net=host -it $IMG getmlst.py -h
+        
+        docker run --rm --net=host -it $IMG srst2 -h
+        """
+        tool_dir = self.output_dirs["srst2"]
+        stage_dir = os.path.join(tool_dir, sampledata.name)
+        os.chdir(stage_dir)
+        self.clean_path(stage_dir)
+        genus, species = (sampledata.taxa["genus"], sampledata.taxa["species"])
+        mlst_db_local = "{}_{}.fasta".format(genus, species)
+        mlst_definitions_local = "{}{}.txt".format(genus.lower()[0], species)
+        mlst_db_abs, mlst_definitions_abs = [os.path.join(tool_dir, i) for i in (mlst_db_local, mlst_definitions_local)]
+        """
+        # Sample output for `getmlst.py --species 'Klebsiella pneumoniae'"`
+        
+        For SRST2, remember to check what separator is being used in this allele database
+
+        Looks like --mlst_delimiter '_'
+
+        >gapA_1  --> -->   ('gapA', '_', '1')
+
+        Suggested srst2 command for use with this MLST database:
+
+        srst2 --output test --input_pe *.fastq.gz --mlst_db Klebsiella_pneumoniae.fasta --mlst_definitions kpneumoniae.txt --mlst_delimiter '_'
+        """
         # Default cmd
-        srst2_cmd_processed = """
-        srst2 --output test --input_pe *.fastq.gz --mlst_db {db} --mlst_definitions {de} --mlst_delimiter '_'
-        """.format(db=mlst_db_local, de=mlst_definitions_local)
-        if not all(
-                os.path.isfile(i) for i in (os.path.join(out_dir, i) for i in (mlst_db_local, mlst_definitions_local))):
+        srst2_cmd = """
+        srst2 --output test --input_pe *.fastq.gz --mlst_db {} --mlst_definitions {} --mlst_delimiter '_'
+        """.format(mlst_db_local, mlst_definitions_local)
+        if not all(os.path.isfile(i) for i in (mlst_db_abs, mlst_definitions_abs)):
+            os.chdir(tool_dir)
             getmlst_cmd = """
             bash -c \
-                "mkdir -p {o} && \
-                 cd {o} && \
-                 getmlst.py --species \'{g} {s}\'"
-            """.format(g=genus, s=species, o=out_dir)
+                'cd {o} && getmlst.py --species \'{g} {s}\''
+            """.format(g=genus, s=species, o=tool_dir)
             getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
-            srst2_cmd_raw = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
-            if not srst2_cmd_raw.startswith("srst2"):
-                print(getmlst_log)
-                raise ValueError("`getmlst.py` did not finished correctly!")
-            srst2_cmd_processed = srst2_cmd_raw.replace("*.fastq.gz", " ".join([pe_fasta_1, pe_fasta_2])).replace(
-                "--output test", "--output {}_MLST".format(genus))
-        srst2_cmd_processed = """
+            srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
+            print(getmlst_log)
+            if not srst2_cmd.startswith("srst2"):
+                raise ValueError("`getmlst.py` has not finished correctly!")
+            os.chdir(stage_dir)
+        srst2_cmd = srst2_cmd.replace("*.fastq.gz", " ".join([sampledata.reads[0], sampledata.reads[1]])).replace(
+            "--output test", "--output {}_MLST".format(sampledata.prefix)).replace(
+            mlst_db_local, mlst_db_abs).replace(
+            mlst_definitions_local, mlst_definitions_abs)
+        srst2_cmd_full = """
         bash -c \
-            "cd {o} && \
+            'cd {o} && \
              {c} --forward _R1_001 --reverse _R2_001 --log && \
-             chmod -R a+rw {o}"
-        """.format(c=srst2_cmd_processed, o=out_dir)
-        srst2_log = self.run_quay_image("srst2", cmd=srst2_cmd_processed)
+             chmod -R 777 {o}'
+        """.format(c=srst2_cmd.strip(), o=stage_dir)
+        srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
         print(srst2_log)
+        os.chdir(self.output_dir_root)
+        # TODO Implement return format
 
 
 if __name__ == '__main__':
