@@ -106,13 +106,14 @@ class Handler:
         return sampledata.update_reads(processed_reads)
     # Pipeline steps
     def run_fastqc(self, sampledata: SampleDataLine):
+        _TOOL = "fastqc"
         # One per read sample
         for idx, reads_file in enumerate(sampledata.reads):
             stage_dir = os.path.join(self.output_dirs["FastQC"], "{}_{}".format(sampledata.name, idx + 1))
             self.clean_path(stage_dir)
             os.chdir(stage_dir)
-            cmd = "bash -c 'fastqc {} && chmod -R 777 {}'".format(reads_file, stage_dir)
-            log = self.run_quay_image("fastqc", cmd=cmd)
+            cmd = "bash -c '{} {} && chmod -R 777 {}'".format(_TOOL, reads_file, stage_dir)
+            log = self.run_quay_image(_TOOL, cmd=cmd)
             print(log)
         os.chdir(self.output_dir_root)
         # Reads are unchanged, so there is nothing to return
@@ -152,9 +153,10 @@ class Handler:
         os.chdir(self.output_dir_root)
         return trimmed_sampledata
     def run_spades(self, sampledata: SampleDataLine):
+        # One per sample
         _TOOL = "spades"
         """
-        Sample launch:
+        # Sample launch:
         IMG=quay.io/biocontainers/spades:3.13.1--0 && \ 
         docker pull $IMG && \
         docker run --rm --net=host -it $IMG bash -c \
@@ -179,20 +181,35 @@ class Handler:
             print(log)
             assemblies[assembly_type] = os.path.join(assembly_dir, "contigs.fasta")
         os.chdir(self.output_dir_root)
-        assemblies["name"] = sampledata.name
-        return assemblies
-    def run_prokka(self, genus: str, species: str, sample_name: str, assembly: str, out_dir: str):
-        out_dir = "\'{}\'".format(os.path.normpath(out_dir))
+        sampledata.genome = assemblies["genome"]
+        sampledata.plasmid = assemblies["plasmid"]
+        return sampledata
+    def run_prokka(self, sampledata: SampleDataLine):
+        # One per sample
+        _TOOL = "prokka"
+        """
+        # Sample launch:
+        IMG=quay.io/biocontainers/prokka:1.12--pl526_0 && \ 
+        docker pull $IMG && \
+        docker run --rm --net=host -it $IMG prokka
+        """
+        stage_dir = os.path.join(self.output_dirs["Prokka"], sampledata.name)
+        self.clean_path(stage_dir)
+        os.chdir(stage_dir)
+        taxa_append = ""
+        for taxon_name in ("genus", "species", "strain"):
+            taxon_value = sampledata.taxa.get(taxon_name)
+            if len(taxon_value) > 0:
+                taxa_append = "{} --{} {}".format(taxa_append, taxon_name, taxon_value)
         cmd = """
         bash -c \
-            "mkdir -p {o} && \
-             cd {o} && \
-             prokka --cpu $(nproc) --outdir {o} --force --prefix {n} --locustag \'prokka\' \
-                    --genus {g} --species {s} \'{a}\' && \
-             chmod -R 777 {o}"
-        """.format(a=assembly, n=sample_name, g=genus, s=species, o=out_dir)
-        log = self.run_quay_image("prokka", cmd=cmd)
+            'prokka --cpu $(nproc) --outdir {o} --force --prefix {p} --locustag prokka {t} {a} && \
+             chmod -R 777 {o}'
+        """.format(a=sampledata.genome, t=taxa_append, p=sampledata.prefix, o=stage_dir)
+        log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
+        os.chdir(self.output_dir_root)
+        # TODO Implement return format
     def run_srst2(self, genus: str, species: str, pe_fasta_1: str, pe_fasta_2: str, out_dir: str):
         genus = genus.strip().capitalize()
         species = species.strip().lower()
