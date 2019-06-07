@@ -10,6 +10,7 @@ import multiprocessing
 
 
 class SampleDataLine:
+    genome, plasmid, annotation_genbank, reference_nfasta, mlst_results = ("", ) * 5
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
         self.name = sample_name.strip()
@@ -17,7 +18,6 @@ class SampleDataLine:
         self.extension = self.get_extension(self.reads[0].strip())
         self.taxa = self._parse_taxa(taxa)
         self.prefix = self._set_prefix()
-        self.genome, self.plasmid, self.annotation_genbank, self.mlst_results = ("", ) * 4
     @staticmethod
     def get_extension(path):
         import pathlib  # Since Python 3.4
@@ -296,6 +296,7 @@ class Handler:
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
         print(srst2_log)
+        sampledata.reference_nfasta = mlst_db_abs
         sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
         return sampledata
     # Orthologs-based phylogenetic tree construction
