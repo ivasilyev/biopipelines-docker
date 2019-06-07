@@ -1,12 +1,57 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # NOT to be launched with Docker
+# Get command:
+# curl -fsSL https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/pga-pe-pipeline/pipeline_handler.py
 
 import os
 import sys
 import logging
 import subprocess
 import multiprocessing
+
+
+class ArgValidator:
+    sampledata_file, output_dir = (None,) * 2
+    def __init__(self):
+        import argparse
+        parser = argparse.ArgumentParser(description="""
+Run prokaryotic genome analysis pipeline for group of files with given taxa information""".strip(),
+                                         epilog="""
+Stages: https://github.com/boulygina/bioinformatics-pipelines/blob/master/Prokaryotes_analysis/prokaryotes.md
+            """.strip())
+        parser.add_argument(
+            "-i", '--input', metavar='<input.sampledata>', required=True,
+            help="""
+A tab-delimited table file containing information for each sample per row.
+Columns:
+1. Sample name, e.g. 'eco_01'
+2. Paired end reads divided with semicolon, e.g. '/reads/eco_01_R1.fastq.gz;/reads/eco_01_R2.fastq.gz'
+3. Taxon information divided with spaces, e.g. 'Escherichia coli O157:H7'""".strip())
+        parser.add_argument('-o', '--output_dir', metavar='<dir>', help='Output directory', required=True)
+        self._namespace = parser.parse_args()
+        self.validate()
+    @staticmethod
+    def log_and_raise(msg):
+        logging.CRITICAL(msg)
+        raise ValueError(msg)
+    def validate(self):
+        self.sampledata_file = self._namespace.input
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+        else:
+            logging.WARNING("The output directory exists: '{}'".format(self.output_dir))
+
+
+class SampleDataArray:
+    lines = []
+    @staticmethod
+    def parse(file):
+        arr = SampleDataArray()
+        with open(file, mode="r", encoding="utf-8") as f:
+            arr.lines = [SampleDataLine.parse(j) for j in [i.strip() for i in f] if len(j) > 0]
+            f.close()
+        return arr
 
 
 class SampleDataLine:
@@ -18,6 +63,12 @@ class SampleDataLine:
         self.extension = self.get_extension(self.reads[0].strip())
         self.taxa = self._parse_taxa(taxa)
         self.prefix = self._set_prefix()
+    @staticmethod
+    def parse(line: str):
+        name, reads, taxa = [j for j in [i.strip() for i in line.split("\t")] if len(j) > 0]
+        reads = [i.strip() for i in reads.split(";")]
+        taxa = [i.strip() for i in taxa.split(" ")]
+        return SampleDataLine(name, reads, taxa)
     @staticmethod
     def get_extension(path):
         import pathlib  # Since Python 3.4
@@ -243,7 +294,7 @@ class Handler:
         mlst_definitions_local = "{}{}.txt".format(genus.lower()[0], species)
         mlst_db_abs, mlst_definitions_abs = [os.path.join(tool_dir, i) for i in (mlst_db_local, mlst_definitions_local)]
         """
-        # Sample output for `getmlst.py --species 'Klebsiella pneumoniae'"`
+        # Sample output for `getmlst.py --species 'Klebsiella pneumoniae'`
         
         For SRST2, remember to check what separator is being used in this allele database
 
@@ -302,10 +353,16 @@ class Handler:
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self):
         pass
+    def handle(self):
+        pass
 
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG,
                         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    validator = ArgValidator()
+    sampleDataArray = SampleDataArray.parse(validator.sampledata_file)
+    handler = Handler(validator.output_dir)
     logging.INFO("The pipeline processing has been started")
+    handler.handle()
     logging.INFO("The pipeline processing has been completed")
