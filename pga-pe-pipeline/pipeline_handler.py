@@ -6,18 +6,18 @@ import os
 import sys
 import logging
 import subprocess
+import multiprocessing
 
 
 class SampleDataLine:
-    def __init__(self, sample_name: str, sample_reads: list, taxa: list, genome: str = None, plasmid: str = None):
+    def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
         self.name = sample_name.strip()
         self.reads = [i.strip() for i in sample_reads]
         self.extension = self.get_extension(self.reads[0].strip())
         self.taxa = self._parse_taxa(taxa)
         self.prefix = self._set_prefix()
-        self.genome = genome
-        self.plasmid = plasmid
+        self.genome, self.plasmid, self.annotation_genbank, self.mlst_results = ("", ) * 4
     @staticmethod
     def get_extension(path):
         import pathlib  # Since Python 3.4
@@ -195,7 +195,6 @@ class Handler:
         """
         stage_dir = os.path.join(self.output_dirs["Prokka"], sampledata.name)
         self.clean_path(stage_dir)
-        os.chdir(stage_dir)
         taxa_append = ""
         for taxon_name in ("genus", "species", "strain"):
             taxon_value = sampledata.taxa.get(taxon_name)
@@ -203,15 +202,31 @@ class Handler:
                 taxa_append = "{} --{} {}".format(taxa_append, taxon_name, taxon_value)
         cmd = """
         bash -c \
-            '{t} --cpu $(nproc) --outdir {o} --force --prefix {p} --locustag prokka {a} {g} && chmod -R 777 {o}'
-        """.format(t=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir)
+            'cd {o}
+             {t} --cpu {c} --outdir {o} --force --prefix {p} --locustag {p} {a} {g} && chmod -R 777 {o}
+             ln -s "{o}/{p}.gbk" "{o}/{p}.gb"
+             chmod -R 777 {o}'
+        """.format(t=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir,
+                   c=multiprocessing.cpu_count())
         log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
-        os.chdir(self.output_dir_root)
-        # TODO Implement return format
+        sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gb".format(sampledata.prefix))
+        return sampledata
+    # SNP calling
+    def run_bowtie2(self, sampledata: SampleDataLine):
+        pass
+    def run_samtools(self, sampledata: SampleDataLine):
+        pass
+    def run_vcftools(self, sampledata: SampleDataLine):
+        pass
+    # SNP annotation
+    def run_snpeff(self, sampledata: SampleDataLine):
+        pass
+    # MLST typing
     def run_srst2(self, sampledata: SampleDataLine):
         # One per sample, full cleaning is NOT required
         _TOOL = "srst2"
+        _GETMLST_ATTEMPTS = 5
         """
         # Sample launch:
         IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \ 
@@ -222,7 +237,6 @@ class Handler:
         """
         tool_dir = self.output_dirs["srst2"]
         stage_dir = os.path.join(tool_dir, sampledata.name)
-        os.chdir(stage_dir)
         self.clean_path(stage_dir)
         genus, species = (sampledata.taxa["genus"], sampledata.taxa["species"])
         mlst_db_local = "{}_{}.fasta".format(genus, species)
@@ -240,37 +254,53 @@ class Handler:
         Suggested srst2 command for use with this MLST database:
 
         srst2 --output test --input_pe *.fastq.gz --mlst_db Klebsiella_pneumoniae.fasta --mlst_definitions kpneumoniae.txt --mlst_delimiter '_'
+        
+        # Sample srst2 output:
+        
+        Klebsiella_MLST__mlst__Klebsiella_pneumoniae__results.txt
         """
         # Default cmd
         srst2_cmd = """
         srst2 --output test --input_pe *.fastq.gz --mlst_db {} --mlst_definitions {} --mlst_delimiter '_'
         """.format(mlst_db_local, mlst_definitions_local)
         if not all(os.path.isfile(i) for i in (mlst_db_abs, mlst_definitions_abs)):
-            os.chdir(tool_dir)
-            getmlst_cmd = """
-            bash -c \
-                'cd {o} && getmlst.py --species \'{g} {s}\''
-            """.format(g=genus, s=species, o=tool_dir)
-            getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
-            srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
-            print(getmlst_log)
-            if not srst2_cmd.startswith("srst2"):
-                raise ValueError("`getmlst.py` has not finished correctly!")
-            os.chdir(stage_dir)
-        srst2_cmd = srst2_cmd.replace("*.fastq.gz", " ".join([sampledata.reads[0], sampledata.reads[1]])).replace(
+            getmlst_attempt = 0
+            while getmlst_attempt < _GETMLST_ATTEMPTS:
+                getmlst_attempt += 1
+                getmlst_cmd = """
+                bash -c \
+                    'cd {o} && getmlst.py --species \'{g} {s}\''
+                """.format(g=genus, s=species, o=tool_dir)
+                getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
+                srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
+                print(getmlst_log)
+                if not srst2_cmd.startswith("srst2"):
+                    print("`getmlst.py` has not been finished correctly for attempt {} of {}".format(getmlst_attempt,
+                                                                                                     _GETMLST_ATTEMPTS))
+        # The input read files must be named by a strict pattern:
+        # https://github.com/katholt/srst2#input-read-formats-and-options
+        input_reads = ["{}_{}.fastq.gz".format(sampledata.name, idx + 1) for idx, i in enumerate(sampledata.reads)]
+        srst2_cmd = srst2_cmd.replace(
+            "*.fastq.gz", " ".join(input_reads)).replace(
             "--output test", "--output {}_MLST".format(sampledata.prefix)).replace(
             mlst_db_local, mlst_db_abs).replace(
             mlst_definitions_local, mlst_definitions_abs)
         srst2_cmd_full = """
         bash -c \
-            'cd {o} && \
-             {c} --forward _R1_001 --reverse _R2_001 --log && \
+            'cd {o} 
+             ln -s {r1} {l1}
+             ln -s {r2} {l2}
+             {c} --log --threads {t}
              chmod -R 777 {o}'
-        """.format(c=srst2_cmd.strip(), o=stage_dir)
+        """.format(c=srst2_cmd.strip(), o=stage_dir, t=multiprocessing.cpu_count(),
+                   r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
         print(srst2_log)
-        os.chdir(self.output_dir_root)
-        # TODO Implement return format
+        sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
+        return sampledata
+    # Orthologs-based phylogenetic tree construction
+    def run_orthomcl(self):
+        pass
 
 
 if __name__ == '__main__':
