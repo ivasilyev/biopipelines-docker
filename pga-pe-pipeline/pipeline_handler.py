@@ -55,7 +55,7 @@ class SampleDataArray:
 
 
 class SampleDataLine:
-    genome, plasmid, annotation_genbank, reference_nfasta, mlst_results = ("", ) * 5
+    prefix, genome, plasmid, annotation_genbank, reference_nfasta, mlst_results = ("", ) * 6
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
         self.name = sample_name.strip()
@@ -66,8 +66,10 @@ class SampleDataLine:
     @staticmethod
     def parse(line: str):
         name, reads, taxa = [j for j in [i.strip() for i in line.split("\t")] if len(j) > 0]
-        reads = [i.strip() for i in reads.split(";")]
-        taxa = [i.strip() for i in taxa.split(" ")]
+        reads = SampleDataLine._parse_reads(reads.split(";"))
+        if len(reads) > 2:
+            logging.WARNING("More than 2 paired end read files were given: '{}'".format(reads))
+        taxa = [j for j in [i.strip() for i in taxa.split(" ")] if len(j) > 0]
         return SampleDataLine(name, reads, taxa)
     @staticmethod
     def get_extension(path):
@@ -76,6 +78,9 @@ class SampleDataLine:
         if len(suf) > 1:  # e.g. '*.fq.gz'
             return "".join(suf[-2:])
         return "".join(suf)
+    @staticmethod
+    def _parse_reads(reads: list):
+        return [j for j in [i.strip() for i in reads] if len(j) > 0]
     @staticmethod
     def _parse_taxa(taxa: list):
         out = {i: "" for i in ("genus", "species", "strain")}
@@ -96,14 +101,12 @@ class SampleDataLine:
     def _set_prefix(self):
         _MAX_PREFIX_LENGTH = 4
         if len(self.taxa[1]) >= _MAX_PREFIX_LENGTH - 1:
-            return self.taxa[0][0].upper() + self.taxa[1][:_MAX_PREFIX_LENGTH - 1].lower()
+            self.prefix = self.taxa[0][0].upper() + self.taxa[1][:_MAX_PREFIX_LENGTH - 1].lower()
         else:
-            return self.taxa[0][:_MAX_PREFIX_LENGTH - len(self.taxa[1])].capitalize() + self.taxa[1].lower()
-    def update_reads(self, reads: list):
-        import copy
-        dc = copy.deepcopy(self)
-        dc.reads = reads
-        return dc
+            self.prefix = self.taxa[0][:_MAX_PREFIX_LENGTH - len(self.taxa[1])].capitalize() + self.taxa[1].lower()
+    def set_reads(self, reads: list):
+        reads = self._parse_reads(reads)
+        self.reads = reads
 
 
 class Handler:
@@ -121,12 +124,12 @@ class Handler:
     def filename_only(path):
         return os.path.splitext(os.path.basename(os.path.normpath(path)))[0]
     @staticmethod
-    def get_page(url, tries: int = 5):
+    def get_page(url, attempts: int = 5):
         def _get_page(_url):
             return subprocess.getoutput("curl -fsSL '{}'".format(url))
         out = _get_page(url)
         _try = 0
-        while out.startswith("curl") and _try < tries:  # An error report
+        while out.startswith("curl") and _try < attempts:  # An error report
             out = _get_page(url)
             _try += 1
         return out
@@ -154,7 +157,7 @@ class Handler:
         processed_reads = [
             os.path.join(out_dir, "{}_{}.{}{}".format(sampledata.name, suffix, idx + 1, sampledata.extension)) for
             idx, i in enumerate(sampledata.reads)]
-        return sampledata.update_reads(processed_reads)
+        return processed_reads
     # Pipeline steps
     def run_fastqc(self, sampledata: SampleDataLine):
         _TOOL = "fastqc"
@@ -174,19 +177,19 @@ class Handler:
         stage_dir = os.path.join(self.output_dirs["Trimmomatic"], sampledata.name)
         self.clean_path(stage_dir)
         os.chdir(stage_dir)
-        trimmed_sampledata = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
-        untrimmed_sampledata = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrinned".format(_TOOL))
+        trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
+        untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrinned".format(_TOOL))
         cmd = """
         bash -c \
             '{T} PE -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
                          ILLUMINACLIP:adapters.fasta:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 && \
              chmod -R 777 {o}'
-        """.format(T=_TOOL, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_sampledata.reads[0],
-                   t2=trimmed_sampledata.reads[1], u1=untrimmed_sampledata.reads[0], u2=untrimmed_sampledata.reads[1])
+        """.format(T=_TOOL, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
+                   t2=trimmed_reads[1], u1=untrimmed_reads[0], u2=untrimmed_reads[1])
         log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
         os.chdir(self.output_dir_root)
-        return trimmed_sampledata
+        sampledata.set_reads(trimmed_reads)
     def run_cutadapt(self, sampledata: SampleDataLine):
         # One per sample
         _TOOL = "cutadapt"
@@ -194,15 +197,15 @@ class Handler:
         stage_dir = os.path.join(self.output_dirs["cutadapt"], sampledata.name)
         self.clean_path(stage_dir)
         os.chdir(stage_dir)
-        trimmed_sampledata = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
+        trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         cmd = """
         bash -c 'cutadapt -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2} && chmod -R 777 {o}'
-        """.format(a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_sampledata.reads[0],
-                   t2=trimmed_sampledata.reads[1], o=stage_dir)
+        """.format(a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
+                   t2=trimmed_reads[1], o=stage_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
         os.chdir(self.output_dir_root)
-        return trimmed_sampledata
+        sampledata.set_reads(trimmed_reads)
     def run_spades(self, sampledata: SampleDataLine):
         # One per sample
         _TOOL = "spades"
@@ -234,7 +237,6 @@ class Handler:
         os.chdir(self.output_dir_root)
         sampledata.genome = assemblies["genome"]
         sampledata.plasmid = assemblies["plasmid"]
-        return sampledata
     def run_prokka(self, sampledata: SampleDataLine):
         # One per sample
         _TOOL = "prokka"
@@ -262,7 +264,6 @@ class Handler:
         log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
         sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gb".format(sampledata.prefix))
-        return sampledata
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine):
         pass
@@ -349,12 +350,29 @@ class Handler:
         print(srst2_log)
         sampledata.reference_nfasta = mlst_db_abs
         sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
-        return sampledata
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self):
         pass
-    def handle(self):
-        pass
+    def handle(self, sdarr: SampleDataArray):
+        functions = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
+                     self.run_srst2)
+        for idx, func in enumerate(functions):
+            logging.info("Starting the pipeline step {} of {}".format(idx, len(functions)))
+            _ = Utils.single_core_queue(func, sdarr.lines)
+
+
+class Utils:
+    @staticmethod
+    def single_core_queue(func, queue: list):
+        return [func(i) for i in queue]
+    @staticmethod
+    def multi_core_queue(func, queue: list, processes: int = int(subprocess.getoutput("nproc").strip())):
+        import multiprocessing
+        pool = multiprocessing.Pool(processes=processes)
+        output = pool.map(func, queue)
+        pool.close()
+        pool.join()
+        return output
 
 
 if __name__ == '__main__':
@@ -364,5 +382,5 @@ if __name__ == '__main__':
     sampleDataArray = SampleDataArray.parse(validator.sampledata_file)
     handler = Handler(validator.output_dir)
     logging.INFO("The pipeline processing has been started")
-    handler.handle()
+    handler.handle(sampleDataArray)
     logging.INFO("The pipeline processing has been completed")
