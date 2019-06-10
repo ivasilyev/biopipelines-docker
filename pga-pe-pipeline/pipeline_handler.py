@@ -12,7 +12,6 @@ import multiprocessing
 
 
 class ArgValidator:
-    sampledata_file, output_dir = (None,) * 2
     def __init__(self):
         import argparse
         parser = argparse.ArgumentParser(description="""
@@ -30,13 +29,14 @@ Columns:
 3. Taxon information divided with spaces, e.g. 'Escherichia coli O157:H7'""".strip())
         parser.add_argument('-o', '--output_dir', metavar='<dir>', help='Output directory', required=True)
         self._namespace = parser.parse_args()
+        self.sampledata_file = self._namespace.input
+        self.output_dir = self._namespace.output_dir
         self.validate()
     def validate(self):
-        self.sampledata_file = self._namespace.input
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         else:
-            logging.WARNING("The output directory exists: '{}'".format(self.output_dir))
+            logging.warning("The output directory exists: '{}'".format(self.output_dir))
 
 
 class SampleDataArray:
@@ -61,7 +61,7 @@ class SampleDataLine:
         self.name = sample_name.strip()
         self.reads = [i.strip() for i in sample_reads]
         if not all([os.path.isfile(i) for i in self.reads]):
-            logging.WARNING("File(s) not found: '{}'".format(self.reads))
+            logging.warning("File(s) not found: '{}'".format(self.reads))
         else:
             self.exists = True
         self.extension = self.get_extension(self.reads[0].strip())
@@ -72,7 +72,7 @@ class SampleDataLine:
         name, reads, taxa = [j for j in [i.strip() for i in line.split("\t")] if len(j) > 0]
         reads = SampleDataLine._parse_reads(reads.split(";"))
         if len(reads) > 2:
-            logging.WARNING("More than 2 paired end read files were given: '{}'".format(reads))
+            logging.warning("More than 2 paired end read files were given: '{}'".format(reads))
         taxa = [j for j in [i.strip() for i in taxa.split(" ")] if len(j) > 0]
         return SampleDataLine(name, reads, taxa)
     @staticmethod
@@ -119,7 +119,7 @@ class Handler:
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
         if os.path.exists(self.output_dir_root):
-            logging.WARNING("The path exists: '{}'".format(self.output_dir_root))
+            logging.warning("The path exists: '{}'".format(self.output_dir_root))
         os.makedirs(self.output_dir_root, exist_ok=True)
         # Output paths for each step
         self.output_dirs = {i: os.path.normpath(os.path.join(self.output_dir_root, "{}_{}".format(idx, i))) for idx, i
@@ -151,7 +151,7 @@ class Handler:
     @staticmethod
     def clean_path(path):
         if os.path.exists(path):
-            logging.WARNING("The path exists and will be replaced with the new data: '{}'".format(path))
+            logging.warning("The path exists and will be replaced with the new data: '{}'".format(path))
             if path != "/":  # I know this is useless
                 print(subprocess.getoutput("rm -rf {}".format(os.path.normpath(path))))
         os.makedirs(path, exist_ok=True)  # path could be created under root and could not be deleted easily
@@ -368,7 +368,7 @@ class Handler:
 class Utils:
     @staticmethod
     def log_and_raise(msg):
-        logging.CRITICAL(msg)
+        logging.critical(msg)
         raise ValueError(msg)
     @staticmethod
     def single_core_queue(func, queue: list):
@@ -389,6 +389,6 @@ if __name__ == '__main__':
     validator = ArgValidator()
     sampleDataArray = SampleDataArray.parse(validator.sampledata_file)
     handler = Handler(validator.output_dir)
-    logging.INFO("The pipeline processing has been started")
+    logging.info("The pipeline processing has been started")
     handler.handle(sampleDataArray)
-    logging.INFO("The pipeline processing has been completed")
+    logging.info("The pipeline processing has been completed")
