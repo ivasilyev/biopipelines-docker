@@ -31,10 +31,6 @@ Columns:
         parser.add_argument('-o', '--output_dir', metavar='<dir>', help='Output directory', required=True)
         self._namespace = parser.parse_args()
         self.validate()
-    @staticmethod
-    def log_and_raise(msg):
-        logging.CRITICAL(msg)
-        raise ValueError(msg)
     def validate(self):
         self.sampledata_file = self._namespace.input
         if not os.path.exists(self.output_dir):
@@ -45,21 +41,29 @@ Columns:
 
 class SampleDataArray:
     lines = []
+    def validate(self):
+        self.lines = [i for i in self.lines if i.exists()]
     @staticmethod
     def parse(file):
         arr = SampleDataArray()
         with open(file, mode="r", encoding="utf-8") as f:
             arr.lines = [SampleDataLine.parse(j) for j in [i.strip() for i in f] if len(j) > 0]
+            arr.validate()
             f.close()
         return arr
 
 
 class SampleDataLine:
+    exists = False
     prefix, genome, plasmid, annotation_genbank, reference_nfasta, mlst_results = ("", ) * 6
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
         self.name = sample_name.strip()
         self.reads = [i.strip() for i in sample_reads]
+        if not all([os.path.isfile(i) for i in self.reads]):
+            logging.WARNING("File(s) not found: '{}'".format(self.reads))
+        else:
+            self.exists = True
         self.extension = self.get_extension(self.reads[0].strip())
         self.taxa = self._parse_taxa(taxa)
         self.prefix = self._set_prefix()
@@ -362,6 +366,10 @@ class Handler:
 
 
 class Utils:
+    @staticmethod
+    def log_and_raise(msg):
+        logging.CRITICAL(msg)
+        raise ValueError(msg)
     @staticmethod
     def single_core_queue(func, queue: list):
         return [func(i) for i in queue]
