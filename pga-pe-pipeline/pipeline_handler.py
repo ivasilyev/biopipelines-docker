@@ -30,6 +30,7 @@ Columns:
         parser.add_argument('-o', '--output_dir', metavar='<dir>', help='Output directory', required=True)
         self._namespace = parser.parse_args()
         self.sampledata_file = self._namespace.input
+        self.threads = multiprocessing.cpu_count()
         self.output_dir = self._namespace.output_dir
         self.validate()
     def validate(self):
@@ -42,7 +43,7 @@ Columns:
 class SampleDataArray:
     lines = []
     def validate(self):
-        self.lines = [i for i in self.lines if i.exists()]
+        self.lines = [i for i in self.lines if i.exists]
     @staticmethod
     def parse(file):
         arr = SampleDataArray()
@@ -64,9 +65,9 @@ class SampleDataLine:
             logging.warning("File(s) not found: '{}'".format(self.reads))
         else:
             self.exists = True
-        self.extension = self.get_extension(self.reads[0].strip())
-        self.taxa = self._parse_taxa(taxa)
-        self.prefix = self._set_prefix()
+            self.extension = self.get_extension(self.reads[0].strip())
+            self.taxa = self._parse_taxa(taxa)
+            self.prefix = self._set_prefix()
     @staticmethod
     def parse(line: str):
         name, reads, taxa = [j for j in [i.strip() for i in line.split("\t")] if len(j) > 0]
@@ -92,22 +93,23 @@ class SampleDataLine:
         if len(taxa) == 0:
             raise ValueError("Empty taxon data!")
         out["genus"] = taxa[0].capitalize()
-        if len(taxa) > 0:
+        if len(taxa) > 1:
             if not any(i.isdigit() for i in taxa[1]):
                 sp = taxa[1].replace(".", "").lower()
                 if sp != "sp":
                     out["species"] = sp
             else:
                 out["strain"] = taxa[1]
-        if len(taxa) > 1:
+        if len(taxa) > 2:
             out["strain"] = taxa[2]
         return out
     def _set_prefix(self):
         _MAX_PREFIX_LENGTH = 4
-        if len(self.taxa[1]) >= _MAX_PREFIX_LENGTH - 1:
-            self.prefix = self.taxa[0][0].upper() + self.taxa[1][:_MAX_PREFIX_LENGTH - 1].lower()
+        if len(self.taxa["species"]) >= _MAX_PREFIX_LENGTH - 1:
+            self.prefix = self.taxa["genus"][0].upper() + self.taxa["species"][:_MAX_PREFIX_LENGTH - 1].lower()
         else:
-            self.prefix = self.taxa[0][:_MAX_PREFIX_LENGTH - len(self.taxa[1])].capitalize() + self.taxa[1].lower()
+            self.prefix = self.taxa["genus"][:_MAX_PREFIX_LENGTH - len(
+                self.taxa["species"])].capitalize() + self.taxa["species"].lower()
     def set_reads(self, reads: list):
         reads = self._parse_reads(reads)
         self.reads = reads
@@ -122,8 +124,8 @@ class Handler:
             logging.warning("The path exists: '{}'".format(self.output_dir_root))
         os.makedirs(self.output_dir_root, exist_ok=True)
         # Output paths for each step
-        self.output_dirs = {i: os.path.normpath(os.path.join(self.output_dir_root, "{}_{}".format(idx, i))) for idx, i
-                            in enumerate(self.TOOLS)}
+        self.output_dirs = {i: os.path.normpath(os.path.join(self.output_dir_root, "{}_{}".format(idx + 1, i))) for
+                            idx, i in enumerate(self.TOOLS)}
     @staticmethod
     def filename_only(path):
         return os.path.splitext(os.path.basename(os.path.normpath(path)))[0]
@@ -167,10 +169,12 @@ class Handler:
         _TOOL = "fastqc"
         # One per read sample
         for idx, reads_file in enumerate(sampledata.reads):
-            stage_dir = os.path.join(self.output_dirs["FastQC"], "{}_{}".format(sampledata.name, idx + 1))
+            stage_dir = os.path.join(self.output_dirs["FastQC"], sampledata.name,
+                                     "{}_{}".format(sampledata.name, idx + 1))
             self.clean_path(stage_dir)
             os.chdir(stage_dir)
-            cmd = "bash -c '{} {} && chmod -R 777 {}'".format(_TOOL, reads_file, stage_dir)
+            cmd = "bash -c 'cd {o}; {t} -t {c} {r} -o {o}; chmod -R 777 {o}'".format(
+                t=_TOOL, c=validator.threads, r=reads_file, o=stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
             print(log)
         os.chdir(self.output_dir_root)
@@ -185,7 +189,8 @@ class Handler:
         untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrinned".format(_TOOL))
         cmd = """
         bash -c \
-            '{T} PE -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
+            'cd {o}
+             {T} PE -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
                          ILLUMINACLIP:adapters.fasta:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 && \
              chmod -R 777 {o}'
         """.format(T=_TOOL, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
@@ -203,7 +208,7 @@ class Handler:
         os.chdir(stage_dir)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         cmd = """
-        bash -c 'cutadapt -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2} && chmod -R 777 {o}'
+        bash -c 'cd o; cutadapt -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2}; chmod -R 777 {o}'
         """.format(a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
                    t2=trimmed_reads[1], o=stage_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
@@ -231,8 +236,9 @@ class Handler:
                 cmd_append = " --plasmid"
             cmd = """
             bash -c \
-                'TOOL=$(find /usr/local/share/ -name {t}.py | grep {t} | head -n 1) && \
-                 $TOOL --careful -o {o} -1 {r1} -2 {r2}{a} && \
+                'cd {o}
+                 TOOL=$(find /usr/local/share/ -name {t}.py | grep {t} | head -n 1) && \
+                 $TOOL --careful -o {o} -1 {r1} -2 {r2}{a}
                  chmod -R 777 {o}'
             """.format(o=assembly_dir, t=_TOOL, r1=sampledata.reads[0], r2=sampledata.reads[1], a=cmd_append)
             log = self.run_quay_image(_TOOL, cmd=cmd)
@@ -264,7 +270,7 @@ class Handler:
              ln -s "{o}/{p}.gbk" "{o}/{p}.gb"
              chmod -R 777 {o}'
         """.format(t=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir,
-                   c=multiprocessing.cpu_count())
+                   c=validator.threads)
         log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
         sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gb".format(sampledata.prefix))
@@ -325,7 +331,7 @@ class Handler:
                 getmlst_attempt += 1
                 getmlst_cmd = """
                 bash -c \
-                    'cd {o} && getmlst.py --species \'{g} {s}\''
+                    'cd {o}; getmlst.py --species \'{g} {s}\'; chmod -R 777 {o}'
                 """.format(g=genus, s=species, o=tool_dir)
                 getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
                 srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
@@ -348,7 +354,7 @@ class Handler:
              ln -s {r2} {l2}
              {c} --log --threads {t}
              chmod -R 777 {o}'
-        """.format(c=srst2_cmd.strip(), o=stage_dir, t=multiprocessing.cpu_count(),
+        """.format(c=srst2_cmd.strip(), o=stage_dir, t=validator.threads,
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
         print(srst2_log)
@@ -361,7 +367,11 @@ class Handler:
         functions = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
                      self.run_srst2)
         for idx, func in enumerate(functions):
-            logging.info("Starting the pipeline step {} of {}".format(idx, len(functions)))
+            try:
+                logging.info("Starting the pipeline step {} of {}".format(idx + 1, len(functions)))
+            except PermissionError:
+                logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
+                    idx, self.output_dir_root))
             _ = Utils.single_core_queue(func, sdarr.lines)
 
 
@@ -374,8 +384,10 @@ class Utils:
     def single_core_queue(func, queue: list):
         return [func(i) for i in queue]
     @staticmethod
-    def multi_core_queue(func, queue: list, processes: int = int(subprocess.getoutput("nproc").strip())):
+    def multi_core_queue(func, queue: list, processes: int = None):
         import multiprocessing
+        if not processes:
+            processes = multiprocessing.cpu_count()
         pool = multiprocessing.Pool(processes=processes)
         output = pool.map(func, queue)
         pool.close()
