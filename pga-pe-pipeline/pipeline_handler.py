@@ -199,10 +199,10 @@ class Handler:
         cmd = """
         bash -c \
             'cd {o}
-             {T} PE -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
-                         ILLUMINACLIP:adapters.fasta:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 && \
+             {T} PE -threads {t} -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
+                ILLUMINACLIP:/data2/bio/ecoli_komfi/adapters.fasta:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
              chmod -R 777 {o}'
-        """.format(T=_TOOL, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
+        """.format(T=_TOOL, t=validator.threads, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
                    t2=trimmed_reads[1], u1=untrimmed_reads[0], u2=untrimmed_reads[1])
         log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
