@@ -5,7 +5,6 @@
 # curl -fsSL https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/pga-pe-pipeline/pipeline_handler.py
 
 import os
-import sys
 import logging
 import subprocess
 import multiprocessing
@@ -32,7 +31,7 @@ Columns:
         self.sampledata_file = self._namespace.input
         self.threads = multiprocessing.cpu_count()
         self.output_dir = self._namespace.output_dir
-        self.validate()
+        self.log_dir = os.path.join(self.output_dir, "log", Utils.get_time())
     def validate(self):
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -91,7 +90,7 @@ class SampleDataLine:
         out = {i: "" for i in ("genus", "species", "strain")}
         taxa = [j for j in [i.strip() for i in taxa] if len(j) > 0]
         if len(taxa) == 0:
-            raise ValueError("Empty taxon data!")
+            Utils.log_and_raise("Empty taxon data!")
         out["genus"] = taxa[0].capitalize()
         if len(taxa) > 1:
             if not any(i.isdigit() for i in taxa[1]):
@@ -154,17 +153,17 @@ class Handler:
                 except json.decoder.JSONDecodeError:
                     logging.warning("Cannot get api response for attempt {} of {}".format(attempt, attempts))
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
-        print("Using image: '{}'".format(img_name_full))
+        logging.info("Using image: '{}'".format(img_name_full))
         docker_cmd = "docker pull {a} && {b} {a}".format(a=img_name_full, b=self.DOCKER_RUN_CMD)
         out_cmd = docker_cmd.strip() + " " + cmd.strip()  # cmd may contain curly braces, so str.format() is not usable
-        print(out_cmd)
+        logging.debug("Invoking command: '{}'".format(out_cmd))
         return subprocess.getoutput(out_cmd)
     @staticmethod
     def clean_path(path):
         if os.path.exists(path):
             logging.warning("The path exists and will be replaced with the new data: '{}'".format(path))
             if path != "/":  # I know this is useless
-                print(subprocess.getoutput("rm -rf {}".format(os.path.normpath(path))))
+                logging.debug(subprocess.getoutput("rm -rf {}".format(os.path.normpath(path))))
         os.makedirs(path, exist_ok=True)  # path could be created under root and could not be deleted easily
     @staticmethod
     def process_reads(sampledata: SampleDataLine, out_dir: str, suffix: str):
@@ -185,19 +184,17 @@ class Handler:
             cmd = """
             bash -c \
                 'cd {o}
-                 {t} -t {c} {r} -o {o}
+                 {T} -t {c} {r} -o {o}
                  chmod -R 777 {o}'
-            """.format(t=_TOOL, c=validator.threads, r=reads_file, o=stage_dir)
+            """.format(T=_TOOL, c=validator.threads, r=reads_file, o=stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
-            print(log)
-        os.chdir(self.output_dir_root)
+            Utils.append_log(log, _TOOL)
         # Reads are unchanged, so there is nothing to return
     def run_trimmomatic(self, sampledata: SampleDataLine):
         # One per sample
         _TOOL = "trimmomatic"
-        stage_dir = os.path.join(self.output_dirs["Trimmomatic"], sampledata.name)
+        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
         self.clean_path(stage_dir)
-        os.chdir(stage_dir)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrinned".format(_TOOL))
         cmd = """
@@ -209,8 +206,7 @@ class Handler:
         """.format(T=_TOOL, t=validator.threads, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
                    t2=trimmed_reads[1], u1=untrimmed_reads[0], u2=untrimmed_reads[1])
         log = self.run_quay_image(_TOOL, cmd=cmd)
-        print(log)
-        os.chdir(self.output_dir_root)
+        Utils.append_log(log, _TOOL)
         sampledata.set_reads(trimmed_reads)
     def run_cutadapt(self, sampledata: SampleDataLine):
         # One per sample
@@ -218,18 +214,16 @@ class Handler:
         _ADAPTER = "AGATCGGAAGAG"
         stage_dir = os.path.join(self.output_dirs["cutadapt"], sampledata.name)
         self.clean_path(stage_dir)
-        os.chdir(stage_dir)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         cmd = """
         bash -c \
             'cd o
-             cutadapt -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2} 
+             {T} -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2} 
              chmod -R 777 {o}'
-        """.format(a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],t2=trimmed_reads[1],
-                   o=stage_dir)
+        """.format(T=_TOOL, a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
+                   t2=trimmed_reads[1], o=stage_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
-        print(log)
-        os.chdir(self.output_dir_root)
+        Utils.append_log(log, _TOOL)
         sampledata.set_reads(trimmed_reads)
     def run_spades(self, sampledata: SampleDataLine):
         # One per sample
@@ -243,7 +237,6 @@ class Handler:
         """
         stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
         self.clean_path(stage_dir)
-        os.chdir(stage_dir)
         assemblies = {"genome": "", "plasmid": ""}
         for assembly_type in assemblies:
             assembly_dir = os.path.join(stage_dir, assembly_type)
@@ -258,9 +251,8 @@ class Handler:
                  chmod -R 777 {o}'
             """.format(o=assembly_dir, t=_TOOL, r1=sampledata.reads[0], r2=sampledata.reads[1], a=cmd_append)
             log = self.run_quay_image(_TOOL, cmd=cmd)
-            print(log)
+            Utils.append_log(log, _TOOL)
             assemblies[assembly_type] = os.path.join(assembly_dir, "contigs.fasta")
-        os.chdir(self.output_dir_root)
         sampledata.genome = assemblies["genome"]
         sampledata.plasmid = assemblies["plasmid"]
     def run_prokka(self, sampledata: SampleDataLine):
@@ -282,13 +274,13 @@ class Handler:
         cmd = """
         bash -c \
             'cd {o}
-             {t} --cpu {c} --outdir {o} --force --prefix {p} --locustag {p} {a} {g} && chmod -R 777 {o}
+             {T} --cpu {c} --outdir {o} --force --prefix {p} --locustag {p} {a} {g} && chmod -R 777 {o}
              ln -s "{o}/{p}.gbk" "{o}/{p}.gb"
              chmod -R 777 {o}'
-        """.format(t=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir,
+        """.format(T=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir,
                    c=validator.threads)
         log = self.run_quay_image(_TOOL, cmd=cmd)
-        print(log)
+        Utils.append_log(log, _TOOL)
         sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gb".format(sampledata.prefix))
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine):
@@ -347,14 +339,18 @@ class Handler:
                 getmlst_attempt += 1
                 getmlst_cmd = """
                 bash -c \
-                    'cd {o}; getmlst.py --species \'{g} {s}\'; chmod -R 777 {o}'
+                    'cd {o}
+                     getmlst.py --species "{g} {s}"
+                     chmod -R 777 {o}'
                 """.format(g=genus, s=species, o=tool_dir)
                 getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
                 srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
-                print(getmlst_log)
+                Utils.append_log(getmlst_log, "getmlst")
                 if not srst2_cmd.startswith("srst2"):
-                    print("`getmlst.py` has not been finished correctly for attempt {} of {}".format(getmlst_attempt,
-                                                                                                     _GETMLST_ATTEMPTS))
+                    logging.warning("`getmlst.py` did not finish correctly for attempt {} of {}".format(
+                        getmlst_attempt, _GETMLST_ATTEMPTS))
+                else:
+                    break
         # The input read files must be named by a strict pattern:
         # https://github.com/katholt/srst2#input-read-formats-and-options
         input_reads = ["{}_{}.fastq.gz".format(sampledata.name, idx + 1) for idx, i in enumerate(sampledata.reads)]
@@ -373,17 +369,15 @@ class Handler:
         """.format(c=srst2_cmd.strip(), o=stage_dir, t=validator.threads,
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
-        print(srst2_log)
+        Utils.append_log(srst2_log, _TOOL)
         sampledata.reference_nfasta = mlst_db_abs
         sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self):
         pass
     def handle(self, sdarr: SampleDataArray):
-        functions = (self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
+        functions = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
                      self.run_srst2)
-        # functions = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
-        #              self.run_srst2)
         for idx, func in enumerate(functions):
             try:
                 logging.info("Starting the pipeline step {} of {}".format(idx + 1, len(functions)))
@@ -395,9 +389,26 @@ class Handler:
 
 class Utils:
     @staticmethod
+    def get_time():
+        from datetime import datetime
+        now = datetime.now()
+        output_list = []
+        for time_unit in [now.year, now.month, now.day, now.hour, now.minute, now.second]:
+            time_unit = str(time_unit)
+            if len(time_unit) < 2:
+                time_unit = '0' + time_unit
+            output_list.append(time_unit)
+        return '-'.join(output_list)
+    @staticmethod
     def log_and_raise(msg):
         logging.critical(msg)
         raise ValueError(msg)
+    @staticmethod
+    def append_log(msg: str, tool_name: str):
+        file = os.path.join(validator.log_dir, "{}.log".format(tool_name))
+        with open(file, mode="a", encoding="utf-8") as f:
+            f.write(msg + "\n")
+            f.close()
     @staticmethod
     def single_core_queue(func, queue: list):
         return [func(i) for i in queue]
@@ -414,9 +425,11 @@ class Utils:
 
 
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG,
-                        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     validator = ArgValidator()
+    mainLogFile = os.path.join(validator.log_dir, "main.log")
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s",
+                        handlers=[logging.FileHandler(mainLogFile), logging.StreamHandler()])
+    validator.validate()
     sampleDataArray = SampleDataArray.parse(validator.sampledata_file)
     handler = Handler(validator.output_dir)
     logging.info("The pipeline processing has been started")
