@@ -116,7 +116,7 @@ class SampleDataLine:
 
 
 class Handler:
-    TOOLS = ("FastQC", "Trimmomatic", "cutadapt", "SPAdes", "Prokka", "bowtie2", "SnpEff", "srst2", "OrthoMCL")
+    TOOLS = ("fastqc", "trimmomatic", "cutadapt", "spades", "prokka", "bowtie2", "snpeff", "srst2", "orthomcl")
     DOCKER_RUN_CMD = "docker run --rm -v /data:/data -v /data1:/data1 -v /data2:/data2 --net=host -it"
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
@@ -178,12 +178,16 @@ class Handler:
         _TOOL = "fastqc"
         # One per read sample
         for idx, reads_file in enumerate(sampledata.reads):
-            stage_dir = os.path.join(self.output_dirs["FastQC"], sampledata.name,
+            stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name,
                                      "{}_{}".format(sampledata.name, idx + 1))
             self.clean_path(stage_dir)
             os.chdir(stage_dir)
-            cmd = "bash -c 'cd {o}; {t} -t {c} {r} -o {o}; chmod -R 777 {o}'".format(
-                t=_TOOL, c=validator.threads, r=reads_file, o=stage_dir)
+            cmd = """
+            bash -c \
+                'cd {o}
+                 {t} -t {c} {r} -o {o}
+                 chmod -R 777 {o}'
+            """.format(t=_TOOL, c=validator.threads, r=reads_file, o=stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
             print(log)
         os.chdir(self.output_dir_root)
@@ -217,9 +221,12 @@ class Handler:
         os.chdir(stage_dir)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         cmd = """
-        bash -c 'cd o; cutadapt -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2}; chmod -R 777 {o}'
-        """.format(a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
-                   t2=trimmed_reads[1], o=stage_dir)
+        bash -c \
+            'cd o
+             cutadapt -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2} 
+             chmod -R 777 {o}'
+        """.format(a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],t2=trimmed_reads[1],
+                   o=stage_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
         print(log)
         os.chdir(self.output_dir_root)
@@ -234,7 +241,7 @@ class Handler:
         docker run --rm --net=host -it $IMG bash -c \
             'TOOL=$(find /usr/local/share/ -name spades.py | grep spades | head -n 1) && $TOOL -v'
         """
-        stage_dir = os.path.join(self.output_dirs["cutadapt"], sampledata.name)
+        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
         self.clean_path(stage_dir)
         os.chdir(stage_dir)
         assemblies = {"genome": "", "plasmid": ""}
@@ -265,7 +272,7 @@ class Handler:
         docker pull $IMG && \
         docker run --rm --net=host -it $IMG prokka
         """
-        stage_dir = os.path.join(self.output_dirs["Prokka"], sampledata.name)
+        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
         self.clean_path(stage_dir)
         taxa_append = ""
         for taxon_name in ("genus", "species", "strain"):
@@ -306,7 +313,7 @@ class Handler:
         
         docker run --rm --net=host -it $IMG srst2 -h
         """
-        tool_dir = self.output_dirs["srst2"]
+        tool_dir = self.output_dirs[_TOOL]
         stage_dir = os.path.join(tool_dir, sampledata.name)
         self.clean_path(stage_dir)
         genus, species = (sampledata.taxa["genus"], sampledata.taxa["species"])
@@ -373,8 +380,10 @@ class Handler:
     def run_orthomcl(self):
         pass
     def handle(self, sdarr: SampleDataArray):
-        functions = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
+        functions = (self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
                      self.run_srst2)
+        # functions = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
+        #              self.run_srst2)
         for idx, func in enumerate(functions):
             try:
                 logging.info("Starting the pipeline step {} of {}".format(idx + 1, len(functions)))
