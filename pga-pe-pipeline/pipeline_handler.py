@@ -139,11 +139,20 @@ class Handler:
             out = _get_page(url)
             _try += 1
         return out
-    def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo"):
+    def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo",
+                       attempts: int = 5):
         import json
         if not img_tag:
-            api_response = json.loads(self.get_page("https://quay.io/api/v1/repository/{}/{}".format(repo_name, img_name)))
-            img_tag = sorted(set(api_response.get("tags")))[-1]
+            attempt = 0
+            while attempt < attempts:
+                attempt += 1
+                try:
+                    api_response = json.loads(
+                        self.get_page("https://quay.io/api/v1/repository/{}/{}".format(repo_name, img_name)))
+                    img_tag = sorted(set(api_response.get("tags")))[-1]
+                    break
+                except json.decoder.JSONDecodeError:
+                    logging.warning("Cannot get api response for attempt {} of {}".format(attempt, attempts))
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
         print("Using image: '{}'".format(img_name_full))
         docker_cmd = "docker pull {a} && {b} {a}".format(a=img_name_full, b=self.DOCKER_RUN_CMD)
