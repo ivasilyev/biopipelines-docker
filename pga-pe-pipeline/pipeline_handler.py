@@ -26,13 +26,26 @@ Columns:
 1. Sample name, e.g. 'eco_01'
 2. Paired end reads divided with semicolon, e.g. '/reads/eco_01_R1.fastq.gz;/reads/eco_01_R2.fastq.gz'
 3. Taxon information divided with spaces, e.g. 'Escherichia coli O157:H7'""".strip())
+        _STEPS = list(range(1, len(Handler.TOOLS) + 1))
+        parser.add_argument("-s", "--start", help="Stage to start the pipeline, inclusive", type=int, default=_STEPS[0],
+                            metavar="<{}>".format("|".join(_STEPS)), choices=_STEPS)
+        parser.add_argument('-f', '--finish', help='Stage to finish the pipeline, inclusive', type=int,
+                            default=_STEPS[-1], metavar="<{}>".format("|".join(_STEPS)), choices=_STEPS)
         parser.add_argument('-o', '--output_dir', metavar='<dir>', help='Output directory', required=True)
         self._namespace = parser.parse_args()
         self.sampledata_file = self._namespace.input
         self.threads = multiprocessing.cpu_count()
+        self.stages_to_do = []
         self.output_dir = self._namespace.output_dir
         self.log_dir = os.path.join(self.output_dir, "log", Utils.get_time())
     def validate(self):
+        start_point = self._namespace.start
+        finish_point = self._namespace.finish
+        if start_point > finish_point:
+            Utils.log_and_raise("The start stage number ({}) must be less than the end stage number ({})".format(
+                start_point, finish_point))
+        # Make 'stages_to_do' zero-based
+        self.stages_to_do = range(start_point - 1, finish_point)
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         else:
@@ -391,7 +404,8 @@ class Handler:
             except PermissionError:
                 logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
                     idx, self.output_dir_root))
-            _ = Utils.single_core_queue(func, sdarr.lines)
+            queue = [(func, i, idx not in validator.stages_to_do) for i in sdarr.lines]
+            _ = Utils.single_core_queue(Utils.wrap_func, queue)
 
 
 class Utils:
@@ -416,6 +430,9 @@ class Utils:
         with open(file, mode="a", encoding="utf-8") as f:
             f.write(msg + "\n")
             f.close()
+    @staticmethod
+    def wrap_func(args: list):
+        return args[0](*args[1:])
     @staticmethod
     def single_core_queue(func, queue: list):
         return [func(i) for i in queue]
