@@ -158,15 +158,19 @@ class Handler:
         import json
         if not img_tag:
             attempt = 0
-            while attempt < attempts:
+            url = "https://quay.io/api/v1/repository/{}/{}".format(repo_name, img_name)
+            while attempt <= attempts:
                 attempt += 1
                 try:
                     api_response = json.loads(
-                        self.get_page("https://quay.io/api/v1/repository/{}/{}".format(repo_name, img_name)))
+                        self.get_page(url))
                     img_tag = sorted(set(api_response.get("tags")))[-1]
                     break
                 except json.decoder.JSONDecodeError:
-                    logging.warning("Cannot get api response for attempt {} of {}".format(attempt, attempts))
+                    logging.warning("Cannot get API response from the URL '{}' for attempt {} of {}".format(
+                        url, attempt, attempts))
+            if attempt > attempts:
+                logging.warning("Exceeded attempts number to get API response from the URL '{}'".format(url))
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
         logging.info("Using image: '{}'".format(img_name_full))
         docker_cmd = "docker pull {a} && {b} {a}".format(a=img_name_full, b=self.DOCKER_RUN_CMD)
@@ -316,6 +320,7 @@ class Handler:
         # One per sample, full cleaning is NOT required
         _TOOL = "srst2"
         _GETMLST_ATTEMPTS = 5
+        _SRST2_ATTEMPTS = 5
         """
         # Sample launch:
         IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \ 
@@ -353,7 +358,7 @@ class Handler:
         """.format(mlst_db_local, mlst_definitions_local)
         if not all(os.path.isfile(i) for i in (mlst_db_abs, mlst_definitions_abs)):
             getmlst_attempt = 0
-            while getmlst_attempt < _GETMLST_ATTEMPTS:
+            while getmlst_attempt <= _GETMLST_ATTEMPTS:
                 getmlst_attempt += 1
                 getmlst_cmd = """
                 bash -c \
@@ -369,6 +374,8 @@ class Handler:
                         getmlst_attempt, _GETMLST_ATTEMPTS))
                 else:
                     break
+            if getmlst_attempt > _GETMLST_ATTEMPTS:
+                logging.warning("Exceeded attempts number for `getmlst.py` to finish processing correctly")
         # The input read files must be named by a strict pattern:
         # https://github.com/katholt/srst2#input-read-formats-and-options
         input_reads = ["{}_{}.fastq.gz".format(sampledata.name, idx + 1) for idx, i in enumerate(sampledata.reads)]
@@ -387,9 +394,21 @@ class Handler:
         """.format(c=srst2_cmd.strip(), o=stage_dir, t=validator.threads,
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         if not skip:
-            self.clean_path(stage_dir)
-            srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
-            Utils.append_log(srst2_log, _TOOL, sampledata.name)
+            srst2_attempt = 0
+            while srst2_attempt <= _SRST2_ATTEMPTS:
+                srst2_attempt += 1
+                self.clean_path(stage_dir)
+                srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
+                Utils.append_log(srst2_log, _TOOL, sampledata.name)
+                if not Utils.is_log_valid(srst2_log, bad_phrases=["[main_samview] truncated file."]):
+                    msg = "`{}` did not finish correctly for attempt {} of {}".format(_TOOL, srst2_attempt,
+                                                                                      _SRST2_ATTEMPTS)
+                    logging.warning(msg)
+                    Utils.append_log(msg, _TOOL, sampledata.name)
+                else:
+                    break
+            if srst2_attempt > _SRST2_ATTEMPTS:
+                logging.warning("Exceeded attempts number for `{}` to finish processing correctly".format(_TOOL))
         sampledata.reference_nfasta = mlst_db_abs
         sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
     # Orthologs-based phylogenetic tree construction
@@ -421,6 +440,9 @@ class Utils:
             output_list.append(time_unit)
         return '-'.join(output_list)
     @staticmethod
+    def remove_empty_values(input_list):
+        return [j for j in [i.strip() for i in input_list] if len(j) > 0]
+    @staticmethod
     def log_and_raise(msg):
         logging.critical(msg)
         raise ValueError(msg)
@@ -430,6 +452,11 @@ class Utils:
         with open(file, mode="a", encoding="utf-8") as f:
             f.write(msg + "\n")
             f.close()
+    @staticmethod
+    def is_log_valid(log: str, bad_phrases: list):
+        log_lines = Utils.remove_empty_values(log.replace("\r", "\n").split("\n"))
+        bad_phrases = Utils.remove_empty_values(bad_phrases)
+        return all([i not in j for i in bad_phrases for j in log_lines])
     @staticmethod
     def wrap_func(args: list):
         return args[0](*args[1:])
