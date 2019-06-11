@@ -66,13 +66,15 @@ class SampleDataLine:
             self.exists = True
             self.extension = self.get_extension(self.reads[0].strip())
             self.taxa = self._parse_taxa(taxa)
-            self.prefix = self._set_prefix()
+            self._set_prefix()
     @staticmethod
     def parse(line: str):
         name, reads, taxa = [j for j in [i.strip() for i in line.split("\t")] if len(j) > 0]
         reads = SampleDataLine._parse_reads(reads.split(";"))
         if len(reads) > 2:
-            logging.warning("More than 2 paired end read files were given: '{}'".format(reads))
+            logging.warning("More than 2 paired end read files were given, only 2 first will be used: '{}'".format(
+                reads))
+            reads = reads[:2]
         taxa = [j for j in [i.strip() for i in taxa.split(" ")] if len(j) > 0]
         return SampleDataLine(name, reads, taxa)
     @staticmethod
@@ -84,7 +86,7 @@ class SampleDataLine:
         return "".join(suf)
     @staticmethod
     def _parse_reads(reads: list):
-        return [j for j in [i.strip() for i in reads] if len(j) > 0]
+        return sorted([j for j in [i.strip() for i in reads] if len(j) > 0])
     @staticmethod
     def _parse_taxa(taxa: list):
         out = {i: "" for i in ("genus", "species", "strain")}
@@ -156,7 +158,7 @@ class Handler:
         logging.info("Using image: '{}'".format(img_name_full))
         docker_cmd = "docker pull {a} && {b} {a}".format(a=img_name_full, b=self.DOCKER_RUN_CMD)
         out_cmd = docker_cmd.strip() + " " + cmd.strip()  # cmd may contain curly braces, so str.format() is not usable
-        logging.debug("Invoking command: '{}'".format(out_cmd))
+        logging.debug("Executed command: '{}'".format(out_cmd))
         return subprocess.getoutput(out_cmd)
     @staticmethod
     def clean_path(path):
@@ -188,7 +190,7 @@ class Handler:
                  chmod -R 777 {o}'
             """.format(T=_TOOL, c=validator.threads, r=reads_file, o=stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
-            Utils.append_log(log, _TOOL)
+            Utils.append_log(log, _TOOL, sampledata.name)
         # Reads are unchanged, so there is nothing to return
     def run_trimmomatic(self, sampledata: SampleDataLine):
         # One per sample
@@ -206,7 +208,7 @@ class Handler:
         """.format(T=_TOOL, t=validator.threads, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
                    t2=trimmed_reads[1], u1=untrimmed_reads[0], u2=untrimmed_reads[1])
         log = self.run_quay_image(_TOOL, cmd=cmd)
-        Utils.append_log(log, _TOOL)
+        Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.set_reads(trimmed_reads)
     def run_cutadapt(self, sampledata: SampleDataLine):
         # One per sample
@@ -223,7 +225,7 @@ class Handler:
         """.format(T=_TOOL, a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
                    t2=trimmed_reads[1], o=stage_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
-        Utils.append_log(log, _TOOL)
+        Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.set_reads(trimmed_reads)
     def run_spades(self, sampledata: SampleDataLine):
         # One per sample
@@ -251,7 +253,7 @@ class Handler:
                  chmod -R 777 {o}'
             """.format(o=assembly_dir, t=_TOOL, r1=sampledata.reads[0], r2=sampledata.reads[1], a=cmd_append)
             log = self.run_quay_image(_TOOL, cmd=cmd)
-            Utils.append_log(log, _TOOL)
+            Utils.append_log(log, _TOOL, sampledata.name)
             assemblies[assembly_type] = os.path.join(assembly_dir, "contigs.fasta")
         sampledata.genome = assemblies["genome"]
         sampledata.plasmid = assemblies["plasmid"]
@@ -280,7 +282,7 @@ class Handler:
         """.format(T=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir,
                    c=validator.threads)
         log = self.run_quay_image(_TOOL, cmd=cmd)
-        Utils.append_log(log, _TOOL)
+        Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gb".format(sampledata.prefix))
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine):
@@ -345,7 +347,7 @@ class Handler:
                 """.format(g=genus, s=species, o=tool_dir)
                 getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
                 srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
-                Utils.append_log(getmlst_log, "getmlst")
+                Utils.append_log(getmlst_log, "getmlst", sampledata.name)
                 if not srst2_cmd.startswith("srst2"):
                     logging.warning("`getmlst.py` did not finish correctly for attempt {} of {}".format(
                         getmlst_attempt, _GETMLST_ATTEMPTS))
@@ -369,7 +371,7 @@ class Handler:
         """.format(c=srst2_cmd.strip(), o=stage_dir, t=validator.threads,
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
-        Utils.append_log(srst2_log, _TOOL)
+        Utils.append_log(srst2_log, _TOOL, sampledata.name)
         sampledata.reference_nfasta = mlst_db_abs
         sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
     # Orthologs-based phylogenetic tree construction
@@ -404,8 +406,8 @@ class Utils:
         logging.critical(msg)
         raise ValueError(msg)
     @staticmethod
-    def append_log(msg: str, tool_name: str):
-        file = os.path.join(validator.log_dir, "{}.log".format(tool_name))
+    def append_log(msg: str, tool_name: str, sample_name: str):
+        file = os.path.join(validator.log_dir, "{}_{}.log".format(tool_name, sample_name))
         with open(file, mode="a", encoding="utf-8") as f:
             f.write(msg + "\n")
             f.close()
@@ -414,7 +416,6 @@ class Utils:
         return [func(i) for i in queue]
     @staticmethod
     def multi_core_queue(func, queue: list, processes: int = None):
-        import multiprocessing
         if not processes:
             processes = multiprocessing.cpu_count()
         pool = multiprocessing.Pool(processes=processes)
@@ -427,6 +428,7 @@ class Utils:
 if __name__ == '__main__':
     validator = ArgValidator()
     mainLogFile = os.path.join(validator.log_dir, "main.log")
+    os.makedirs(validator.log_dir, exist_ok=True)
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s",
                         handlers=[logging.FileHandler(mainLogFile), logging.StreamHandler()])
     validator.validate()
