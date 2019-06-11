@@ -175,28 +175,27 @@ class Handler:
             idx, i in enumerate(sampledata.reads)]
         return processed_reads
     # Pipeline steps
-    def run_fastqc(self, sampledata: SampleDataLine):
+    def run_fastqc(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "fastqc"
         # One per read sample
         for idx, reads_file in enumerate(sampledata.reads):
             stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name,
                                      "{}_{}".format(sampledata.name, idx + 1))
-            self.clean_path(stage_dir)
-            os.chdir(stage_dir)
             cmd = """
             bash -c \
                 'cd {o}
                  {T} -t {c} {r} -o {o}
                  chmod -R 777 {o}'
             """.format(T=_TOOL, c=validator.threads, r=reads_file, o=stage_dir)
-            log = self.run_quay_image(_TOOL, cmd=cmd)
-            Utils.append_log(log, _TOOL, sampledata.name)
+            if not skip:
+                self.clean_path(stage_dir)
+                log = self.run_quay_image(_TOOL, cmd=cmd)
+                Utils.append_log(log, _TOOL, sampledata.name)
         # Reads are unchanged, so there is nothing to return
-    def run_trimmomatic(self, sampledata: SampleDataLine):
+    def run_trimmomatic(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "trimmomatic"
         stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
-        self.clean_path(stage_dir)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrinned".format(_TOOL))
         cmd = """
@@ -207,15 +206,16 @@ class Handler:
              chmod -R 777 {o}'
         """.format(T=_TOOL, t=validator.threads, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
                    t2=trimmed_reads[1], u1=untrimmed_reads[0], u2=untrimmed_reads[1])
-        log = self.run_quay_image(_TOOL, cmd=cmd)
-        Utils.append_log(log, _TOOL, sampledata.name)
+        if not skip:
+            self.clean_path(stage_dir)
+            log = self.run_quay_image(_TOOL, cmd=cmd)
+            Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.set_reads(trimmed_reads)
-    def run_cutadapt(self, sampledata: SampleDataLine):
+    def run_cutadapt(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "cutadapt"
         _ADAPTER = "AGATCGGAAGAG"
         stage_dir = os.path.join(self.output_dirs["cutadapt"], sampledata.name)
-        self.clean_path(stage_dir)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         cmd = """
         bash -c \
@@ -224,10 +224,12 @@ class Handler:
              chmod -R 777 {o}'
         """.format(T=_TOOL, a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
                    t2=trimmed_reads[1], o=stage_dir)
-        log = self.run_quay_image(_TOOL, cmd=cmd)
-        Utils.append_log(log, _TOOL, sampledata.name)
+        if not skip:
+            self.clean_path(stage_dir)
+            log = self.run_quay_image(_TOOL, cmd=cmd)
+            Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.set_reads(trimmed_reads)
-    def run_spades(self, sampledata: SampleDataLine):
+    def run_spades(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "spades"
         """
@@ -238,7 +240,6 @@ class Handler:
             'TOOL=$(find /usr/local/share/ -name spades.py | grep spades | head -n 1) && $TOOL -v'
         """
         stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
-        self.clean_path(stage_dir)
         assemblies = {"genome": "", "plasmid": ""}
         for assembly_type in assemblies:
             assembly_dir = os.path.join(stage_dir, assembly_type)
@@ -252,12 +253,14 @@ class Handler:
                  $TOOL --careful -o {o} -1 {r1} -2 {r2}{a}
                  chmod -R 777 {o}'
             """.format(o=assembly_dir, t=_TOOL, r1=sampledata.reads[0], r2=sampledata.reads[1], a=cmd_append)
-            log = self.run_quay_image(_TOOL, cmd=cmd)
-            Utils.append_log(log, _TOOL, sampledata.name)
+            if not skip:
+                self.clean_path(assembly_dir)
+                log = self.run_quay_image(_TOOL, cmd=cmd)
+                Utils.append_log(log, _TOOL, sampledata.name)
             assemblies[assembly_type] = os.path.join(assembly_dir, "contigs.fasta")
         sampledata.genome = assemblies["genome"]
         sampledata.plasmid = assemblies["plasmid"]
-    def run_prokka(self, sampledata: SampleDataLine):
+    def run_prokka(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "prokka"
         """
@@ -267,7 +270,6 @@ class Handler:
         docker run --rm --net=host -it $IMG prokka
         """
         stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
-        self.clean_path(stage_dir)
         taxa_append = ""
         for taxon_name in ("genus", "species", "strain"):
             taxon_value = sampledata.taxa.get(taxon_name)
@@ -281,8 +283,10 @@ class Handler:
              chmod -R 777 {o}'
         """.format(T=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir,
                    c=validator.threads)
-        log = self.run_quay_image(_TOOL, cmd=cmd)
-        Utils.append_log(log, _TOOL, sampledata.name)
+        if not skip:
+            self.clean_path(stage_dir)
+            log = self.run_quay_image(_TOOL, cmd=cmd)
+            Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gb".format(sampledata.prefix))
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine):
@@ -295,7 +299,7 @@ class Handler:
     def run_snpeff(self, sampledata: SampleDataLine):
         pass
     # MLST typing
-    def run_srst2(self, sampledata: SampleDataLine):
+    def run_srst2(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample, full cleaning is NOT required
         _TOOL = "srst2"
         _GETMLST_ATTEMPTS = 5
@@ -309,7 +313,6 @@ class Handler:
         """
         tool_dir = self.output_dirs[_TOOL]
         stage_dir = os.path.join(tool_dir, sampledata.name)
-        self.clean_path(stage_dir)
         genus, species = (sampledata.taxa["genus"], sampledata.taxa["species"])
         mlst_db_local = "{}_{}.fasta".format(genus, species)
         mlst_definitions_local = "{}{}.txt".format(genus.lower()[0], species)
@@ -370,8 +373,10 @@ class Handler:
              chmod -R 777 {o}'
         """.format(c=srst2_cmd.strip(), o=stage_dir, t=validator.threads,
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
-        srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
-        Utils.append_log(srst2_log, _TOOL, sampledata.name)
+        if not skip:
+            self.clean_path(stage_dir)
+            srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
+            Utils.append_log(srst2_log, _TOOL, sampledata.name)
         sampledata.reference_nfasta = mlst_db_abs
         sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
     # Orthologs-based phylogenetic tree construction
