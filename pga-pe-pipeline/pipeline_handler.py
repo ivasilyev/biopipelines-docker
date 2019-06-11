@@ -302,14 +302,14 @@ class Handler:
             Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gb".format(sampledata.prefix))
     # SNP calling
-    def run_bowtie2(self, sampledata: SampleDataLine):
+    def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
         pass
-    def run_samtools(self, sampledata: SampleDataLine):
+    def run_samtools(self, sampledata: SampleDataLine, skip: bool = False):
         pass
-    def run_vcftools(self, sampledata: SampleDataLine):
+    def run_vcftools(self, sampledata: SampleDataLine, skip: bool = False):
         pass
     # SNP annotation
-    def run_snpeff(self, sampledata: SampleDataLine):
+    def run_snpeff(self, sampledata: SampleDataLine, skip: bool = False):
         pass
     # MLST typing
     def run_srst2(self, sampledata: SampleDataLine, skip: bool = False):
@@ -393,7 +393,7 @@ class Handler:
         sampledata.reference_nfasta = mlst_db_abs
         sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
     # Orthologs-based phylogenetic tree construction
-    def run_orthomcl(self):
+    def run_orthomcl(self, sampledata: SampleDataLine, skip: bool = False):
         pass
     def handle(self, sdarr: SampleDataArray):
         functions = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
