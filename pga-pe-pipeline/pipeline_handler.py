@@ -13,11 +13,16 @@ import multiprocessing
 class ArgValidator:
     def __init__(self):
         import argparse
+        _STEPS = list(range(1, len(Handler.TOOLS) + 1))
+        _STAGES = "<{}>".format("|".join([str(i) for i in _STEPS]))
+        _STAGES_DESCRIPTION = "\n".join(["{}. {};".format(idx + 1, i) for idx, i in enumerate(Handler.TOOLS)])
         parser = argparse.ArgumentParser(description="""
 Run prokaryotic genome analysis pipeline for group of files with given taxa information""".strip(),
                                          epilog="""
 Stages: https://github.com/boulygina/bioinformatics-pipelines/blob/master/Prokaryotes_analysis/prokaryotes.md
-            """.strip())
+Description:
+{}
+            """.format(_STAGES_DESCRIPTION).strip())
         parser.add_argument(
             "-i", '--input', metavar='<input.sampledata>', required=True,
             help="""
@@ -26,11 +31,10 @@ Columns:
 1. Sample name, e.g. 'eco_01'
 2. Paired end reads divided with semicolon, e.g. '/reads/eco_01_R1.fastq.gz;/reads/eco_01_R2.fastq.gz'
 3. Taxon information divided with spaces, e.g. 'Escherichia coli O157:H7'""".strip())
-        _STEPS = list(range(1, len(Handler.TOOLS) + 1))
         parser.add_argument("-s", "--start", help="Stage to start the pipeline, inclusive", type=int, default=_STEPS[0],
-                            metavar="<{}>".format("|".join(_STEPS)), choices=_STEPS)
+                            metavar=_STAGES, choices=_STEPS)
         parser.add_argument('-f', '--finish', help='Stage to finish the pipeline, inclusive', type=int,
-                            default=_STEPS[-1], metavar="<{}>".format("|".join(_STEPS)), choices=_STEPS)
+                            default=_STEPS[-1], metavar=_STAGES, choices=_STEPS)
         parser.add_argument('-o', '--output_dir', metavar='<dir>', help='Output directory', required=True)
         self._namespace = parser.parse_args()
         self.sampledata_file = self._namespace.input
@@ -130,7 +134,8 @@ class SampleDataLine:
 
 
 class Handler:
-    TOOLS = ("fastqc", "trimmomatic", "cutadapt", "spades", "prokka", "bowtie2", "snpeff", "srst2", "orthomcl")
+    TOOLS = ("fastqc", "trimmomatic", "cutadapt", "spades", "prokka", "bowtie2", "samtools", "vcftools", "snpeff",
+             "srst2", "orthomcl")
     DOCKER_RUN_CMD = "docker run --rm -v /data:/data -v /data1:/data1 -v /data2:/data2 --net=host -it"
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
@@ -415,17 +420,17 @@ class Handler:
     def run_orthomcl(self, sampledata: SampleDataLine, skip: bool = False):
         pass
     def handle(self, sdarr: SampleDataArray):
-        functions = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
-                     self.run_srst2)
-        for idx, func in enumerate(functions):
+        _FUNCTIONS = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
+                      self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2,
+                      self.run_orthomcl)
+        for idx, func in enumerate(_FUNCTIONS):
             try:
-                logging.info("Starting the pipeline step {} of {}".format(idx + 1, len(functions)))
+                logging.info("Starting the pipeline step {} of {}".format(idx + 1, len(_FUNCTIONS)))
             except PermissionError:
                 logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
                     idx, self.output_dir_root))
             queue = [(func, i, idx not in validator.stages_to_do) for i in sdarr.lines]
             _ = Utils.single_core_queue(Utils.wrap_func, queue)
-
 
 class Utils:
     @staticmethod
