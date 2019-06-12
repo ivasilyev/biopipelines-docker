@@ -405,7 +405,9 @@ class Handler:
                 self.clean_path(stage_dir)
                 srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
                 Utils.append_log(srst2_log, _TOOL, sampledata.name)
-                if not Utils.is_log_valid(srst2_log, bad_phrases=["[main_samview] truncated file."]):
+                if not Utils.is_log_valid(srst2_log, bad_phrases=["Error response from daemon",
+                                                                  "Encountered internal Bowtie 2 exception",
+                                                                  "[main_samview] truncated file."]):
                     msg = "`{}` did not finish correctly for attempt {} of {}".format(_TOOL, srst2_attempt,
                                                                                       _SRST2_ATTEMPTS)
                     logging.warning(msg)
