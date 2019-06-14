@@ -145,6 +145,10 @@ class Handler:
         # Output paths for each step
         self.output_dirs = {i: os.path.normpath(os.path.join(self.output_dir_root, "{}_{}".format(idx + 1, i))) for
                             idx, i in enumerate(self.TOOLS)}
+        # TODO Implenent these lines instead of method constants
+        self._current_tool_name = ""
+        self._current_tool_attempt = 0
+        self._current_tool_max_attempts = 5
     @staticmethod
     def filename_only(path):
         return os.path.splitext(os.path.basename(os.path.normpath(path)))[0]
@@ -161,6 +165,8 @@ class Handler:
     def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo",
                        attempts: int = 5):
         import json
+        import re
+        # Get API response
         if not img_tag:
             attempt = 0
             url = "https://quay.io/api/v1/repository/{}/{}".format(repo_name, img_name)
@@ -176,18 +182,23 @@ class Handler:
                         url, attempt, attempts))
             if attempt > attempts:
                 logging.warning("Exceeded attempts number to get API response from the URL '{}'".format(url))
+        # Pull & run image
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
         logging.info("Using image: '{}'".format(img_name_full))
         docker_cmd = "docker pull {a} && {b} {a}".format(a=img_name_full, b=self.DOCKER_RUN_CMD)
         out_cmd = docker_cmd.strip() + " " + cmd.strip()  # cmd may contain curly braces, so str.format() is not usable
-        logging.debug("Executed command: '{}'".format(out_cmd))
-        return subprocess.getoutput(out_cmd)
+        log_cmd = re.sub("[\r\n ]+", " ", out_cmd)
+        logging.debug("Executing the command: '{}'".format(log_cmd))
+        log = subprocess.getoutput(out_cmd)
+        if not Utils.check_docker_output(log):
+            logging.warning("The command seems to be not finished correctly: '{}'".format(log_cmd))
+        return log
     @staticmethod
     def clean_path(path):
         if os.path.exists(path):
             logging.warning("The path exists and will be replaced with the new data: '{}'".format(path))
             if path != "/":  # I know this is useless
-                logging.debug(subprocess.getoutput("rm -rf {}".format(os.path.normpath(path))))
+                logging.debug(subprocess.getoutput("echo Remove '{o}'; rm -rf {o}".format(o=os.path.normpath(path))))
         os.makedirs(path, exist_ok=True)  # path could be created under root and could not be deleted easily
     @staticmethod
     def process_reads(sampledata: SampleDataLine, out_dir: str, suffix: str):
@@ -213,6 +224,8 @@ class Handler:
                 self.clean_path(stage_dir)
                 log = self.run_quay_image(_TOOL, cmd=cmd)
                 Utils.append_log(log, _TOOL, sampledata.name)
+            else:
+                logging.info("Skip.")
         # Reads are unchanged, so there is nothing to return
     def run_trimmomatic(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -232,6 +245,8 @@ class Handler:
             self.clean_path(stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
             Utils.append_log(log, _TOOL, sampledata.name)
+        else:
+            logging.info("Skip.")
         sampledata.set_reads(trimmed_reads)
     def run_cutadapt(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -250,6 +265,8 @@ class Handler:
             self.clean_path(stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
             Utils.append_log(log, _TOOL, sampledata.name)
+        else:
+            logging.info("Skip.")
         sampledata.set_reads(trimmed_reads)
     def run_spades(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -279,6 +296,8 @@ class Handler:
                 self.clean_path(assembly_dir)
                 log = self.run_quay_image(_TOOL, cmd=cmd)
                 Utils.append_log(log, _TOOL, sampledata.name)
+            else:
+                logging.info("Skip.")
             assemblies[assembly_type] = os.path.join(assembly_dir, "contigs.fasta")
         sampledata.genome = assemblies["genome"]
         sampledata.plasmid = assemblies["plasmid"]
@@ -309,6 +328,8 @@ class Handler:
             self.clean_path(stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
             Utils.append_log(log, _TOOL, sampledata.name)
+        else:
+            logging.info("Skip.")
         sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gb".format(sampledata.prefix))
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
@@ -363,7 +384,7 @@ class Handler:
         """.format(mlst_db_local, mlst_definitions_local)
         if not all(os.path.isfile(i) for i in (mlst_db_abs, mlst_definitions_abs)):
             getmlst_attempt = 0
-            while getmlst_attempt <= _GETMLST_ATTEMPTS:
+            while getmlst_attempt < _GETMLST_ATTEMPTS:
                 getmlst_attempt += 1
                 getmlst_cmd = """
                 bash -c \
@@ -379,7 +400,7 @@ class Handler:
                         getmlst_attempt, _GETMLST_ATTEMPTS))
                 else:
                     break
-            if getmlst_attempt > _GETMLST_ATTEMPTS:
+            if getmlst_attempt == _GETMLST_ATTEMPTS:
                 logging.warning("Exceeded attempts number for `getmlst.py` to finish processing correctly")
         # The input read files must be named by a strict pattern:
         # https://github.com/katholt/srst2#input-read-formats-and-options
@@ -400,22 +421,23 @@ class Handler:
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         if not skip:
             srst2_attempt = 0
-            while srst2_attempt <= _SRST2_ATTEMPTS:
+            while srst2_attempt < _SRST2_ATTEMPTS:
                 srst2_attempt += 1
                 self.clean_path(stage_dir)
                 srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
                 Utils.append_log(srst2_log, _TOOL, sampledata.name)
-                if not Utils.is_log_valid(srst2_log, bad_phrases=["Error response from daemon",
-                                                                  "Encountered internal Bowtie 2 exception",
-                                                                  "[main_samview] truncated file."]):
+                if not Utils.check_docker_output(srst2_log, ["Encountered internal Bowtie 2 exception",
+                                                             "[main_samview] truncated file."]):
                     msg = "`{}` did not finish correctly for attempt {} of {}".format(_TOOL, srst2_attempt,
                                                                                       _SRST2_ATTEMPTS)
                     logging.warning(msg)
                     Utils.append_log(msg, _TOOL, sampledata.name)
                 else:
                     break
-            if srst2_attempt > _SRST2_ATTEMPTS:
+            if srst2_attempt == _SRST2_ATTEMPTS:
                 logging.warning("Exceeded attempts number for `{}` to finish processing correctly".format(_TOOL))
+        else:
+            logging.info("Skip.")
         sampledata.reference_nfasta = mlst_db_abs
         sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
     # Orthologs-based phylogenetic tree construction
@@ -464,6 +486,27 @@ class Utils:
         log_lines = Utils.remove_empty_values(log.replace("\r", "\n").split("\n"))
         bad_phrases = Utils.remove_empty_values(bad_phrases)
         return all([i not in j for i in bad_phrases for j in log_lines])
+    @staticmethod
+    def check_docker_output(log: str, error_phrases: list = ()):
+        from time import sleep
+        _ATTEMPTS = 5
+        _COMMON_PHRASES = ["Error response from daemon", ]
+        phrases = _COMMON_PHRASES + list(error_phrases)
+        attempt = 0
+        out = False
+        while attempt < _ATTEMPTS:
+            attempt += 1
+            out = Utils.is_log_valid(log, bad_phrases=phrases)
+            if not out:
+                logging.warning("An error phrase was found in log for attempt {} of {}.".format(attempt, _ATTEMPTS))
+                sleep(5)
+                # Ping Google just to keep the node DNS working
+                _ = subprocess.getoutput("ping -c 10 google.com")
+            else:
+                break
+        if attempt == _ATTEMPTS:
+            logging.warning("Exceeded attempts number to get execution output without failure messages.")
+        return out
     @staticmethod
     def wrap_func(args: list):
         return args[0](*args[1:])
