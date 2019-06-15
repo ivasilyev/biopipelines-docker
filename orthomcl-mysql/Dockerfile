@@ -36,4 +36,6 @@ RUN chmod a+x /opt/my_tools/*
 ENV PATH=${PATH}:/opt/my_tools
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
-CMD ["pipeline_handler.py"]
+CMD mysql start && \
+    pipeline_handler.py && \
+    mysql stop
