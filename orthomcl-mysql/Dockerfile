@@ -23,8 +23,11 @@ RUN echo "Install software via Conda" && \
     conda install -c bioconda -y diamond blast mcl orthomcl && \
     conda update --all -y
 
-RUN echo "Install modules via CPANM" && \
+RUN echo "Install Perl modules via CPAN" && \
     cpanm DBI DBD::mysql Bio::Perl
+
+RUN echo "Install Python 3 packages" && \
+    pip3 install PyMySQL numpy pandas biopython
 
 # update-alternatives: using /etc/mysql/mysql.cnf to provide /etc/mysql/my.cnf (my.cnf) in auto mode
 COPY orthomcl-mysql/my.cnf /etc/mysql/
@@ -42,7 +45,7 @@ ENV PATH=${PATH}:/opt/my_tools
 CMD service mysql restart; \
     python3 /opt/my_tools/pipeline_handler.py
 
-# To launch the MySQL daemon, start it explicitly, e.g:
+# To use MySQL, start it explicitly, e.g:
 #export IMG=ivasilyev/orthomcl-mysql:latest && \
 #docker pull ${IMG} && \
 #docker run --rm --net=host -it ${IMG} \
