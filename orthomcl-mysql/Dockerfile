@@ -28,7 +28,8 @@ RUN echo "Install modules via CPANM" && \
 
 # update-alternatives: using /etc/mysql/mysql.cnf to provide /etc/mysql/my.cnf (my.cnf) in auto mode
 COPY orthomcl-mysql/my.cnf /etc/mysql/
-RUN chown root:root /etc/mysql/my.cnf && \
+RUN mkdir -p /nonexistent && \
+    chown root:root /etc/mysql/my.cnf && \
     chmod 600 /etc/mysql/my.cnf && \
     service mysql restart
 
