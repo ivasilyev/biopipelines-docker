@@ -73,7 +73,7 @@ class OrthoMCLHandler:
 
     @staticmethod
     def run_and_log(cmd: str, log_file: str = None):
-        log_cmd = re.sub("[\r\n ]+", " ", cmd)
+        log_cmd = re.sub("[\r\n ]+", " ", cmd).strip()
         logging.debug("Processing command '{}'".format(log_cmd))
         log = subprocess.getoutput(cmd.strip())
         if not log_file:
@@ -145,6 +145,8 @@ class OrthoMCLHandler:
         _DB = cfg_dict.get("dbconnectstring").split(":")[2]
         _USER = cfg_dict.get("dblogin")
         _PASSWORD = cfg_dict.get("dbpassword")
+        logging.info("Check the MySQL port")
+        self.run_and_log("""mysql -e 'SHOW GLOBAL VARIABLES LIKE "PORT"' | grep -Po '[0-9]{2,}'""")
         logging.info("Delete the old MySQL database")
         self.run_and_log("mysql --host {} -u {} -p{} -e 'DROP DATABASE IF EXISTS {}'".format(
             _HOST, _USER, _PASSWORD, _DB))
@@ -179,8 +181,7 @@ class OrthoMCLHandler:
 
 
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG,
-                        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
     validator = ArgValidator()
     handler = OrthoMCLHandler()
     handler.handle()
