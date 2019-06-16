@@ -24,7 +24,7 @@ RUN echo "Install software via Conda" && \
     conda update --all -y
 
 RUN echo "Install modules via CPANM" && \
-    cpanm DBI DBD::mysql
+    cpanm DBI DBD::mysql Bio::Perl
 
 # update-alternatives: using /etc/mysql/mysql.cnf to provide /etc/mysql/my.cnf (my.cnf) in auto mode
 COPY orthomcl-mysql/my.cnf /etc/mysql/
@@ -41,3 +41,13 @@ ENV PATH=${PATH}:/opt/my_tools
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 CMD service mysql restart; \
     python3 /opt/my_tools/pipeline_handler.py
+
+# To launch the MySQL daemon, start it explicitly, e.g:
+#export IMG=ivasilyev/orthomcl-mysql:latest && \
+#docker pull ${IMG} && \
+#docker run --rm --net=host -it ${IMG} \
+#bash -c \
+#    'service mysql restart
+#     echo foo
+#     echo bar
+#     echo baz'
