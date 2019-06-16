@@ -30,8 +30,7 @@ RUN echo "Install modules via CPANM" && \
 COPY orthomcl-mysql/my.cnf /etc/mysql/
 RUN mkdir -p /nonexistent && \
     chown root:root /etc/mysql/my.cnf && \
-    chmod 600 /etc/mysql/my.cnf && \
-    service mysql restart
+    chmod 600 /etc/mysql/my.cnf
 
 # Add scripts to the image
 RUN mkdir -p /opt/my_tools
@@ -40,4 +39,5 @@ RUN chmod a+x /opt/my_tools/*
 ENV PATH=${PATH}:/opt/my_tools
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
-CMD /opt/my_tools/pipeline_handler.py
+CMD service mysql restart; \
+    python3 /opt/my_tools/pipeline_handler.py
