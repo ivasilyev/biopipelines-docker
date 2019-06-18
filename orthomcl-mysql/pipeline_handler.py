@@ -22,7 +22,9 @@ Stages:
 """)
         parser.add_argument("-i", "--input", metavar='<input_table.tsv>', required=True,
                             help="A table containing paths of proteome FASTA in the first column "
-                                 "and species abbreviations to use (column 2)")
+                                 "and species abbreviations to use in the second column. "
+                                 "The each abbreviation must have length of 4 characters, with capitalized "
+                                 "only the first letter, e.g. Ecol (Escherichia coli) or Klsp (Klebsiella sp.)")
         parser.add_argument('-s', '--start', help='Stage to start the pipeline', type=int, default=1,
                             metavar='<1|2|3|4>', choices=[1, 2, 3, 4])
         parser.add_argument('-f', '--finish', help='Stage to finish the pipeline', type=int, default=4,
@@ -41,16 +43,11 @@ Stages:
         self.verify()
         os.chdir(self.output_dir)
 
-    @staticmethod
-    def log_and_raise(msg):
-        logging.CRITICAL(msg)
-        raise ValueError(msg)
-
     def verify(self):
         start_point = self._namespace.start
         finish_point = self._namespace.finish
         if start_point > finish_point:
-            self.log_and_raise("Start stage ({}) must be before end stage ({})".format(start_point, finish_point))
+            Utils.log_and_raise("Start stage ({}) must be before end stage ({})".format(start_point, finish_point))
         # Make 'stages_to_do' zero-based
         self.stages_to_do = range(start_point - 1, finish_point)
         total_threads = multiprocessing.cpu_count()
@@ -59,7 +56,7 @@ Stages:
             logging.warning("The given threads number ({}) is too large, using {} threads by default".format(
                 self.threads_number, total_threads))
         if not os.path.isfile(self.config_file):
-            self.log_and_raise("Not found: '{}'".format(self.config_file))
+            Utils.log_and_raise("Not found: '{}'".format(self.config_file))
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
         else:
@@ -67,21 +64,8 @@ Stages:
 
 
 class OrthoMCLHandler:
-    @staticmethod
-    def single_core_queue(func, queue):
-        return [func(i) for i in queue]
-
-    @staticmethod
-    def run_and_log(cmd: str, log_file: str = None):
-        log_cmd = re.sub("[\r\n ]+", " ", cmd).strip()
-        logging.debug("Processing command '{}'".format(log_cmd))
-        log = subprocess.getoutput(cmd.strip())
-        if not log_file:
-            logging.debug(log)
-        else:
-            with open(log_file, mode="w", encoding="utf-8") as f:
-                f.write(log)
-                f.close()
+    def __init__(self):
+        self.output_dir = validator.output_dir
 
     @staticmethod
     def _parse_abbreviations_table(table_file):
@@ -92,38 +76,46 @@ class OrthoMCLHandler:
                     continue
                 d = dict()
                 d["pfasta"], d["abbr"] = [i.strip() for i in line.split()]
+                if len(d["abbr"]) > 4:  # OrthoMCL requirement
+                    logging.warning("The abbreviation is too long, will truncate it to 4 first characters: '{}'".format(
+                        d["abbr"]))
+                if len(d["abbr"]) < 3:
+                    Utils.log_and_raise("The abbreviation is too long, must contain at least 3 characters: '{}'".format(
+                        d["abbr"]))
+                    d["abbr"] = d["abbr"][:4]
+                d["abbr"] = d["abbr"].capitalize()
                 out.append(d)
             f.close()
         return out
 
     @staticmethod
     def _orthomcl_adjust_fasta(d):
-        OrthoMCLHandler.run_and_log("orthomclAdjustFasta {} {} 1".format(d["abbr"], d["pfasta"]))
+        Utils.run_and_log("orthomclAdjustFasta {} {} 1".format(d["abbr"], d["pfasta"]))
 
     def run_orthomcl_adjust_fasta(self):
-        out_dir = os.path.join(validator.output_dir, "compliantFasta")
+        out_dir = os.path.join(self.output_dir, "compliantFasta")
         os.makedirs(out_dir, exist_ok=True)
         os.chdir(out_dir)
         logging.info("Parse abbreviations table")
         queue = self._parse_abbreviations_table(validator.input_table)
         logging.info("Adjust FASTA")
-        _ = self.single_core_queue(self._orthomcl_adjust_fasta, queue)
+        _ = Utils.single_core_queue(self._orthomcl_adjust_fasta, queue)
         os.chdir(validator.output_dir)
         logging.info("Filter FASTA")
-        self.run_and_log("orthomclFilterFasta compliantFasta 10 20")
+        Utils.run_and_log("orthomclFilterFasta compliantFasta 10 20")
 
     def run_diamond(self):
-        os.chdir(validator.output_dir)
+        os.chdir(self.output_dir)
         logging.info("Make diamond database")
-        self.run_and_log("diamond makedb --in goodProteins.fasta -d goodProteins.fasta")
+        Utils.run_and_log("diamond makedb --in goodProteins.fasta -d goodProteins.fasta")
         logging.info("Do diamond search")
-        self.run_and_log("""
+        Utils.run_and_log("""
         diamond blastp --threads {} \
             --db goodProteins.fasta --outfmt 6 --out all_v_all.blastp \
             --query goodProteins.fasta --max-target-seqs 100000 --evalue 1e-5 --masking 1
         """.format(validator.threads_number))
         logging.info("Process blast results to the MySQL-ready file")
-        self.run_and_log("orthomclBlastParser all_v_all.blastp compliantFasta >> similarSequences.txt")
+        Utils.run_and_log("orthomclBlastParser all_v_all.blastp compliantFasta >> similarSequences.txt")
 
     @staticmethod
     def _parse_orthomcl_cfg(cfg_file):
@@ -138,7 +130,7 @@ class OrthoMCLHandler:
         return out
 
     def run_mysql_tasks(self):
-        os.chdir(validator.output_dir)
+        os.chdir(self.output_dir)
         _CFG = validator.config_file
         cfg_dict = self._parse_orthomcl_cfg(_CFG)
         _HOST = "localhost"
@@ -146,31 +138,31 @@ class OrthoMCLHandler:
         _USER = cfg_dict.get("dblogin")
         _PASSWORD = cfg_dict.get("dbpassword")
         logging.info("Check the MySQL port")
-        self.run_and_log("""mysql -e 'SHOW GLOBAL VARIABLES LIKE "PORT"' | grep -Po '[0-9]{2,}'""")
+        Utils.run_and_log("""mysql -e 'SHOW GLOBAL VARIABLES LIKE "PORT"' | grep -Po '[0-9]{2,}'""")
         logging.info("Delete the old MySQL database")
-        self.run_and_log("mysql --host {} -u {} -p{} -e 'DROP DATABASE IF EXISTS {}'".format(
+        Utils.run_and_log("mysql --host {} -u {} -p{} -e 'DROP DATABASE IF EXISTS {}'".format(
             _HOST, _USER, _PASSWORD, _DB))
         logging.info("Create the new MySQL database")
-        self.run_and_log("mysql --host {} -u {} -p{} -e 'CREATE DATABASE {}'".format(_HOST, _USER, _PASSWORD, _DB))
+        Utils.run_and_log("mysql --host {} -u {} -p{} -e 'CREATE DATABASE {}'".format(_HOST, _USER, _PASSWORD, _DB))
         logging.info("Install OrthoMCL schema")
-        self.run_and_log("orthomclInstallSchema {} orthomclInstallSchema.log".format(_CFG))
+        Utils.run_and_log("orthomclInstallSchema {} orthomclInstallSchema.log".format(_CFG))
         logging.info("Push data into the database")
-        self.run_and_log("orthomclLoadBlast {} similarSequences.txt".format(_CFG))
+        Utils.run_and_log("orthomclLoadBlast {} similarSequences.txt".format(_CFG))
         logging.info("Process pairs")
-        self.run_and_log("orthomclPairs {} orthomclPairs.log cleanup=yes".format(_CFG))
+        Utils.run_and_log("orthomclPairs {} orthomclPairs.log cleanup=yes".format(_CFG))
         logging.info("Dump pairs")
-        self.run_and_log("orthomclDumpPairsFiles {}".format(_CFG))
+        Utils.run_and_log("orthomclDumpPairsFiles {}".format(_CFG))
 
     def run_mcl(self):
-        os.chdir(validator.output_dir)
+        os.chdir(self.output_dir)
         logging.info("Run MCL")
-        self.run_and_log("mcl mclInput --abc -I 1.5 -o mclOutput")
+        Utils.run_and_log("mcl mclInput --abc -I 1.5 -o mclOutput")
         logging.info("Make groups file")
-        self.run_and_log("orthomclMclToGroups groups 1000 < mclOutput > groups.txt")
+        Utils.run_and_log("orthomclMclToGroups groups 1000 < mclOutput > groups.txt")
 
     def fix_permissions(self):
-        logging.info("Fix permissions for the output dir: {}".format(validator.output_dir))
-        self.run_and_log("chmod -R 777 {}".format(validator.output_dir))
+        logging.info("Fix permissions for the output dir: {}".format(self.output_dir))
+        Utils.run_and_log("chmod -R 777 {}".format(self.output_dir))
 
     def handle(self):
         functions = (self.run_orthomcl_adjust_fasta, self.run_diamond, self.run_mysql_tasks, self.run_mcl)
@@ -178,6 +170,32 @@ class OrthoMCLHandler:
             logging.info("Start the pipeline step {}".format(idx))
             functions[idx]()
         self.fix_permissions()
+
+
+class Utils:
+    @staticmethod
+    def log_and_raise(msg):
+        logging.critical(msg)
+        raise ValueError(msg)
+
+    @staticmethod
+    def run_and_log(cmd: str, log_file: str = None):
+        log_cmd = re.sub("[\r\n ]+", " ", cmd.strip())
+        logging.debug("Processing command '{}'".format(log_cmd))
+        log = subprocess.getoutput(cmd.strip())
+        if len(log.strip()) == 0:
+            logging.debug("Done")
+        else:
+            if not log_file:
+                logging.debug(log)
+            else:
+                with open(log_file, mode="w", encoding="utf-8") as f:
+                    f.write(log)
+                    f.close()
+
+    @staticmethod
+    def single_core_queue(func, queue):
+        return [func(i) for i in queue]
 
 
 if __name__ == '__main__':
