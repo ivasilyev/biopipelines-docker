@@ -5,9 +5,11 @@
 # curl -fsSL https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/pga-pe-pipeline/pipeline_handler.py
 
 import os
+import re
 import logging
 import subprocess
 import multiprocessing
+from time import sleep
 
 
 class ArgValidator:
@@ -136,7 +138,6 @@ class SampleDataLine:
 class Handler:
     TOOLS = ("fastqc", "trimmomatic", "cutadapt", "spades", "prokka", "bowtie2", "samtools", "vcftools", "snpeff",
              "srst2", "orthomcl")
-    DOCKER_RUN_CMD = "docker run --rm -v /data:/data -v /data1:/data1 -v /data2:/data2 --net=host -it"
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
         if os.path.exists(self.output_dir_root):
@@ -163,9 +164,8 @@ class Handler:
             _try += 1
         return out
     def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo",
-                       attempts: int = 5):
+                       bad_phrases: list = (), attempts: int = 5):
         import json
-        import re
         # Get API response
         if not img_tag:
             attempt = 0
@@ -173,8 +173,7 @@ class Handler:
             while attempt <= attempts:
                 attempt += 1
                 try:
-                    api_response = json.loads(
-                        self.get_page(url))
+                    api_response = json.loads(self.get_page(url))
                     img_tag = sorted(set(api_response.get("tags")))[-1]
                     break
                 except json.decoder.JSONDecodeError:
@@ -185,14 +184,7 @@ class Handler:
         # Pull & run image
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
         logging.info("Using image: '{}'".format(img_name_full))
-        docker_cmd = "docker pull {a} && {b} {a}".format(a=img_name_full, b=self.DOCKER_RUN_CMD)
-        out_cmd = docker_cmd.strip() + " " + cmd.strip()  # cmd may contain curly braces, so str.format() is not usable
-        log_cmd = re.sub("[\r\n ]+", " ", out_cmd)
-        logging.debug("Executing the command: '{}'".format(log_cmd))
-        log = subprocess.getoutput(out_cmd)
-        if not Utils.check_docker_output(log):
-            logging.warning("The command seems to be not finished correctly: '{}'".format(log_cmd))
-        return log
+        return Utils.run_image(img_name=img_name_full, container_cmd=cmd, bad_phrases=bad_phrases, attempts=attempts)
     @staticmethod
     def clean_path(path):
         if os.path.exists(path):
@@ -319,8 +311,7 @@ class Handler:
         cmd = """
         bash -c \
             'cd {o}
-             {T} --cpu {c} --outdir {o} --force --prefix {p} --locustag {p} {a} {g} && chmod -R 777 {o}
-             ln -s "{o}/{p}.gbk" "{o}/{p}.gb"
+             {T} --compliant --centre UoN --cpu {c} --outdir {o} --force --prefix {p} --locustag {p} {a} {g}
              chmod -R 777 {o}'
         """.format(T=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir,
                    c=validator.threads)
@@ -420,22 +411,11 @@ class Handler:
         """.format(c=srst2_cmd.strip(), o=stage_dir, t=validator.threads,
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         if not skip:
-            srst2_attempt = 0
-            while srst2_attempt < _SRST2_ATTEMPTS:
-                srst2_attempt += 1
-                self.clean_path(stage_dir)
-                srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full)
-                Utils.append_log(srst2_log, _TOOL, sampledata.name)
-                if not Utils.check_docker_output(srst2_log, ["Encountered internal Bowtie 2 exception",
-                                                             "[main_samview] truncated file."]):
-                    msg = "`{}` did not finish correctly for attempt {} of {}".format(_TOOL, srst2_attempt,
-                                                                                      _SRST2_ATTEMPTS)
-                    logging.warning(msg)
-                    Utils.append_log(msg, _TOOL, sampledata.name)
-                else:
-                    break
-            if srst2_attempt == _SRST2_ATTEMPTS:
-                logging.warning("Exceeded attempts number for `{}` to finish processing correctly".format(_TOOL))
+            self.clean_path(stage_dir)
+            srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
+                                            bad_phrases=["Encountered internal Bowtie 2 exception",
+                                                         "[main_samview] truncated file."])
+            Utils.append_log(srst2_log, _TOOL, sampledata.name)
         else:
             logging.info("Skip.")
         sampledata.reference_nfasta = mlst_db_abs
@@ -455,6 +435,7 @@ class Handler:
                     idx, self.output_dir_root))
             queue = [(func, i, idx not in validator.stages_to_do) for i in sdarr.lines]
             _ = Utils.single_core_queue(Utils.wrap_func, queue)
+
 
 class Utils:
     @staticmethod
@@ -485,28 +466,40 @@ class Utils:
     def is_log_valid(log: str, bad_phrases: list):
         log_lines = Utils.remove_empty_values(log.replace("\r", "\n").split("\n"))
         bad_phrases = Utils.remove_empty_values(bad_phrases)
+        if len(bad_phrases) == 0:
+            return True
         return all([i not in j for i in bad_phrases for j in log_lines])
     @staticmethod
-    def check_docker_output(log: str, error_phrases: list = ()):
-        from time import sleep
-        _ATTEMPTS = 5
-        _COMMON_PHRASES = ["Error response from daemon", ]
-        phrases = _COMMON_PHRASES + list(error_phrases)
+    def run_until_valid_output(cmd: str, bad_phrases: list, attempts: int = 5, ping_required: bool = False):
         attempt = 0
-        out = False
-        while attempt < _ATTEMPTS:
+        log = ""
+        while attempt < attempts:
             attempt += 1
-            out = Utils.is_log_valid(log, bad_phrases=phrases)
-            if not out:
-                logging.warning("An error phrase was found in log for attempt {} of {}.".format(attempt, _ATTEMPTS))
+            log_cmd = re.sub("[\r\n ]+", " ", cmd.strip())
+            logging.debug("Executing the command: `{}`".format(log_cmd))
+            log = subprocess.getoutput(cmd)
+            if not Utils.is_log_valid(log, bad_phrases):
+                logging.warning("An error phrase was found in log for attempt {} of {}.".format(attempt, attempts))
                 sleep(5)
-                # Ping Google just to keep the node DNS working
-                _ = subprocess.getoutput("ping -c 10 google.com")
+                if ping_required:
+                    # Ping Google just to keep the node DNS working
+                    _ = subprocess.getoutput("ping -c 10 google.com")
             else:
                 break
-        if attempt == _ATTEMPTS:
-            logging.warning("Exceeded attempts number to get execution output without failure messages.")
-        return out
+            if attempt == attempts:
+                logging.warning("Exceeded attempts number to get execution output without failure messages. "
+                                "The command seems to be not finished correctly: `{}`".format(log_cmd))
+        return log
+    @staticmethod
+    def run_image(img_name: str, container_cmd: str, bad_phrases: list = (), attempts: int = 5):
+        _DOCKER_RUN_CMD = "docker run --rm -v /data:/data -v /data1:/data1 -v /data2:/data2 --net=host -it"
+        _COMMON_PHRASES = ["Error response from daemon", ]
+        logging.info("Using image: '{}'".format(img_name))
+        bad_phrases = list(bad_phrases) + _COMMON_PHRASES
+        docker_cmd = "docker pull {a} && {b} {a}".format(a=img_name, b=_DOCKER_RUN_CMD)
+        # cmd may contain curly braces, so str.format() is not usable
+        out_cmd = docker_cmd.strip() + " " + container_cmd.strip()
+        return Utils.run_until_valid_output(cmd=out_cmd, bad_phrases=bad_phrases, attempts=attempts, ping_required=True)
     @staticmethod
     def wrap_func(args: list):
         return args[0](*args[1:])
