@@ -42,9 +42,8 @@ class Converter:
             for seq_feature in seq_record.features:
                 qualifiers = seq_feature.qualifiers.copy()
                 if seq_feature.type == "CDS" and "translation" in qualifiers.keys():
-                    contig = "contig_{}".format(
-                        Utils.safe_findall("\d+", seq_record.id).zfill(len(str(len(seq_records)))))
-                    locus_tag = "CDS_{}".format(Utils.safe_findall("\d+", Utils.safe_get(qualifiers, "locus_tag")))
+                    contig = "contig_{}".format(Utils.safe_extract_int(seq_record.id))
+                    locus_tag = "CDS_{}".format(Utils.safe_extract_int(Utils.safe_get(qualifiers, "locus_tag")))
                     gene = Utils.safe_get(qualifiers, "gene")
                     product = Utils.safe_get(qualifiers, "product")
                     name_parts = Utils.remove_empty_values(
@@ -82,6 +81,13 @@ class Utils:
         if isinstance(v, list):
             return "".join(v)
         return v
+
+    @staticmethod
+    def safe_extract_int(s: str):
+        out = Utils.safe_findall("\d+", s)
+        if len(out) > 0:
+            return int(out)
+        return 0
 
     @staticmethod
     def remove_empty_values(input_list):
