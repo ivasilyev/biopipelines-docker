@@ -156,9 +156,9 @@ class OrthoMCLHandler:
     def run_mcl(self):
         os.chdir(self.output_dir)
         logging.info("Run MCL")
-        Utils.run_and_log("mcl mclInput --abc -I 1.5 -o mclOutput")
+        Utils.run_and_log("mcl mclInput --abc -I 1.5 -o mcl_output.txt")
         logging.info("Make groups file")
-        Utils.run_and_log("orthomclMclToGroups groups 1000 < mclOutput > groups.txt")
+        Utils.run_and_log("orthomclMclToGroups groups 1000 < mcl_output.txt > groups.txt")
 
     def fix_permissions(self):
         logging.info("Fix permissions for the output dir: {}".format(self.output_dir))
