@@ -74,7 +74,7 @@ class SampleDataArray:
 
 class SampleDataLine:
     exists = False
-    prefix, genome, plasmid, annotation_genbank, reference_nfasta, mlst_results = ("", ) * 6
+    prefix, genome, plasmid, annotation_genbank, annotation_pfasta, reference_nfasta, mlst_results = ("", ) * 7
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
         self.name = sample_name.strip()
@@ -137,7 +137,7 @@ class SampleDataLine:
 
 class Handler:
     TOOLS = ("fastqc", "trimmomatic", "cutadapt", "spades", "prokka", "bowtie2", "samtools", "vcftools", "snpeff",
-             "srst2", "orthomcl")
+             "srst2", "extract_pfasta_from_gbk", "orthomcl")
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
         if os.path.exists(self.output_dir_root):
@@ -145,6 +145,9 @@ class Handler:
         os.makedirs(self.output_dir_root, exist_ok=True)
         # Output paths for each step
         self.output_dirs = {i: os.path.normpath(os.path.join(self.output_dir_root, "{}_{}".format(idx + 1, i))) for
+                            idx, i in enumerate(self.TOOLS)}
+        self.output_dirs = {i: os.path.normpath(os.path.join(
+            self.output_dir_root, "_".join([str(idx + 1).zfill(len(str(len(self.TOOLS)))), i]))) for
                             idx, i in enumerate(self.TOOLS)}
         # TODO Implenent these lines instead of method constants
         self._current_tool_name = ""
@@ -321,7 +324,7 @@ class Handler:
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip.")
-        sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gb".format(sampledata.prefix))
+        sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gbk".format(sampledata.prefix))
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
         pass
@@ -420,13 +423,26 @@ class Handler:
             logging.info("Skip.")
         sampledata.reference_nfasta = mlst_db_abs
         sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
+    def extract_pfasta_from_gbk(self, sampledata: SampleDataLine, skip: bool = False):
+        _TOOL = "extract_pfasta_from_gbk"
+        tool_dir = self.output_dirs[_TOOL]
+        os.makedirs(tool_dir, exist_ok=True)
+        sampledata.annotation_pfasta = os.path.join(tool_dir, "{}.protein.fasta".format(sampledata.name))
+        if not skip:
+            log = Utils.run_image("ivasilyev/orthomcl-mysql:latest", container_cmd="""
+            python3 /opt/my_tools/{}.py -i {} -a {} -s {} -o {}
+            """.format(_TOOL, sampledata.annotation_genbank, sampledata.prefix, sampledata.name,
+                       sampledata.annotation_pfasta))
+            Utils.append_log(log, _TOOL, sampledata.name)
+        else:
+            logging.info("Skip.")
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata: SampleDataLine, skip: bool = False):
         pass
     def handle(self, sdarr: SampleDataArray):
         _FUNCTIONS = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
                       self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2,
-                      self.run_orthomcl)
+                      self.extract_pfasta_from_gbk, self.run_orthomcl)
         for idx, func in enumerate(_FUNCTIONS):
             try:
                 logging.info("Starting the pipeline step {} of {}".format(idx + 1, len(_FUNCTIONS)))
