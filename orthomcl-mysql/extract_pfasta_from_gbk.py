@@ -14,11 +14,12 @@ class ArgParser:
         _parser = argparse.ArgumentParser(description="Extract amino acid sequence from provided GenBank file.".strip(),
                                           epilog="Note: the input file must be compliant with actual GenBank standard, "
                                                  "otherwise it won't be parsed with BioPython")
-        _parser.add_argument("-i", "--input", metavar="<input.gbk>", required=True, help="Input GenBank file")
-        _parser.add_argument("-a", "--abbreviation", metavar="<str>", default="",
+        _parser.add_argument("-i", "--input", metavar="<input.gbk>", type=str, required=True, help="Input GenBank file")
+        _parser.add_argument("-a", "--abbreviation", metavar="<str>", type=str, default="",
                              help="Organism species abbreviation containing 3 or 4 characters")
-        _parser.add_argument("-s", "--sample_name", metavar="<str>", default="", help="Sample name to add into prefix")
-        _parser.add_argument("-o", "--output", metavar="<output.faa>", required=True, help="Output file name")
+        _parser.add_argument("-s", "--sample_name", metavar="<str>", type=str, default="",
+                             help="Sample name to add into prefix")
+        _parser.add_argument("-o", "--output", metavar="<output.faa>", type=str, required=True, help="Output file name")
         self._namespace = _parser.parse_args()
         self.input_gbk = self._namespace.input
         self.abbreviation = self._namespace.abbreviation.capitalize()
@@ -46,8 +47,8 @@ class Converter:
                     locus_tag = "CDS_{}".format(Utils.safe_extract_int(Utils.safe_get(qualifiers, "locus_tag")))
                     gene = Utils.safe_get(qualifiers, "gene")
                     product = Utils.safe_get(qualifiers, "product")
-                    name_parts = ["{}_{}".format(self.abbreviation, self.sample_name), contig, locus_tag, gene, product,
-                                  seq_feature.location]
+                    name_parts = [";".join([self.abbreviation, self.sample_name]), ";".join([contig, locus_tag]),
+                                  gene, product, seq_feature.location]
                     out_name = ("|".join(Utils.remove_empty_values(
                         [re.sub(" +", "_", str(i).strip()) for i in name_parts])))
                     self._out_records.append(
