@@ -228,8 +228,8 @@ class Handler:
                                      "{}_{}".format(sampledata.name, idx + 1))
             cmd = """
             bash -c \
-                'cd {o}
-                 {T} -t {c} {r} -o {o}
+                'cd {o};
+                 {T} -t {c} {r} -o {o};
                  chmod -R 777 {o}'
             """.format(T=_TOOL, c=validator.threads, r=reads_file, o=stage_dir)
             if not skip:
@@ -248,10 +248,10 @@ class Handler:
         untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrinned".format(_TOOL))
         cmd = """
         bash -c \
-            'cd {o}
+            'cd {o};
              {T} PE -threads {t} -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
                 ILLUMINACLIP:/data2/bio/ecoli_komfi/adapters.fasta:2:30:10 \
-                LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36
+                LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36;
              chmod -R 777 {o}'
         """.format(T=_TOOL, t=validator.threads, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1],
                    t1=trimmed_reads[0], t2=trimmed_reads[1], u1=untrimmed_reads[0], u2=untrimmed_reads[1])
@@ -271,8 +271,8 @@ class Handler:
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         cmd = """
         bash -c \
-            'cd o
-             {T} -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2} 
+            'cd o;
+             {T} -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2};
              chmod -R 777 {o}'
         """.format(T=_TOOL, a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
                    t2=trimmed_reads[1], o=stage_dir)
@@ -303,9 +303,9 @@ class Handler:
                 cmd_append = " --plasmid"
             cmd = """
             bash -c \
-                'cd {o}
+                'cd {o};
                  TOOL=$(find /usr/local/share/ -name {t}.py | grep {t} | head -n 1) && \
-                 $TOOL --careful -o {o} -1 {r1} -2 {r2}{a}
+                 $TOOL --careful -o {o} -1 {r1} -2 {r2}{a};
                  chmod -R 777 {o}'
             """.format(o=assembly_dir, t=_TOOL, r1=sampledata.reads[0], r2=sampledata.reads[1], a=cmd_append)
             if not skip:
@@ -347,6 +347,7 @@ class Handler:
         else:
             logging.info("Skip.")
         sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gbk".format(sampledata.prefix))
+        sampledata.annotation_pfasta = os.path.join(stage_dir, "{}.faa".format(sampledata.prefix))
 
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
@@ -404,14 +405,20 @@ class Handler:
         srst2_cmd = """
         srst2 --output test --input_pe *.fastq.gz --mlst_db {} --mlst_definitions {} --mlst_delimiter '_'
         """.format(mlst_db_local, mlst_definitions_local)
+        sampledata.reference_nfasta = mlst_db_abs
+        sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
+        if skip:
+            logging.info("Skip.")
+            return
         if not all(os.path.isfile(i) for i in (mlst_db_abs, mlst_definitions_abs)):
+            os.makedirs(tool_dir, exist_ok=True)
             getmlst_attempt = 0
             while getmlst_attempt < _GETMLST_ATTEMPTS:
                 getmlst_attempt += 1
                 getmlst_cmd = """
                 bash -c \
-                    'cd {o}
-                     getmlst.py --species "{g} {s}"
+                    'cd {o};
+                     getmlst.py --species "{g} {s}";
                      chmod -R 777 {o}'
                 """.format(g=genus, s=species, o=tool_dir)
                 getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
@@ -434,29 +441,24 @@ class Handler:
             mlst_definitions_local, mlst_definitions_abs)
         srst2_cmd_full = """
         bash -c \
-            'cd {o} 
-             ln -s {r1} {l1}
-             ln -s {r2} {l2}
-             {c} --log --threads {t}
+            'cd {o};
+             ln -s {r1} {l1};
+             ln -s {r2} {l2};
+             {c} --log --threads {t};
              chmod -R 777 {o}'
         """.format(c=srst2_cmd.strip(), o=stage_dir, t=validator.threads,
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
-        if not skip:
-            self.clean_path(stage_dir)
-            srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
-                                            bad_phrases=["Encountered internal Bowtie 2 exception",
-                                                         "[main_samview] truncated file."])
-            Utils.append_log(srst2_log, _TOOL, sampledata.name)
-        else:
-            logging.info("Skip.")
-        sampledata.reference_nfasta = mlst_db_abs
-        sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
+        self.clean_path(stage_dir)
+        srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
+                                        bad_phrases=["Encountered internal Bowtie 2 exception",
+                                                     "[main_samview] truncated file."])
+        Utils.append_log(srst2_log, _TOOL, sampledata.name)
 
     def extract_pfasta_from_gbk(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "extract_pfasta_from_gbk"
         tool_dir = self.output_dirs[_TOOL]
         os.makedirs(tool_dir, exist_ok=True)
-        sampledata.annotation_pfasta = os.path.join(tool_dir, "{}.protein.fasta".format(sampledata.name))
+        sampledata.annotation_pfasta = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
         if not skip:
             log = Utils.run_image("ivasilyev/orthomcl-mysql:latest", container_cmd="""
             python3 /opt/my_tools/{}.py -i {} -a {} -s {} -o {}
@@ -467,21 +469,47 @@ class Handler:
             logging.info("Skip.")
 
     # Orthologs-based phylogenetic tree construction
-    def run_orthomcl(self, sampledata: SampleDataLine, skip: bool = False):
-        pass
+    def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
+        # One per all samples
+        _TOOL = "orthomcl"
+        tool_dir = self.output_dirs[_TOOL]
+        if skip:
+            logging.info("Skip.")
+            return
+        self.clean_path(tool_dir)
+        orthomcl_sampledata = os.path.join(tool_dir, "orthomcl_abbreviations.sampledata")
+        with open(orthomcl_sampledata, mode="w", encoding="utf-8") as f:
+            for sampledata in sampledata_array.lines:
+                f.write("{}\t{}\n".format(sampledata.annotation_pfasta, sampledata.name))
+            f.close()
+        log = Utils.run_image(img_name="ivasilyev/orthomcl-mysql:latest",
+                              container_cmd="""
+                              bash -c \
+                                'service mysql restart;
+                                 python3 /opt/my_tools/pipeline_handler.py -i {s} -o {o};
+                                 chmod -R 777 {o}'
+                              """.format(s=orthomcl_sampledata, o=tool_dir))
+        Utils.append_log(log, _TOOL, "all")
 
-    def handle(self, sdarr: SampleDataArray):
-        _FUNCTIONS = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
-                      self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2,
-                      self.extract_pfasta_from_gbk, self.run_orthomcl)
-        for idx, func in enumerate(_FUNCTIONS):
+    def handle(self, sampledata_array: SampleDataArray):
+        _SAMPLE_METHODS = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
+                           self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2,
+                           self.extract_pfasta_from_gbk)
+        _GROUP_METHODS = (self.run_orthomcl,)
+        for idx, func in enumerate(_SAMPLE_METHODS + _GROUP_METHODS):
             try:
-                logging.info("Starting the pipeline step {} of {}".format(idx + 1, len(_FUNCTIONS)))
+                logging.info("Starting the pipeline step {} of {} ({} in total)".format(
+                    idx + 1, len(_SAMPLE_METHODS + _GROUP_METHODS), len(validator.stages_to_do)))
+                # Per-sample processing
+                if func in _SAMPLE_METHODS:
+                    queue = [(func, i, idx not in validator.stages_to_do) for i in sampledata_array.lines]
+                    _ = Utils.single_core_queue(Utils.wrap_func, queue)
+                # Per-group functions
+                else:
+                    func(sampledata_array, skip=idx not in validator.stages_to_do)
             except PermissionError:
                 logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
                     idx, self.output_dir_root))
-            queue = [(func, i, idx not in validator.stages_to_do) for i in sdarr.lines]
-            _ = Utils.single_core_queue(Utils.wrap_func, queue)
 
 
 class Utils:
