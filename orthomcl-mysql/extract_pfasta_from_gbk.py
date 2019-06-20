@@ -47,7 +47,7 @@ class Converter:
                     locus_tag = "CDS_{}".format(Utils.safe_extract_int(Utils.safe_get(qualifiers, "locus_tag")))
                     gene = Utils.safe_get(qualifiers, "gene")
                     product = Utils.safe_get(qualifiers, "product")
-                    name_parts = [";".join([self.abbreviation, self.sample_name]), ";".join([contig, locus_tag]),
+                    name_parts = [self.sample_name, ";".join([self.abbreviation, contig, locus_tag]),
                                   gene, product, seq_feature.location]
                     out_name = ("|".join(Utils.remove_empty_values(
                         [re.sub(" +", "_", str(i).strip()) for i in name_parts])))

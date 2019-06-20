@@ -74,17 +74,16 @@ class OrthoMCLHandler:
             for line in f:
                 if len(line.strip()) == 0:
                     continue
-                d = dict()
-                d["pfasta"], d["abbr"] = [i.strip() for i in line.split()]
-                if len(d["abbr"]) > 4:  # OrthoMCL requirement
-                    logging.warning("The abbreviation is too long, will truncate it to 4 first characters: '{}'".format(
-                        d["abbr"]))
-                if len(d["abbr"]) < 3:
-                    Utils.log_and_raise("The abbreviation is too long, must contain at least 3 characters: '{}'".format(
-                        d["abbr"]))
-                    d["abbr"] = d["abbr"][:4]
-                d["abbr"] = d["abbr"].capitalize()
-                out.append(d)
+                pfasta, abbr = [i.strip() for i in line.split()]
+                if len(abbr) > 4:  # OrthoMCL requirement
+                    logging.warning("The abbreviation is too long, it is recommend to truncate it "
+                                    "to 4 characters: '{}'".format(abbr))
+                if len(abbr) < 3:
+                    Utils.log_and_raise(
+                        "The abbreviation is too small, must contain at least 3 characters: '{}'".format(abbr))
+                # abbr = abbr[:4]
+                abbr = abbr.capitalize()
+                out.append({"pfasta": pfasta, "abbr": abbr})
             f.close()
         return out
 
