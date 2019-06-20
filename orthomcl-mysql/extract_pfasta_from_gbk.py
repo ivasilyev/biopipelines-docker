@@ -21,7 +21,7 @@ class ArgParser:
         _parser.add_argument("-o", "--output", metavar="<output.faa>", required=True, help="Output file name")
         self._namespace = _parser.parse_args()
         self.input_gbk = self._namespace.input
-        self.abbreviation = self._namespace.abbreviation
+        self.abbreviation = self._namespace.abbreviation.capitalize()
         self.sample_name = self._namespace.sample_name
         self.out_pfasta = self._namespace.output
 
@@ -46,7 +46,7 @@ class Converter:
                     locus_tag = "CDS_{}".format(Utils.safe_extract_int(Utils.safe_get(qualifiers, "locus_tag")))
                     gene = Utils.safe_get(qualifiers, "gene")
                     product = Utils.safe_get(qualifiers, "product")
-                    name_parts = [self.abbreviation, self.sample_name, contig, locus_tag, gene, product,
+                    name_parts = [self.sample_name, self.abbreviation, contig, locus_tag, gene, product,
                                   seq_feature.location]
                     out_name = ("|".join(Utils.remove_empty_values(
                         [re.sub(" +", "_", str(i).strip()) for i in name_parts])))
