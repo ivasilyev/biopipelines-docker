@@ -8,6 +8,7 @@ import argparse
 import logging
 import subprocess
 import multiprocessing
+import pymysql
 
 
 class ArgValidator:
@@ -63,12 +64,36 @@ Stages:
             logging.warning("The output directory exists: '{}'".format(self.output_dir))
 
 
+class SQLPropertiesKeeper:
+    host, db, user, password = ("",) * 4
+
+
+class MySQLQueryManager:
+    def __init__(self, keeper: SQLPropertiesKeeper):
+        self.keeper = keeper
+
+    def execute(self, queries: list):
+        con = pymysql.connect(host=self.keeper.host, user=self.keeper.user, password=self.keeper.password,
+                              db=self.keeper.db, charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor)
+        with con.cursor() as cur:
+            for query in queries:
+                cur.execute(query)
+            out = [i for i in cur]
+        con.commit()
+        con.close()
+        return out
+
+
 class OrthoMCLHandler:
     def __init__(self):
         self.output_dir = validator.output_dir
+        self.sampledata_dict = self._parse_abbreviations_table(validator.input_table)
+        self.orthomcl_cfg_file = validator.config_file
+        self.sql_keeper = self._parse_db_properties()
 
     @staticmethod
-    def _parse_abbreviations_table(table_file):
+    def _parse_abbreviations_table(table_file: str):
+        logging.info("Parse abbreviations table")
         out = []
         with open(table_file, mode="r", encoding="utf-8") as f:
             for line in f:
@@ -88,17 +113,40 @@ class OrthoMCLHandler:
         return out
 
     @staticmethod
-    def _orthomcl_adjust_fasta(d):
+    def _parse_orthomcl_cfg(cfg_file: str):
+        import configparser
+        logging.info("Parse OrthoMCL configuration file")
+        with open(cfg_file, mode="r", encoding="utf-8") as f:
+            # configparser is sensitive to header
+            cfg_buf = "\n".join(["[Main]"] + [j for j in [i.strip() for i in f] if len(j) > 0])
+            f.close()
+        cp = configparser.ConfigParser()
+        cp.read_string(cfg_buf)
+        out = {i[0]: i[1] for i in cp.items("Main")}
+        return out
+
+    def _parse_db_properties(self):
+        db_config_dict = self._parse_orthomcl_cfg(self.orthomcl_cfg_file)
+        keeper = SQLPropertiesKeeper()
+        # dbConnectString=dbi:mysql:orthomcl:localhost:3306
+        db_connect_list = db_config_dict.get("dbconnectstring").split(":")
+        keeper.db = db_connect_list[2]
+        keeper.host = db_connect_list[3]
+        keeper.port = db_connect_list[4]
+        keeper.user = db_config_dict.get("dblogin")
+        keeper.password = db_config_dict.get("dbpassword")
+        return keeper
+
+    @staticmethod
+    def _orthomcl_adjust_fasta(d: dict):
         Utils.run_and_log("orthomclAdjustFasta {} {} 1".format(d["abbr"], d["pfasta"]))
 
     def run_orthomcl_adjust_fasta(self):
         out_dir = os.path.join(self.output_dir, "compliantFasta")
         os.makedirs(out_dir, exist_ok=True)
         os.chdir(out_dir)
-        logging.info("Parse abbreviations table")
-        queue = self._parse_abbreviations_table(validator.input_table)
         logging.info("Adjust FASTA")
-        _ = Utils.single_core_queue(self._orthomcl_adjust_fasta, queue)
+        _ = Utils.single_core_queue(self._orthomcl_adjust_fasta, self.sampledata_dict)
         os.chdir(validator.output_dir)
         logging.info("Filter FASTA")
         Utils.run_and_log("orthomclFilterFasta compliantFasta 10 20")
@@ -116,48 +164,31 @@ class OrthoMCLHandler:
         logging.info("Process blast results to the MySQL-ready file")
         Utils.run_and_log("orthomclBlastParser all_v_all.blastp compliantFasta >> similarSequences.txt")
 
-    @staticmethod
-    def _parse_orthomcl_cfg(cfg_file):
-        import configparser
-        with open(cfg_file, mode="r", encoding="utf-8") as f:
-            # configparser is sensitive to header
-            cfg_buf = "\n".join(["[Main]"] + [j for j in [i.strip() for i in f] if len(j) > 0])
-            f.close()
-        cp = configparser.ConfigParser()
-        cp.read_string(cfg_buf)
-        out = {i[0]: i[1] for i in cp.items("Main")}
-        return out
-
     def run_mysql_tasks(self):
         os.chdir(self.output_dir)
-        _CFG = validator.config_file
-        cfg_dict = self._parse_orthomcl_cfg(_CFG)
-        _HOST = "localhost"
-        _DB = cfg_dict.get("dbconnectstring").split(":")[2]
-        _USER = cfg_dict.get("dblogin")
-        _PASSWORD = cfg_dict.get("dbpassword")
         logging.info("Check the MySQL port")
         Utils.run_and_log("""mysql -e 'SHOW GLOBAL VARIABLES LIKE "PORT"' | grep -Po '[0-9]{2,}'""")
         logging.info("Delete the old MySQL database")
         Utils.run_and_log("mysql --host {} -u {} -p{} -e 'DROP DATABASE IF EXISTS {}'".format(
-            _HOST, _USER, _PASSWORD, _DB))
+            self.sql_keeper.host, self.sql_keeper.user, self.sql_keeper.password, self.sql_keeper.db))
         logging.info("Create the new MySQL database")
-        Utils.run_and_log("mysql --host {} -u {} -p{} -e 'CREATE DATABASE {}'".format(_HOST, _USER, _PASSWORD, _DB))
+        Utils.run_and_log("mysql --host {} -u {} -p{} -e 'CREATE DATABASE {}'".format(
+            self.sql_keeper.host, self.sql_keeper.user, self.sql_keeper.password, self.sql_keeper.db))
         logging.info("Install OrthoMCL schema")
-        Utils.run_and_log("orthomclInstallSchema {} orthomclInstallSchema.log".format(_CFG))
+        Utils.run_and_log("orthomclInstallSchema {} orthomclInstallSchema.log".format(self.orthomcl_cfg_file))
         logging.info("Push data into the database")
-        Utils.run_and_log("orthomclLoadBlast {} similarSequences.txt".format(_CFG))
+        Utils.run_and_log("orthomclLoadBlast {} similarSequences.txt".format(self.orthomcl_cfg_file))
         logging.info("Process pairs")
-        Utils.run_and_log("orthomclPairs {} orthomclPairs.log cleanup=yes".format(_CFG))
+        Utils.run_and_log("orthomclPairs {} orthomclPairs.log cleanup=yes".format(self.orthomcl_cfg_file))
         logging.info("Dump pairs")
-        Utils.run_and_log("orthomclDumpPairsFiles {}".format(_CFG))
+        Utils.run_and_log("orthomclDumpPairsFiles {}".format(self.orthomcl_cfg_file))
 
     def run_mcl(self):
         os.chdir(self.output_dir)
         logging.info("Run MCL")
         Utils.run_and_log("mcl mclInput --abc -I 1.5 -o mcl_output.txt")
-        logging.info("Make groups file")
-        Utils.run_and_log("orthomclMclToGroups group_ 1000 < mcl_output.txt > named_groups.txt")
+        logging.info("Compile MCL groups file")
+        Utils.run_and_log("orthomclMclToGroups mcl_group_ 1000 < mcl_output.txt > mcl_groups.txt")
 
     def fix_permissions(self):
         logging.info("Fix permissions for the output dir: {}".format(self.output_dir))
