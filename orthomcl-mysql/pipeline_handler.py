@@ -187,8 +187,11 @@ class OrthoMCLHandler:
         os.chdir(self.output_dir)
         logging.info("Run MCL")
         Utils.run_and_log("mcl mclInput --abc -I 1.5 -o mcl_output.txt")
-        logging.info("Compile MCL groups file")
-        Utils.run_and_log("orthomclMclToGroups mcl_group_ 1000 < mcl_output.txt > mcl_groups.txt")
+        logging.info("Convert MCL output file to group IDs file")
+        Utils.run_and_log("orthomclMclToGroups MCL_ID_ 1000 < mcl_output.txt > mcl_groups.txt")
+
+    def convert_mcl_groups_to_pivot(self):
+        pass
 
     def fix_permissions(self):
         logging.info("Fix permissions for the output dir: {}".format(self.output_dir))

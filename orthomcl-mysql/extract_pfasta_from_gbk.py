@@ -33,32 +33,40 @@ class Converter:
         self.abbreviation = parser.abbreviation
         self.sample_name = parser.sample_name
         self.out_pfasta = parser.out_pfasta
-        self._out_records = []
+        self._out_pfasta_records = []
+        self._out_annotations = dict()
 
     def parse(self):
         seq_records = list(SeqIO.parse(self.input_gbk, "genbank"))
+        _id = 0
         # LOCUS
         for seq_record in seq_records:
             # CDS
             for seq_feature in seq_record.features:
                 qualifiers = seq_feature.qualifiers.copy()
                 if seq_feature.type == "CDS" and "translation" in qualifiers.keys():
+                    _id += 1
+                    id_str = "PFASTA_ID_{}".format(_id)
                     contig = "contig_{}".format(Utils.safe_extract_int(seq_record.id))
                     locus_tag = "CDS_{}".format(Utils.safe_extract_int(Utils.safe_get(qualifiers, "locus_tag")))
                     gene = Utils.safe_get(qualifiers, "gene")
                     product = Utils.safe_get(qualifiers, "product")
-                    name_parts = [";".join([str(i) for i in (self.abbreviation, self.sample_name, contig, locus_tag)]),
-                                  gene, product, seq_feature.location]
+                    name_parts = [self.abbreviation, self.sample_name, contig, locus_tag, gene, product,
+                                  seq_feature.location]
                     out_name = ("|".join(Utils.remove_empty_values(
                         [re.sub(" +", "_", str(i).strip()) for i in name_parts])))
-                    self._out_records.append(
-                        SeqRecord(Seq(Utils.safe_get(qualifiers, "translation"), IUPAC.protein), id=out_name,
+                    self._out_pfasta_records.append(
+                        SeqRecord(Seq(Utils.safe_get(qualifiers, "translation"), IUPAC.protein), id=id_str,
                                   description=""))
+                    self._out_annotations[id_str] = out_name
 
     def export(self):
-        with open(self.out_pfasta, mode="w", encoding="utf-8") as f:
-            f.write("".join([i.format("fasta") for i in self._out_records]))
-            f.close()
+        print("Save protein FASTA to: '{}'".format(self.out_pfasta))
+        Utils.dump_string(s="".join([i.format("fasta") for i in self._out_pfasta_records]), file=self.out_pfasta)
+        annotation_file = "{}_annotation.tsv".format(self.out_pfasta)
+        print("Save protein annotation to: '{}'".format(annotation_file))
+        Utils.dump_string(s="".join(["{}\t{}\n".format(
+            k, self._out_annotations.get(k)) for k in self._out_annotations]), file=annotation_file)
 
     def convert(self):
         self.parse()
@@ -94,6 +102,12 @@ class Utils:
     @staticmethod
     def remove_empty_values(input_list):
         return [j for j in [i.strip() for i in input_list] if len(j) > 0]
+
+    @staticmethod
+    def dump_string(s: str, file: str):
+        with open(file, mode="w", encoding="utf-8") as f:
+            f.write(s)
+            f.close()
 
 
 if __name__ == '__main__':
