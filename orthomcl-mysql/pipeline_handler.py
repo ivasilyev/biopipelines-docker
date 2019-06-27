@@ -8,6 +8,7 @@ import argparse
 import logging
 import subprocess
 import multiprocessing
+import pandas as pd
 import pymysql
 
 
@@ -95,31 +96,28 @@ class OrthoMCLHandler:
     def _parse_abbreviations_table(table_file: str):
         logging.info("Parse abbreviations table")
         out = []
-        with open(table_file, mode="r", encoding="utf-8") as f:
-            for line in f:
-                if len(line.strip()) == 0:
-                    continue
-                pfasta, abbr = [i.strip() for i in line.split()]
-                if len(abbr) > 4:  # OrthoMCL requirement
-                    logging.warning("The abbreviation is too long, it is recommend to truncate it "
-                                    "to 4 characters: '{}'".format(abbr))
-                if len(abbr) < 3:
-                    Utils.log_and_raise(
-                        "The abbreviation is too small, must contain at least 3 characters: '{}'".format(abbr))
-                # abbr = abbr[:4]
-                abbr = abbr.capitalize()
-                out.append({"pfasta": pfasta, "abbr": abbr})
-            f.close()
+        lines = Utils.load_list(table_file)
+        for line in lines:
+            if len(line.strip()) == 0:
+                continue
+            pfasta, abbr = [i.strip() for i in line.split()]
+            if len(abbr) > 4:  # OrthoMCL requirement
+                logging.warning("The abbreviation is too long, it is recommend to truncate it "
+                                "to 4 characters: '{}'".format(abbr))
+            if len(abbr) < 3:
+                Utils.log_and_raise(
+                    "The abbreviation is too small, must contain at least 3 characters: '{}'".format(abbr))
+            # abbr = abbr[:4]
+            abbr = abbr.capitalize()
+            out.append({"pfasta": pfasta, "abbr": abbr})
         return out
 
     @staticmethod
     def _parse_orthomcl_cfg(cfg_file: str):
         import configparser
         logging.info("Parse OrthoMCL configuration file")
-        with open(cfg_file, mode="r", encoding="utf-8") as f:
-            # configparser is sensitive to header
-            cfg_buf = "\n".join(["[Main]"] + [j for j in [i.strip() for i in f] if len(j) > 0])
-            f.close()
+        # configparser is sensitive to header
+        cfg_buf = "\n".join(["[Main]"] + Utils.load_list(cfg_file))
         cp = configparser.ConfigParser()
         cp.read_string(cfg_buf)
         out = {i[0]: i[1] for i in cp.items("Main")}
@@ -190,7 +188,29 @@ class OrthoMCLHandler:
         logging.info("Convert MCL output file to group IDs file")
         Utils.run_and_log("orthomclMclToGroups MCL_ID_ 1000 < mcl_output.txt > mcl_groups.txt")
 
-    def convert_mcl_groups_to_pivot(self):
+    @staticmethod
+    def _parse_mcl_groups(mcl_groups_file):
+        lines = Utils.load_list(mcl_groups_file)
+        out = []
+        for line in lines:
+            line_list = Utils.remove_empty_values(line.split(" "))
+            if len(line_list) < 2:
+                continue
+            mcl_id = line_list[0].replace(":", "")
+            pfasta_headers = Utils.remove_empty_values(line_list[1:])
+            for pfasta_header in pfasta_headers:
+                try:
+                    prefix, pfasta_id = pfasta_header.split("|")[:2]
+                    out.append({"mcl_id": mcl_id, "sample_name": prefix, "pfasta_id": pfasta_id})
+                except IndexError:
+                    pass
+        return out
+
+    def convert_mcl_groups_to_pivot(self, annotation_file: str, sample_name: str):
+        os.chdir(self.output_dir)
+        mcl_groups_df = pd.DataFrame(self._parse_mcl_groups("mcl_groups.txt"))
+        annotation_df = pd.read_table(annotation_file, encoding="utf-8", sep="\t", header=0)
+        annotation_df["sample_name"] = sample_name
         pass
 
     def fix_permissions(self):
@@ -210,7 +230,6 @@ class Utils:
     def log_and_raise(msg):
         logging.critical(msg)
         raise ValueError(msg)
-
     @staticmethod
     def run_and_log(cmd: str, log_file: str = None):
         log_cmd = re.sub("[\r\n ]+", " ", cmd.strip())
@@ -222,13 +241,31 @@ class Utils:
             if not log_file:
                 logging.debug(log)
             else:
-                with open(log_file, mode="w", encoding="utf-8") as f:
-                    f.write(log)
-                    f.close()
-
+                Utils.dump_string(string=log, file=log_file)
     @staticmethod
     def single_core_queue(func, queue):
         return [func(i) for i in queue]
+    @staticmethod
+    def load_string(file: str):
+        with open(file=file, mode="r", encoding="utf-8") as f:
+            s = f.read()
+            f.close()
+        return s
+    @staticmethod
+    def dump_string(string: str, file: str):
+        os.makedirs(os.path.dirname(file), exist_ok=True)
+        with open(file=file, mode="w", encoding="utf-8") as f:
+            f.write(string)
+            f.close()
+    @staticmethod
+    def remove_empty_values(input_list: list):
+        return [j for j in [i.strip() for i in input_list] if len(j) > 0]
+    @staticmethod
+    def split_lines(string: str):
+        return Utils.remove_empty_values(re.sub("[\r\n]+", "\n", string).split("\n"))
+    @staticmethod
+    def load_list(file: str):
+        return Utils.split_lines(Utils.load_string(file))
 
 
 if __name__ == '__main__':

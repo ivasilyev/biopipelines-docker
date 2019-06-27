@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import re
+import pandas as pd
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -34,11 +35,12 @@ class Converter:
         self.sample_name = parser.sample_name
         self.out_pfasta = parser.out_pfasta
         self._out_pfasta_records = []
-        self._out_annotations = dict()
+        self._out_annotations = pd.DataFrame()
 
     def parse(self):
         seq_records = list(SeqIO.parse(self.input_gbk, "genbank"))
         _id = 0
+        annotations = []
         # LOCUS
         for seq_record in seq_records:
             # CDS
@@ -51,22 +53,21 @@ class Converter:
                     locus_tag = "CDS_{}".format(Utils.safe_extract_int(Utils.safe_get(qualifiers, "locus_tag")))
                     gene = Utils.safe_get(qualifiers, "gene")
                     product = Utils.safe_get(qualifiers, "product")
-                    name_parts = [self.abbreviation, self.sample_name, contig, locus_tag, gene, product,
-                                  seq_feature.location]
-                    out_name = ("|".join(Utils.remove_empty_values(
-                        [re.sub(" +", "_", str(i).strip()) for i in name_parts])))
+                    annotation = {"abbreviation": self.abbreviation, "sample_name": self.sample_name, "contig": contig,
+                                  "locus_tag": locus_tag, "gene": gene, "product": product,
+                                  "location": str(seq_feature.location)}
                     self._out_pfasta_records.append(
                         SeqRecord(Seq(Utils.safe_get(qualifiers, "translation"), IUPAC.protein), id=id_str,
                                   description=""))
-                    self._out_annotations[id_str] = out_name
+                    annotations.append(annotation)
+        self._out_annotations = pd.DataFrame(annotations)
 
     def export(self):
         print("Save protein FASTA to: '{}'".format(self.out_pfasta))
         Utils.dump_string(s="".join([i.format("fasta") for i in self._out_pfasta_records]), file=self.out_pfasta)
         annotation_file = "{}_annotation.tsv".format(self.out_pfasta)
         print("Save protein annotation to: '{}'".format(annotation_file))
-        Utils.dump_string(s="".join(["{}\t{}\n".format(
-            k, self._out_annotations.get(k)) for k in self._out_annotations]), file=annotation_file)
+        self._out_annotations.to_csv(annotation_file, encoding="utf-8", sep="\t", index=False, header=True)
 
     def convert(self):
         self.parse()
@@ -76,7 +77,6 @@ class Converter:
 class Utils:
     @staticmethod
     def safe_findall(pattern, string, idx: int = 0):
-        import re
         try:
             return re.findall(pattern, string)[idx]
         except IndexError:
