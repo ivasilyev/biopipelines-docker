@@ -39,6 +39,11 @@ class Converter:
 
     def parse(self):
         seq_records = list(SeqIO.parse(self.input_gbk, "genbank"))
+        max_ids = 0
+        for seq_record in seq_records:
+            for seq_feature in seq_record.features:
+                if seq_feature.type == "CDS" and "translation" in seq_feature.qualifiers.keys():
+                    max_ids += 1
         _id = 0
         annotations = []
         # LOCUS
@@ -48,17 +53,17 @@ class Converter:
                 qualifiers = seq_feature.qualifiers.copy()
                 if seq_feature.type == "CDS" and "translation" in qualifiers.keys():
                     _id += 1
-                    id_str = "PFASTA_ID_{}".format(_id)
-                    contig = "contig_{}".format(Utils.safe_extract_int(seq_record.id))
-                    locus_tag = "CDS_{}".format(Utils.safe_extract_int(Utils.safe_get(qualifiers, "locus_tag")))
+                    id_str = "PFASTA_ID_{}".format(str(_id).zfill(len(str(max_ids))))
+                    contig = "contig_{}".format(seq_record.id)
+                    locus_tag = "CDS_{}".format(Utils.safe_get(qualifiers, "locus_tag"))
                     gene = Utils.safe_get(qualifiers, "gene")
                     product = Utils.safe_get(qualifiers, "product")
                     annotation = {"abbreviation": self.abbreviation, "sample_name": self.sample_name, "contig": contig,
                                   "locus_tag": locus_tag, "gene": gene, "product": product,
-                                  "location": str(seq_feature.location)}
+                                  "location": str(seq_feature.location), "pfasta_id": id_str}
                     self._out_pfasta_records.append(
-                        SeqRecord(Seq(Utils.safe_get(qualifiers, "translation"), IUPAC.protein), id=id_str,
-                                  description=""))
+                        SeqRecord(Seq(Utils.safe_get(qualifiers, "translation"), IUPAC.protein),
+                                  id=id_str, description=""))
                     annotations.append(annotation)
         self._out_annotations = pd.DataFrame(annotations)
 
@@ -91,13 +96,6 @@ class Utils:
         if isinstance(v, list):
             return "".join(v)
         return v
-
-    @staticmethod
-    def safe_extract_int(s: str):
-        out = Utils.safe_findall("\d+", s)
-        if len(out) > 0:
-            return int(out)
-        return 0
 
     @staticmethod
     def remove_empty_values(input_list):
