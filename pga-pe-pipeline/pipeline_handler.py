@@ -147,7 +147,7 @@ class SampleDataLine:
 
 class Handler:
     TOOLS = ("fastqc", "trimmomatic", "cutadapt", "spades", "prokka", "bowtie2", "samtools", "vcftools", "snpeff",
-             "srst2", "extract_pfasta_from_gbk", "orthomcl")
+             "srst2", "rename_pfasta_headers", "orthomcl")
 
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
@@ -160,7 +160,7 @@ class Handler:
         self.output_dirs = {i: os.path.normpath(os.path.join(
             self.output_dir_root, "_".join([str(idx + 1).zfill(len(str(len(self.TOOLS)))), i]))) for
             idx, i in enumerate(self.TOOLS)}
-        # TODO Implenent these lines instead of method constants
+        # TODO Implement these lines instead of method constants
         self._current_tool_name = ""
         self._current_tool_attempt = 0
         self._current_tool_max_attempts = 5
@@ -454,18 +454,27 @@ class Handler:
                                                      "[main_samview] truncated file."])
         Utils.append_log(srst2_log, _TOOL, sampledata.name)
 
-    def extract_pfasta_from_gbk(self, sampledata: SampleDataLine, skip: bool = False):
-        _TOOL = "extract_pfasta_from_gbk"
+    @staticmethod
+    def _process_fasta_header(s: str):
+        out = re.sub("[^A-Za-z0-9]+", "_", s)
+        return out
+
+    def rename_pfasta_headers(self, sampledata: SampleDataLine, skip: bool = False):
+        _TOOL = "rename_pfasta_headers"
         tool_dir = self.output_dirs[_TOOL]
-        os.makedirs(tool_dir, exist_ok=True)
-        sampledata.genome_pfasta = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
-        if not skip:
-            log = Utils.run_image("ivasilyev/orthomcl-mysql:latest", container_cmd="""
-            python3 /opt/my_tools/{}.py -i {} -s {} -o {}
-            """.format(_TOOL, sampledata.genome_genbank, sampledata.name, sampledata.genome_pfasta))
-            Utils.append_log(log, _TOOL, sampledata.name)
-        else:
+        if skip:
             logging.info("Skip.")
+            return
+        os.makedirs(tool_dir, exist_ok=True)
+        out_list = []
+        for line in Utils.load_list(sampledata.genome_pfasta):
+            if line.startswith(">"):
+                line = self._process_fasta_header(line)
+            out_list.append(line)
+        out_file = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
+        Utils.dump_list(out_list, out_file)
+        sampledata.genome_pfasta = out_file
+        logging.info("Completed renaming of protein FASTA headers: '{}'".format(out_file))
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
@@ -476,24 +485,22 @@ class Handler:
             logging.info("Skip.")
             return
         self.clean_path(tool_dir)
-        orthomcl_sampledata = os.path.join(tool_dir, "orthomcl_abbreviations.sampledata")
-        with open(orthomcl_sampledata, mode="w", encoding="utf-8") as f:
-            for sampledata in sampledata_array.lines:
-                f.write("{}\t{}\n".format(sampledata.genome_pfasta, sampledata.name))
-            f.close()
+        sampledata_file = os.path.join(tool_dir, "orthomcl_abbreviations.sampledata")
+        # TODO: Trade places
+        Utils.dump_2d_array([[i.genome_pfasta, i.name] for i in sampledata_array.lines], sampledata_file)
         log = Utils.run_image(img_name="ivasilyev/orthomcl-mysql:latest",
                               container_cmd="""
                               bash -c \
                                 'service mysql restart;
                                  python3 /opt/my_tools/pipeline_handler.py -i {s} -o {o};
                                  chmod -R 777 {o}'
-                              """.format(s=orthomcl_sampledata, o=tool_dir))
+                              """.format(s=sampledata_file, o=tool_dir))
         Utils.append_log(log, _TOOL, "all")
 
     def handle(self, sampledata_array: SampleDataArray):
         _SAMPLE_METHODS = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
                            self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2,
-                           self.extract_pfasta_from_gbk)
+                           self.rename_pfasta_headers)
         _GROUP_METHODS = (self.run_orthomcl,)
         for idx, func in enumerate(_SAMPLE_METHODS + _GROUP_METHODS):
             try:
@@ -525,8 +532,38 @@ class Utils:
         return '-'.join(output_list)
 
     @staticmethod
-    def remove_empty_values(input_list):
+    def load_string(file: str):
+        with open(file=file, mode="r", encoding="utf-8") as f:
+            s = f.read()
+            f.close()
+        return s
+
+    @staticmethod
+    def dump_string(string: str, file: str):
+        os.makedirs(os.path.dirname(file), exist_ok=True)
+        with open(file=file, mode="w", encoding="utf-8") as f:
+            f.write(string)
+            f.close()
+
+    @staticmethod
+    def remove_empty_values(input_list: list):
         return [j for j in [i.strip() for i in input_list] if len(j) > 0]
+
+    @staticmethod
+    def split_lines(string: str):
+        return Utils.remove_empty_values(re.sub("[\r\n]+", "\n", string).split("\n"))
+
+    @staticmethod
+    def load_list(file: str):
+        return Utils.split_lines(Utils.load_string(file))
+
+    @staticmethod
+    def dump_list(lst: list, file: str):
+        Utils.dump_string(string="\n".join([str(i) for i in lst]) + "\n", file=file)
+
+    @staticmethod
+    def dump_2d_array(array: list, file: str):
+        Utils.dump_list(lst=["\t".join([str(j) for j in i]) for i in array], file=file)
 
     @staticmethod
     def log_and_raise(msg):
