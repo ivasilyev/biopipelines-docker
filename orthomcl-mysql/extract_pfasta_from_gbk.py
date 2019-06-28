@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
 import re
 import pandas as pd
 from Bio import SeqIO
@@ -67,7 +66,7 @@ class Converter:
     def export(self):
         print("Save protein FASTA to: '{}'".format(self.out_pfasta))
         Utils.dump_string(s="".join([i.format("fasta") for i in self._out_pfasta_records]), file=self.out_pfasta)
-        annotation_file = "{}_annotation.tsv".format(os.path.basename(self.out_pfasta))
+        annotation_file = "{}_annotation.tsv".format(".".join(self.out_pfasta.split(".")[:-1]))
         print("Save protein annotation to: '{}'".format(annotation_file))
         self._out_annotations.to_csv(annotation_file, encoding="utf-8", sep="\t", index=False, header=True)
 

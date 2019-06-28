@@ -77,7 +77,7 @@ class SampleDataArray:
 
 class SampleDataLine:
     exists = False
-    prefix, genome, plasmid, genome_genbank, genome_pfasta, reference_nfasta, mlst_results = ("",) * 7
+    prefix, genome, plasmid, genome_genbank, genome_pfasta, genome_annotation, reference_nfasta, mlst_results = ("",) * 8
 
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
@@ -147,7 +147,7 @@ class SampleDataLine:
 
 class Handler:
     TOOLS = ("fastqc", "trimmomatic", "cutadapt", "spades", "prokka", "bowtie2", "samtools", "vcftools", "snpeff",
-             "srst2", "rename_pfasta_headers", "orthomcl")
+             "srst2", "extract_pfasta_from_gbk", "orthomcl")
 
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
@@ -454,34 +454,19 @@ class Handler:
                                                      "[main_samview] truncated file."])
         Utils.append_log(srst2_log, _TOOL, sampledata.name)
 
-    @staticmethod
-    def _process_fasta_header(s: str):
-        # E.g. '>Kleb102_00001 DNA-invertase hin'
-        s = s[1:]
-        id_ = s.split(" ")[0]
-        description = re.sub("[^A-Za-z0-9]+", "_", " ".join(s.split(" ")[1:])).strip("_")
-        return ">{}|{}".format(id_, description)
-
-    def rename_pfasta_headers(self, sampledata: SampleDataLine, skip: bool = False):
-        _TOOL = "rename_pfasta_headers"
+    def extract_pfasta_from_gbk(self, sampledata: SampleDataLine, skip: bool = False):
+        _TOOL = "extract_pfasta_from_gbk"
         tool_dir = self.output_dirs[_TOOL]
+        os.makedirs(tool_dir, exist_ok=True)
         if skip:
             logging.info("Skip.")
             return
-        os.makedirs(tool_dir, exist_ok=True)
-        out_list = []
-        first_entry = True
-        for line in Utils.load_list(sampledata.genome_pfasta):
-            if line.startswith(">"):
-                line = self._process_fasta_header(line)
-                if not first_entry:
-                    line = "\n{}".format(line)
-            out_list.append(line)
-            first_entry = False
-        out_file = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
-        Utils.dump_list(out_list, out_file)
-        sampledata.genome_pfasta = out_file
-        logging.info("Completed renaming of protein FASTA headers: '{}'".format(out_file))
+        sampledata.genome_pfasta = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
+        sampledata.genome_annotation = "{}_annotation.tsv".format(os.path.basename(sampledata.genome_pfasta))
+        log = Utils.run_image("ivasilyev/orthomcl-mysql:latest", container_cmd="""
+        python3 /opt/my_tools/{}.py -i {} -s {} -o {}
+        """.format(_TOOL, sampledata.genome_genbank, sampledata.name, sampledata.genome_pfasta))
+        Utils.append_log(log, _TOOL, sampledata.name)
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
@@ -507,7 +492,7 @@ class Handler:
     def handle(self, sampledata_array: SampleDataArray):
         _SAMPLE_METHODS = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
                            self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2,
-                           self.rename_pfasta_headers)
+                           self.extract_pfasta_from_gbk)
         _GROUP_METHODS = (self.run_orthomcl,)
         for idx, func in enumerate(_SAMPLE_METHODS + _GROUP_METHODS):
             try:
