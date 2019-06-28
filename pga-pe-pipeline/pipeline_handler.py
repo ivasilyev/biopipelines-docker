@@ -456,8 +456,11 @@ class Handler:
 
     @staticmethod
     def _process_fasta_header(s: str):
-        out = re.sub("[^A-Za-z0-9]+", "_", s)
-        return out
+        # E.g. '>Kleb102_00001 DNA-invertase hin'
+        s = s[1:]
+        id_ = s.split(" ")[0]
+        description = re.sub("[^A-Za-z0-9]+", "_", " ".join(s.split(" ")[1:])).strip("_")
+        return ">{}|{}".format(id_, description)
 
     def rename_pfasta_headers(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "rename_pfasta_headers"
@@ -467,10 +470,14 @@ class Handler:
             return
         os.makedirs(tool_dir, exist_ok=True)
         out_list = []
+        first_entry = True
         for line in Utils.load_list(sampledata.genome_pfasta):
             if line.startswith(">"):
                 line = self._process_fasta_header(line)
+                if not first_entry:
+                    line = "\n{}".format(line)
             out_list.append(line)
+            first_entry = False
         out_file = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
         Utils.dump_list(out_list, out_file)
         sampledata.genome_pfasta = out_file
