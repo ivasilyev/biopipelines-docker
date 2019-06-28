@@ -28,10 +28,10 @@ Description:
         parser.add_argument(
             "-i", '--input', metavar='<input.sampledata>', required=True,
             help="""
-A tab-delimited table file containing information for each sample per row.
-Columns:
-1. Sample name, e.g. 'eco_01'
-2. Paired end reads divided with semicolon, e.g. '/reads/eco_01_R1.fastq.gz;/reads/eco_01_R2.fastq.gz'
+A tab-delimited table file containing information for each sample (strain) per row. 
+Columns: 
+1. Short sample name or strain, e.g. 'sample_01' or 'eco_O157:H7'; 
+2. Paired end reads divided with semicolon, e.g. '/reads/eco_01_R1.fastq.gz;/reads/eco_01_R2.fastq.gz'; 
 3. Taxon information divided with spaces, e.g. 'Escherichia coli O157:H7'""".strip())
         parser.add_argument("-s", "--start", help="Stage to start the pipeline, inclusive", type=int, default=_STEPS[0],
                             metavar=_STAGES, choices=_STEPS)
@@ -77,7 +77,7 @@ class SampleDataArray:
 
 class SampleDataLine:
     exists = False
-    prefix, genome, plasmid, annotation_genbank, annotation_pfasta, reference_nfasta, mlst_results = ("",) * 7
+    prefix, genome, plasmid, genome_genbank, genome_pfasta, reference_nfasta, mlst_results = ("",) * 7
 
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
@@ -336,9 +336,9 @@ class Handler:
         cmd = """
         bash -c \
             'cd {o}
-             {T} --compliant --centre UoN --cpu {c} --outdir {o} --force --prefix {p} --locustag {p} {a} {g}
+             {T} --compliant --centre UoN --cpu {c} --outdir {o} --force --prefix {n} --locustag {n} {a} {g}
              chmod -R 777 {o}'
-        """.format(T=_TOOL, g=sampledata.genome, a=taxa_append, p=sampledata.prefix, o=stage_dir,
+        """.format(T=_TOOL, g=sampledata.genome, a=taxa_append, n=sampledata.name, o=stage_dir,
                    c=validator.threads)
         if not skip:
             self.clean_path(stage_dir)
@@ -346,8 +346,8 @@ class Handler:
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip.")
-        sampledata.annotation_genbank = os.path.join(stage_dir, "{}.gbk".format(sampledata.prefix))
-        sampledata.annotation_pfasta = os.path.join(stage_dir, "{}.faa".format(sampledata.prefix))
+        sampledata.genome_genbank = os.path.join(stage_dir, "{}.gbk".format(sampledata.name))
+        sampledata.genome_pfasta = os.path.join(stage_dir, "{}.faa".format(sampledata.name))
 
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
@@ -406,7 +406,7 @@ class Handler:
         srst2 --output test --input_pe *.fastq.gz --mlst_db {} --mlst_definitions {} --mlst_delimiter '_'
         """.format(mlst_db_local, mlst_definitions_local)
         sampledata.reference_nfasta = mlst_db_abs
-        sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.prefix, genus, species)
+        sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.name, genus, species)
         if skip:
             logging.info("Skip.")
             return
@@ -436,7 +436,7 @@ class Handler:
         input_reads = ["{}_{}.fastq.gz".format(sampledata.name, idx + 1) for idx, i in enumerate(sampledata.reads)]
         srst2_cmd = srst2_cmd.replace(
             "*.fastq.gz", " ".join(input_reads)).replace(
-            "--output test", "--output {}_MLST".format(sampledata.prefix)).replace(
+            "--output test", "--output {}_MLST".format(sampledata.name)).replace(
             mlst_db_local, mlst_db_abs).replace(
             mlst_definitions_local, mlst_definitions_abs)
         srst2_cmd_full = """
@@ -458,12 +458,11 @@ class Handler:
         _TOOL = "extract_pfasta_from_gbk"
         tool_dir = self.output_dirs[_TOOL]
         os.makedirs(tool_dir, exist_ok=True)
-        sampledata.annotation_pfasta = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
+        sampledata.genome_pfasta = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
         if not skip:
             log = Utils.run_image("ivasilyev/orthomcl-mysql:latest", container_cmd="""
-            python3 /opt/my_tools/{}.py -i {} -a {} -s {} -o {}
-            """.format(_TOOL, sampledata.annotation_genbank, sampledata.prefix, sampledata.name,
-                       sampledata.annotation_pfasta))
+            python3 /opt/my_tools/{}.py -i {} -s {} -o {}
+            """.format(_TOOL, sampledata.genome_genbank, sampledata.name, sampledata.genome_pfasta))
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip.")
@@ -480,7 +479,7 @@ class Handler:
         orthomcl_sampledata = os.path.join(tool_dir, "orthomcl_abbreviations.sampledata")
         with open(orthomcl_sampledata, mode="w", encoding="utf-8") as f:
             for sampledata in sampledata_array.lines:
-                f.write("{}\t{}\n".format(sampledata.annotation_pfasta, sampledata.name))
+                f.write("{}\t{}\n".format(sampledata.genome_pfasta, sampledata.name))
             f.close()
         log = Utils.run_image(img_name="ivasilyev/orthomcl-mysql:latest",
                               container_cmd="""

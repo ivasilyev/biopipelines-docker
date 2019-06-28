@@ -186,7 +186,8 @@ class OrthoMCLHandler:
         logging.info("Run MCL")
         Utils.run_and_log("mcl mclInput --abc -I 1.5 -o mcl_output.txt")
         logging.info("Convert MCL output file to group IDs file")
-        Utils.run_and_log("orthomclMclToGroups MCL_ID_ 1000 < mcl_output.txt > mcl_groups.txt")
+        zero_filler = len(str(len(Utils.load_list("mcl_output.txt"))))
+        Utils.run_and_log("orthomclMclToGroups MCL_ID_ 1{} < mcl_output.txt > mcl_groups.txt".format("0" * zero_filler))
 
     @staticmethod
     def _parse_mcl_groups(mcl_groups_file):

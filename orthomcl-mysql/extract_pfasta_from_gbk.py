@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import re
 import pandas as pd
 from Bio import SeqIO
@@ -16,14 +17,11 @@ class ArgParser:
                                           epilog="Note: the input file must be compliant with actual GenBank standard, "
                                                  "otherwise it won't be parsed with BioPython")
         _parser.add_argument("-i", "--input", metavar="<input.gbk>", type=str, required=True, help="Input GenBank file")
-        _parser.add_argument("-a", "--abbreviation", metavar="<str>", type=str, default="",
-                             help="Organism species abbreviation containing 3 or 4 characters")
         _parser.add_argument("-s", "--sample_name", metavar="<str>", type=str, default="",
                              help="Sample name to add into prefix")
         _parser.add_argument("-o", "--output", metavar="<output.faa>", type=str, required=True, help="Output file name")
         self._namespace = _parser.parse_args()
         self.input_gbk = self._namespace.input
-        self.abbreviation = self._namespace.abbreviation.capitalize()
         self.sample_name = self._namespace.sample_name
         self.out_pfasta = self._namespace.output
 
@@ -31,7 +29,6 @@ class ArgParser:
 class Converter:
     def __init__(self):
         self.input_gbk = parser.input_gbk
-        self.abbreviation = parser.abbreviation
         self.sample_name = parser.sample_name
         self.out_pfasta = parser.out_pfasta
         self._out_pfasta_records = []
@@ -58,9 +55,9 @@ class Converter:
                     locus_tag = "CDS_{}".format(Utils.safe_get(qualifiers, "locus_tag"))
                     gene = Utils.safe_get(qualifiers, "gene")
                     product = Utils.safe_get(qualifiers, "product")
-                    annotation = {"abbreviation": self.abbreviation, "sample_name": self.sample_name, "contig": contig,
-                                  "locus_tag": locus_tag, "gene": gene, "product": product,
-                                  "location": str(seq_feature.location), "pfasta_id": id_str}
+                    annotation = {"sample_name": self.sample_name, "contig": contig, "locus_tag": locus_tag,
+                                  "gene": gene, "product": product, "location": str(seq_feature.location),
+                                  "pfasta_id": id_str}
                     self._out_pfasta_records.append(
                         SeqRecord(Seq(Utils.safe_get(qualifiers, "translation"), IUPAC.protein),
                                   id=id_str, description=""))
@@ -70,7 +67,7 @@ class Converter:
     def export(self):
         print("Save protein FASTA to: '{}'".format(self.out_pfasta))
         Utils.dump_string(s="".join([i.format("fasta") for i in self._out_pfasta_records]), file=self.out_pfasta)
-        annotation_file = "{}_annotation.tsv".format(self.out_pfasta)
+        annotation_file = "{}_annotation.tsv".format(os.path.basename(self.out_pfasta))
         print("Save protein annotation to: '{}'".format(annotation_file))
         self._out_annotations.to_csv(annotation_file, encoding="utf-8", sep="\t", index=False, header=True)
 
