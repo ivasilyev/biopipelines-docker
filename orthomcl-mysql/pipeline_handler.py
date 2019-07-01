@@ -115,9 +115,9 @@ class SampleDataArray:
         return [i.name for i in self.lines]
 
     def validate(self):
-        self.lines = [i for i in self.lines if i.validate() is True]
+        self.lines = [i for i in self.lines if i.is_valid()]
         if len(self.lines) == 0:
-            Utils.log_and_raise("No protein FASTA sequence files were found, exit.")
+            Utils.log_and_raise("No valid protein FASTA sequence files were found, exit.")
         names = self.get_names()
         for name in set(names):
             if names.count(name) > 1:
