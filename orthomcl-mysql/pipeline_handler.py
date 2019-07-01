@@ -14,7 +14,7 @@ import pymysql
 
 class ArgValidator:
     def __init__(self):
-        parser = argparse.ArgumentParser(description='Run OrthoMCL on a group of proteomes.',
+        parser = argparse.ArgumentParser(description="Run OrthoMCL on a group of proteomes.",
                                          epilog="""
 Stages: 
 1 - Preprocessing ('orthomclAdjustFasta' and 'orthomclFilterFasta'), 
@@ -22,11 +22,10 @@ Stages:
 3 - Database processing, 
 4 - Post processing (MCL)
 """)
-        parser.add_argument("-i", "--input", metavar='<input_table.tsv>', required=True,
-                            help="A table containing paths of proteome FASTA in the first column "
-                                 "and species abbreviations to use in the second column. "
-                                 "The each abbreviation must have length of 4 characters, with capitalized "
-                                 "only the first letter, e.g. Ecol (Escherichia coli) or Klsp (Klebsiella sp.)")
+        parser.add_argument("-i", "--input", metavar="<input.sampledata>", required=True,
+                            help="A tab-delimited table containing two columns of data for each sample per row. "
+                                 "The first column must contain unique sample number, strain name or else identifier. "
+                                 "The second column is intended for paths of amino acid FASTA sequence files.")
         parser.add_argument('-s', '--start', help='Stage to start the pipeline', type=int, default=1,
                             metavar='<1|2|3|4>', choices=[1, 2, 3, 4])
         parser.add_argument('-f', '--finish', help='Stage to finish the pipeline', type=int, default=4,
@@ -37,7 +36,7 @@ Stages:
                             default="/opt/my_tools/orthomcl.config")
         parser.add_argument("-o", "--output_dir", help='Output directory', metavar='<dir>', required=True)
         self._namespace = parser.parse_args()
-        self.input_table = self._namespace.input
+        self.input_sampledata = self._namespace.input
         self.stages_to_do = []
         self.threads_number = self._namespace.threads
         self.config_file = self._namespace.config
@@ -85,10 +84,62 @@ class MySQLQueryManager:
         return out
 
 
+class SampleDataLine:
+    def __init__(self, name: str, pfasta: str):
+        self.name = name
+        self.pfasta = pfasta
+        self.is_valid = True
+        self.validate()
+
+    def validate(self):
+        if not os.path.isfile(self.pfasta):
+            logging.warning("Not found the protein FASTA file: '{}'".format(self.pfasta))
+            self.is_valid = False
+
+    @staticmethod
+    def parse(sampledata_row: str):
+        name, pfasta = Utils.remove_empty_values(sampledata_row.strip().split("\t"))
+        if len(name) > 4:  # OrthoMCL requirement
+            logging.warning("The abbreviation is too long, it is recommend to truncate it "
+                            "to 4 characters: '{}'".format(name))
+        if len(name) < 3:
+            logging.warning(
+                "The abbreviation is4 too small, it is recommended to contain at least 3 characters: '{}'".format(name))
+        return SampleDataLine(name, pfasta)
+
+
+class SampleDataArray:
+    lines = []
+
+    def get_names(self):
+        return [i.name for i in self.lines]
+
+    def validate(self):
+        self.lines = [i for i in self.lines if i.validate() is True]
+        if len(self.lines) == 0:
+            Utils.log_and_raise("No protein FASTA sequence files were found, exit.")
+        names = self.get_names()
+        for name in set(names):
+            if names.count(name) > 1:
+                Utils.log_and_raise("Duplicate sample name found, please rename it: '{}'".format(name))
+
+    def apply_single_core_function(self, func):
+        _ = Utils.single_core_queue(func, queue=self.lines)
+
+    @staticmethod
+    def parse(sampledata_file: str):
+        logging.info("Parse input sample data: '{}'".format(sampledata_file))
+        all_lines = Utils.remove_empty_values(Utils.load_list(sampledata_file))
+        array = SampleDataArray()
+        array.lines = [SampleDataLine.parse(i) for i in all_lines]
+        array.validate()
+        return array
+
+
 class OrthoMCLHandler:
     def __init__(self):
         self.output_dir = validator.output_dir
-        self.sampledata_dict = self._parse_abbreviations_table(validator.input_table)
+        self.sampledata_array = SampleDataArray.parse(validator.input_sampledata)
         self.orthomcl_cfg_file = validator.config_file
         self.sql_keeper = self._parse_db_properties()
 
@@ -96,26 +147,22 @@ class OrthoMCLHandler:
     def _parse_abbreviations_table(table_file: str):
         logging.info("Parse abbreviations table")
         out = []
-        lines = Utils.load_list(table_file)
+        lines = Utils.remove_empty_values(Utils.load_list(table_file))
         for line in lines:
-            if len(line.strip()) == 0:
-                continue
-            pfasta, abbr = [i.strip() for i in line.split()]
-            if len(abbr) > 4:  # OrthoMCL requirement
+            name, pfasta = [i.strip() for i in line.split()]
+            if len(name) > 4:  # OrthoMCL requirement
                 logging.warning("The abbreviation is too long, it is recommend to truncate it "
-                                "to 4 characters: '{}'".format(abbr))
-            if len(abbr) < 3:
+                                "to 4 characters: '{}'".format(name))
+            if len(name) < 3:
                 Utils.log_and_raise(
-                    "The abbreviation is too small, must contain at least 3 characters: '{}'".format(abbr))
-            # abbr = abbr[:4]
-            abbr = abbr.capitalize()
-            out.append({"pfasta": pfasta, "abbr": abbr})
+                    "The abbreviation is too small, must contain at least 3 characters: '{}'".format(name))
+            out.append({"name": name, "pfasta": pfasta})
         return out
 
     @staticmethod
     def _parse_orthomcl_cfg(cfg_file: str):
         import configparser
-        logging.info("Parse OrthoMCL configuration file")
+        logging.info("Parse OrthoMCL configuration file: '{}'".format(cfg_file))
         # configparser is sensitive to header
         cfg_buf = "\n".join(["[Main]"] + Utils.load_list(cfg_file))
         cp = configparser.ConfigParser()
@@ -136,15 +183,15 @@ class OrthoMCLHandler:
         return keeper
 
     @staticmethod
-    def _orthomcl_adjust_fasta(d: dict):
-        Utils.run_and_log("orthomclAdjustFasta {} {} 1".format(d["abbr"], d["pfasta"]))
+    def _orthomcl_adjust_fasta(line: SampleDataLine):
+        Utils.run_and_log("orthomclAdjustFasta {} {} 1".format(line.name, line.pfasta))
 
     def run_orthomcl_adjust_fasta(self):
         out_dir = os.path.join(self.output_dir, "compliantFasta")
         os.makedirs(out_dir, exist_ok=True)
         os.chdir(out_dir)
         logging.info("Adjust FASTA")
-        _ = Utils.single_core_queue(self._orthomcl_adjust_fasta, self.sampledata_dict)
+        self.sampledata_array.apply_single_core_function(self._orthomcl_adjust_fasta)
         os.chdir(validator.output_dir)
         logging.info("Filter FASTA")
         Utils.run_and_log("orthomclFilterFasta compliantFasta 10 20")

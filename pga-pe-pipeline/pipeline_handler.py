@@ -462,7 +462,7 @@ class Handler:
             logging.info("Skip.")
             return
         sampledata.genome_pfasta = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
-        sampledata.genome_annotation = "{}_annotation.tsv".format(os.path.basename(sampledata.genome_pfasta))
+        sampledata.genome_annotation = "{}_annotation.tsv".format(".".join(sampledata.genome_pfasta.split(".")[:-1]))
         log = Utils.run_image("ivasilyev/orthomcl-mysql:latest", container_cmd="""
         python3 /opt/my_tools/{}.py -i {} -s {} -o {}
         """.format(_TOOL, sampledata.genome_genbank, sampledata.name, sampledata.genome_pfasta))
@@ -477,9 +477,20 @@ class Handler:
             logging.info("Skip.")
             return
         self.clean_path(tool_dir)
-        sampledata_file = os.path.join(tool_dir, "orthomcl_abbreviations.sampledata")
-        # TODO: Trade places
-        Utils.dump_2d_array([[i.genome_pfasta, i.name] for i in sampledata_array.lines], sampledata_file)
+        sampledata_file = os.path.join(tool_dir, "orthomcl_input.sampledata")
+        logging.info("Save OrthoMCL sample data: '{}'".format(sampledata_file))
+        Utils.dump_2d_array([[i.name, i.genome_pfasta] for i in sampledata_array.lines], sampledata_file)
+        genome_annotations = []
+        first_entry = True
+        for annotation_file in [i.genome_annotation for i in sampledata_array.lines]:
+            if first_entry:
+                genome_annotations.extend(Utils.load_list(annotation_file))
+            else:
+                genome_annotations.extend(Utils.load_list(annotation_file)[1:])
+            first_entry = False
+        genome_annotation_file = os.path.join(tool_dir, "genome_annotation.tsv")
+        logging.info("Save genome annotation dataset: '{}'".format(genome_annotation_file))
+        Utils.dump_list(genome_annotations, file=genome_annotation_file)
         log = Utils.run_image(img_name="ivasilyev/orthomcl-mysql:latest",
                               container_cmd="""
                               bash -c \
