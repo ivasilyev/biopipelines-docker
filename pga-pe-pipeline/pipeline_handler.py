@@ -512,10 +512,10 @@ class Handler:
                 # Per-sample processing
                 if func in _SAMPLE_METHODS:
                     queue = [(func, i, idx not in validator.stages_to_do) for i in sampledata_array.lines]
-                    _ = Utils.single_core_queue(Utils.wrap_func, queue)
+                    print(Utils.single_core_queue(Utils.wrap_func, queue))
                 # Per-group functions
                 else:
-                    func(sampledata_array, skip=idx not in validator.stages_to_do)
+                    print(func(sampledata_array, skip=idx not in validator.stages_to_do))
             except PermissionError:
                 logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
                     idx, self.output_dir_root))
