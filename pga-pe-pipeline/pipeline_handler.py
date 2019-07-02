@@ -549,6 +549,7 @@ class Utils:
 
     @staticmethod
     def append_log(msg: str, tool_name: str, sample_name: str):
+        logging.debug(msg)
         file = os.path.join(validator.log_dir, "{}_{}.log".format(tool_name, sample_name))
         with open(file, mode="a", encoding="utf-8") as f:
             f.write(msg + "\n")
@@ -618,8 +619,9 @@ if __name__ == '__main__':
     validator = ArgValidator()
     mainLogFile = os.path.join(validator.log_dir, "main.log")
     os.makedirs(validator.log_dir, exist_ok=True)
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s",
-                        handlers=[logging.FileHandler(mainLogFile), logging.StreamHandler()])
+    logging.basicConfig(level=logging.DEBUG, handlers=[logging.FileHandler(mainLogFile), logging.StreamHandler()],
+                        format="asctime=%(asctime)s levelname=%(levelname)s process=%(process)d name=%(name)s "
+                               "funcName=%(funcName)s lineno=%(lineno)s message=\"\"\"%(message)s\"\"\"")
     validator.validate()
     sampleDataArray = SampleDataArray.parse(validator.sampledata_file)
     handler = Handler(validator.output_dir)

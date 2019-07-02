@@ -269,7 +269,7 @@ class OrthoMCLHandler:
         os.chdir(self.output_dir_root)
         mcl_groups_ds = pd.DataFrame(self._parse_mcl_groups("mcl_groups.txt")).set_index(_INDEX_COL_NAMES)
         annotation_ds = pd.concat(
-            [pd.read_table(i.annotation, encoding="utf-8", sep="\t", header=0) for i in self.sampledata_array.lines],
+            [pd.read_csv(i.annotation, encoding="utf-8", sep="\t", header=0) for i in self.sampledata_array.lines],
             axis=0, ignore_index=True, sort=False).set_index(_INDEX_COL_NAMES)
         mcl_annotated_ds = pd.concat([annotation_ds, mcl_groups_ds], axis=1, sort=False)
         mcl_annotated_ds.reset_index().to_csv("mcl_annotated_ds.tsv", encoding="utf-8", sep="\t", index=False,
