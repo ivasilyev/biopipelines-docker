@@ -173,9 +173,9 @@ class OrthoMCLHandler:
         keeper.password = db_config_dict.get("dbpassword")
         return keeper
 
-    def extract_pfasta_from_gbk(self, sampledata: SampleDataLine):
+    def _extract_pfasta_from_gbk(self, sampledata: SampleDataLine):
         _TOOL = "extract_pfasta_from_gbk"
-        tool_dir = os.path.join(self.output_dir_root, "compliantFasta")
+        tool_dir = os.path.join(self.output_dir_root, _TOOL)
         os.makedirs(tool_dir, exist_ok=True)
         sampledata.pfasta = os.path.join(tool_dir, "{}.faa".format(sampledata.name))
         # The following directive is actually taken from the corresponding script
@@ -187,7 +187,7 @@ class OrthoMCLHandler:
 
     def extract_pfasta_from_gbk_wrapper(self):
         logging.info("Create protein sequence and annotation files")
-        self.sampledata_array.apply_single_core_function(self.extract_pfasta_from_gbk)
+        self.sampledata_array.apply_single_core_function(self._extract_pfasta_from_gbk)
 
     @staticmethod
     def _orthomcl_adjust_fasta(line: SampleDataLine):
