@@ -25,7 +25,7 @@ Stages:
         parser.add_argument("-i", "--input", metavar="<input.sampledata>", required=True,
                             help="A tab-delimited table containing two columns of data for each sample per row. "
                                  "The first column must contain unique sample number, strain name or else identifier. "
-                                 "The second column is intended for paths of amino acid FASTA sequence files.")
+                                 "The second column is intended for paths of annotated GenBank data files.")
         parser.add_argument('-s', '--start', help='Stage to start the pipeline', type=int, default=1,
                             metavar='<1|2|3|4>', choices=[1, 2, 3, 4])
         parser.add_argument('-f', '--finish', help='Stage to finish the pipeline', type=int, default=4,
@@ -85,9 +85,11 @@ class MySQLQueryManager:
 
 
 class SampleDataLine:
-    def __init__(self, name: str, pfasta: str):
+    def __init__(self, name: str, genbank: str):
         self.name = name
-        self.pfasta = pfasta
+        self.genbank = genbank
+        self.pfasta = ""
+        self.annotation = ""
         self.is_valid = True
         self.validate()
 
@@ -98,18 +100,21 @@ class SampleDataLine:
 
     @staticmethod
     def parse(sampledata_row: str):
-        name, pfasta = Utils.remove_empty_values(sampledata_row.strip().split("\t"))
+        name, genbank = Utils.remove_empty_values(sampledata_row.strip().split("\t"))
         if len(name) > 4:  # OrthoMCL requirement
             logging.warning("The abbreviation is too long, it is recommend to truncate it "
                             "to 4 characters: '{}'".format(name))
         if len(name) < 3:
             logging.warning(
                 "The abbreviation is too small, it is recommended to contain at least 3 characters: '{}'".format(name))
-        return SampleDataLine(name, pfasta)
+        return SampleDataLine(name, genbank)
 
 
 class SampleDataArray:
     lines = []
+
+    def __len__(self):
+        return len(self.lines)
 
     def get_names(self):
         return [i.name for i in self.lines]
@@ -122,6 +127,7 @@ class SampleDataArray:
         for name in set(names):
             if names.count(name) > 1:
                 Utils.log_and_raise("Duplicate sample name found, please rename it: '{}'".format(name))
+        logging.info("{} input files will be processed".format(len(self)))
 
     def apply_single_core_function(self, func):
         _ = Utils.single_core_queue(func, queue=self.lines)
@@ -138,26 +144,10 @@ class SampleDataArray:
 
 class OrthoMCLHandler:
     def __init__(self):
-        self.output_dir = validator.output_dir
+        self.output_dir_root = validator.output_dir
         self.sampledata_array = SampleDataArray.parse(validator.input_sampledata)
         self.orthomcl_cfg_file = validator.config_file
         self.sql_keeper = self._parse_db_properties()
-
-    @staticmethod
-    def _parse_abbreviations_table(table_file: str):
-        logging.info("Parse abbreviations table")
-        out = []
-        lines = Utils.remove_empty_values(Utils.load_list(table_file))
-        for line in lines:
-            name, pfasta = [i.strip() for i in line.split()]
-            if len(name) > 4:  # OrthoMCL requirement
-                logging.warning("The abbreviation is too long, it is recommend to truncate it "
-                                "to 4 characters: '{}'".format(name))
-            if len(name) < 3:
-                Utils.log_and_raise(
-                    "The abbreviation is too small, must contain at least 3 characters: '{}'".format(name))
-            out.append({"name": name, "pfasta": pfasta})
-        return out
 
     @staticmethod
     def _parse_orthomcl_cfg(cfg_file: str):
@@ -182,12 +172,28 @@ class OrthoMCLHandler:
         keeper.password = db_config_dict.get("dbpassword")
         return keeper
 
+    def extract_pfasta_from_gbk(self, sampledata: SampleDataLine):
+        _TOOL = "extract_pfasta_from_gbk"
+        tool_dir = os.path.join(self.output_dir_root, "compliantFasta")
+        os.makedirs(tool_dir, exist_ok=True)
+        sampledata.pfasta = os.path.join(tool_dir, "{}.faa".format(sampledata.name))
+        # The following directive is actually taken from the corresponding script
+        sampledata.annotation = "{}_annotation.tsv".format(".".join(sampledata.pfasta.split(".")[:-1]))
+        sampledata.annotation = os.path.join(self.output_dir_root, sampledata.annotation)
+        logging.debug("Extract amino acid FASTA for the GenBank data file: '{}'".format(sampledata.genbank))
+        Utils.run_and_log("python3 /opt/my_tools/{}.py -i {} -s {} -o {}".format(
+            _TOOL, sampledata.genbank, sampledata.name, sampledata.pfasta))
+
+    def extract_pfasta_from_gbk_wrapper(self):
+        logging.info("Create protein sequence and annotation files")
+        self.sampledata_array.apply_single_core_function(self._orthomcl_adjust_fasta)
+
     @staticmethod
     def _orthomcl_adjust_fasta(line: SampleDataLine):
         Utils.run_and_log("orthomclAdjustFasta {} {} 1".format(line.name, line.pfasta))
 
     def run_orthomcl_adjust_fasta(self):
-        out_dir = os.path.join(self.output_dir, "compliantFasta")
+        out_dir = os.path.join(self.output_dir_root, "compliantFasta")
         os.makedirs(out_dir, exist_ok=True)
         os.chdir(out_dir)
         logging.info("Adjust FASTA")
@@ -197,7 +203,7 @@ class OrthoMCLHandler:
         Utils.run_and_log("orthomclFilterFasta compliantFasta 10 20")
 
     def run_diamond(self):
-        os.chdir(self.output_dir)
+        os.chdir(self.output_dir_root)
         logging.info("Make diamond database")
         Utils.run_and_log("diamond makedb --in goodProteins.fasta -d goodProteins.fasta")
         logging.info("Do diamond search")
@@ -210,7 +216,7 @@ class OrthoMCLHandler:
         Utils.run_and_log("orthomclBlastParser all_v_all.blastp compliantFasta >> similarSequences.txt")
 
     def run_mysql_tasks(self):
-        os.chdir(self.output_dir)
+        os.chdir(self.output_dir_root)
         logging.info("Check the MySQL port")
         Utils.run_and_log("""mysql -e 'SHOW GLOBAL VARIABLES LIKE "PORT"' | grep -Po '[0-9]{2,}'""")
         logging.info("Delete the old MySQL database")
@@ -229,7 +235,7 @@ class OrthoMCLHandler:
         Utils.run_and_log("orthomclDumpPairsFiles {}".format(self.orthomcl_cfg_file))
 
     def run_mcl(self):
-        os.chdir(self.output_dir)
+        os.chdir(self.output_dir_root)
         logging.info("Run MCL")
         Utils.run_and_log("mcl mclInput --abc -I 1.5 -o mcl_output.txt")
         logging.info("Convert MCL output file to group IDs file")
@@ -254,19 +260,24 @@ class OrthoMCLHandler:
                     pass
         return out
 
-    def convert_mcl_groups_to_pivot(self, annotation_file: str, sample_name: str):
-        os.chdir(self.output_dir)
-        mcl_groups_df = pd.DataFrame(self._parse_mcl_groups("mcl_groups.txt"))
-        annotation_df = pd.read_table(annotation_file, encoding="utf-8", sep="\t", header=0)
-        annotation_df["sample_name"] = sample_name
-        pass
+    def convert_mcl_groups_to_pivot(self):
+        _INDEX_COL_NAMES = ["sample_name", "pfasta_id"]
+        os.chdir(self.output_dir_root)
+        mcl_groups_ds = pd.DataFrame(self._parse_mcl_groups("mcl_groups.txt")).set_index(_INDEX_COL_NAMES)
+        annotation_ds = pd.concat(
+            [pd.read_table(i.annotation, encoding="utf-8", sep="\t", header=0) for i in self.sampledata_array.lines],
+            axis=0, ignore_index=True, sort=False).set_index(_INDEX_COL_NAMES)
+        mcl_annotated_ds = pd.concat([annotation_ds, mcl_groups_ds], axis=1, sort=False)
+        mcl_annotated_ds.reset_index().to_csv("mcl_annotated_ds.tsv", encoding="utf-8", sep="\t", index=False,
+                                              header=True)
 
     def fix_permissions(self):
-        logging.info("Fix permissions for the output dir: {}".format(self.output_dir))
-        Utils.run_and_log("chmod -R 777 {}".format(self.output_dir))
+        logging.info("Fix permissions for the output dir: {}".format(self.output_dir_root))
+        Utils.run_and_log("chmod -R 777 {}".format(self.output_dir_root))
 
     def handle(self):
-        functions = (self.run_orthomcl_adjust_fasta, self.run_diamond, self.run_mysql_tasks, self.run_mcl)
+        functions = (self.extract_pfasta_from_gbk_wrapper, self.run_orthomcl_adjust_fasta, self.run_diamond,
+                     self.run_mysql_tasks, self.run_mcl)
         for idx in validator.stages_to_do:
             logging.info("Start the pipeline step {}".format(idx))
             functions[idx]()

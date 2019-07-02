@@ -147,7 +147,7 @@ class SampleDataLine:
 
 class Handler:
     TOOLS = ("fastqc", "trimmomatic", "cutadapt", "spades", "prokka", "bowtie2", "samtools", "vcftools", "snpeff",
-             "srst2", "extract_pfasta_from_gbk", "orthomcl")
+             "srst2", "orthomcl")
 
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
@@ -454,20 +454,6 @@ class Handler:
                                                      "[main_samview] truncated file."])
         Utils.append_log(srst2_log, _TOOL, sampledata.name)
 
-    def extract_pfasta_from_gbk(self, sampledata: SampleDataLine, skip: bool = False):
-        _TOOL = "extract_pfasta_from_gbk"
-        tool_dir = self.output_dirs[_TOOL]
-        os.makedirs(tool_dir, exist_ok=True)
-        if skip:
-            logging.info("Skip.")
-            return
-        sampledata.genome_pfasta = os.path.join(tool_dir, "{}.genome.protein.fasta".format(sampledata.name))
-        sampledata.genome_annotation = "{}_annotation.tsv".format(".".join(sampledata.genome_pfasta.split(".")[:-1]))
-        log = Utils.run_image("ivasilyev/orthomcl-mysql:latest", container_cmd="""
-        python3 /opt/my_tools/{}.py -i {} -s {} -o {}
-        """.format(_TOOL, sampledata.genome_genbank, sampledata.name, sampledata.genome_pfasta))
-        Utils.append_log(log, _TOOL, sampledata.name)
-
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
         # One per all samples
@@ -479,18 +465,7 @@ class Handler:
         self.clean_path(tool_dir)
         sampledata_file = os.path.join(tool_dir, "orthomcl_input.sampledata")
         logging.info("Save OrthoMCL sample data: '{}'".format(sampledata_file))
-        Utils.dump_2d_array([[i.name, i.genome_pfasta] for i in sampledata_array.lines], sampledata_file)
-        genome_annotations = []
-        first_entry = True
-        for annotation_file in [i.genome_annotation for i in sampledata_array.lines]:
-            if first_entry:
-                genome_annotations.extend(Utils.load_list(annotation_file))
-            else:
-                genome_annotations.extend(Utils.load_list(annotation_file)[1:])
-            first_entry = False
-        genome_annotation_file = os.path.join(tool_dir, "genome_annotation.tsv")
-        logging.info("Save genome annotation dataset: '{}'".format(genome_annotation_file))
-        Utils.dump_list(genome_annotations, file=genome_annotation_file)
+        Utils.dump_2d_array([[i.name, i.genome_genbank] for i in sampledata_array.lines], sampledata_file)
         log = Utils.run_image(img_name="ivasilyev/orthomcl-mysql:latest",
                               container_cmd="""
                               bash -c \
@@ -502,8 +477,7 @@ class Handler:
 
     def handle(self, sampledata_array: SampleDataArray):
         _SAMPLE_METHODS = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
-                           self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2,
-                           self.extract_pfasta_from_gbk)
+                           self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2)
         _GROUP_METHODS = (self.run_orthomcl,)
         for idx, func in enumerate(_SAMPLE_METHODS + _GROUP_METHODS):
             try:
@@ -512,10 +486,10 @@ class Handler:
                 # Per-sample processing
                 if func in _SAMPLE_METHODS:
                     queue = [(func, i, idx not in validator.stages_to_do) for i in sampledata_array.lines]
-                    print(Utils.single_core_queue(Utils.wrap_func, queue))
+                    _ = Utils.single_core_queue(Utils.wrap_func, queue)
                 # Per-group functions
                 else:
-                    print(func(sampledata_array, skip=idx not in validator.stages_to_do))
+                    _ = func(sampledata_array, skip=idx not in validator.stages_to_do)
             except PermissionError:
                 logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
                     idx, self.output_dir_root))
