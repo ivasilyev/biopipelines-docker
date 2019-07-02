@@ -94,8 +94,9 @@ class SampleDataLine:
         self.validate()
 
     def validate(self):
-        if not os.path.isfile(self.pfasta):
-            logging.warning("Not found the protein FASTA file: '{}'".format(self.pfasta))
+        if not any(os.path.isfile(i) for i in (self.genbank, self.pfasta)):
+            logging.warning("Not found any of the data files: GenBank: '{}', protein FASTA: '{}'".format(
+                self.genbank, self.pfasta))
             self.is_valid = False
 
     @staticmethod
