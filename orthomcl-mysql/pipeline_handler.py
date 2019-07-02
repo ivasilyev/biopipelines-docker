@@ -240,9 +240,11 @@ class OrthoMCLHandler:
         os.chdir(self.output_dir_root)
         logging.info("Run MCL")
         Utils.run_and_log("mcl mclInput --abc -I 1.5 -o mcl_output.txt")
-        logging.info("Convert MCL output file to group IDs file")
+        logging.info("Convert MCL output file to the group IDs file")
         zero_filler = len(str(len(Utils.load_list("mcl_output.txt"))))
         Utils.run_and_log("orthomclMclToGroups MCL_ID_ 1{} < mcl_output.txt > mcl_groups.txt".format("0" * zero_filler))
+        logging.info("Find proteins that are not in the group IDs file")
+        Utils.run_and_log("orthomclSingletons goodProteins.fasta mcl_groups.txt > singletons.txt")
 
     @staticmethod
     def _parse_mcl_groups(mcl_groups_file):
