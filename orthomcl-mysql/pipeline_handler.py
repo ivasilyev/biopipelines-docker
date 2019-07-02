@@ -187,7 +187,7 @@ class OrthoMCLHandler:
 
     def extract_pfasta_from_gbk_wrapper(self):
         logging.info("Create protein sequence and annotation files")
-        self.sampledata_array.apply_single_core_function(self._orthomcl_adjust_fasta)
+        self.sampledata_array.apply_single_core_function(self.extract_pfasta_from_gbk)
 
     @staticmethod
     def _orthomcl_adjust_fasta(line: SampleDataLine):
