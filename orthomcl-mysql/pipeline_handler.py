@@ -194,12 +194,12 @@ class OrthoMCLHandler:
         Utils.run_and_log("orthomclAdjustFasta {} {} 1".format(line.name, line.pfasta))
 
     def run_orthomcl_adjust_fasta(self):
-        out_dir = os.path.join(self.output_dir_root, "compliantFasta")
-        os.makedirs(out_dir, exist_ok=True)
-        os.chdir(out_dir)
+        tool_dir = os.path.join(self.output_dir_root, "compliantFasta")
+        os.makedirs(tool_dir, exist_ok=True)
+        os.chdir(tool_dir)
         logging.info("Adjust FASTA")
         self.sampledata_array.apply_single_core_function(self._orthomcl_adjust_fasta)
-        os.chdir(validator.output_dir)
+        os.chdir(self.output_dir_root)
         logging.info("Filter FASTA")
         Utils.run_and_log("orthomclFilterFasta compliantFasta 10 20")
 
@@ -234,6 +234,7 @@ class OrthoMCLHandler:
         Utils.run_and_log("orthomclPairs {} orthomclPairs.log cleanup=yes".format(self.orthomcl_cfg_file))
         logging.info("Dump pairs")
         Utils.run_and_log("orthomclDumpPairsFiles {}".format(self.orthomcl_cfg_file))
+        os.chdir(self.output_dir_root)
 
     def run_mcl(self):
         os.chdir(self.output_dir_root)
