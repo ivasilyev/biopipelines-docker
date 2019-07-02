@@ -280,9 +280,10 @@ class OrthoMCLHandler:
     def handle(self):
         functions = (self.extract_pfasta_from_gbk_wrapper, self.run_orthomcl_adjust_fasta, self.run_diamond,
                      self.run_mysql_tasks, self.run_mcl, self.convert_mcl_groups_to_pivot)
-        for idx in validator.stages_to_do:
+        # TODO: Apply `for idx in validator.stages_to_do:`
+        for idx, func in enumerate(functions):
             logging.info("Start the pipeline step {}".format(idx))
-            functions[idx]()
+            func()
         self.fix_permissions()
 
 
