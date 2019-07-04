@@ -54,12 +54,11 @@ class Converter:
                     locus_tag = "CDS_{}".format(Utils.safe_get(qualifiers, "locus_tag"))
                     gene = Utils.safe_get(qualifiers, "gene")
                     product = Utils.safe_get(qualifiers, "product")
+                    pfasta_seq = Seq(Utils.safe_get(qualifiers, "translation"), IUPAC.protein)
                     annotation = {"sample_name": self.sample_name, "contig": contig, "locus_tag": locus_tag,
                                   "gene": gene, "product": product, "location": str(seq_feature.location),
-                                  "pfasta_id": id_str, "nfasta_bp": len(seq_record.seq)}
-                    self._out_pfasta_records.append(
-                        SeqRecord(Seq(Utils.safe_get(qualifiers, "translation"), IUPAC.protein),
-                                  id=id_str, description=""))
+                                  "pfasta_id": id_str, "nfasta_bp": len(seq_feature), "pfasta_bp": len(pfasta_seq)}
+                    self._out_pfasta_records.append(SeqRecord(pfasta_seq, id=id_str, description=""))
                     annotations.append(annotation)
         self._out_annotations = pd.DataFrame(annotations)
 
@@ -82,13 +81,13 @@ class Utils:
             return re.findall(pattern, string)[idx]
         except IndexError:
             print("Warning! Can't find the regex pattern '{}' within the string: '{}'".format(pattern, string))
-            return "unknown"
+            return ""
 
     @staticmethod
     def safe_get(d: dict, k: str):
         v = d.get(k)
         if not v:
-            return "unknown"
+            return ""
         if isinstance(v, list):
             return "".join(v)
         return v
