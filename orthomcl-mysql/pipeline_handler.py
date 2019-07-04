@@ -268,12 +268,19 @@ class OrthoMCLHandler:
         _INDEX_COL_NAMES = ["sample_name", "pfasta_id"]
         os.chdir(self.output_dir_root)
         mcl_groups_ds = pd.DataFrame(self._parse_mcl_groups("mcl_groups.txt")).set_index(_INDEX_COL_NAMES)
+        singletons = Utils.load_tsv("singletons.txt", col_names=["pfasta_header"])
+        singletons["sample_name"] = singletons["pfasta_header"].apply(lambda x: x.split("|")[0])
+        singletons["pfasta_id"] = singletons["pfasta_header"].apply(lambda x: x.split("|")[-1])
+        singletons.set_index(_INDEX_COL_NAMES, inplace=True)
+        mcl_groups_ds = pd.concat([mcl_groups_ds, singletons], axis=0, sort=False)
+        mcl_groups_ds["mcl_id"].fillna("singleton", inplace=True)
         annotation_ds = pd.concat(
-            [pd.read_csv(i.annotation, encoding="utf-8", sep="\t", header=0) for i in self.sampledata_array.lines],
+            [Utils.load_tsv(i.annotation) for i in self.sampledata_array.lines],
             axis=0, ignore_index=True, sort=False).set_index(_INDEX_COL_NAMES)
+        Utils.dump_tsv(annotation_ds.reset_index(), "annotation_ds.tsv")
         mcl_annotated_ds = pd.concat([annotation_ds, mcl_groups_ds], axis=1, sort=False)
-        mcl_annotated_ds.reset_index().to_csv("mcl_annotated_ds.tsv", encoding="utf-8", sep="\t", index=False,
-                                              header=True)
+        mcl_annotated_ds.reset_index(inplace=True)
+        Utils.dump_tsv(mcl_annotated_ds, "mcl_annotated_ds.tsv")
 
     def fix_permissions(self):
         logging.info("Fix permissions for the output dir: {}".format(self.output_dir_root))
@@ -330,6 +337,21 @@ class Utils:
     @staticmethod
     def load_list(file: str):
         return Utils.split_lines(Utils.load_string(file))
+    @staticmethod
+    def load_tsv(table_file: str, col_names: list = None):
+        import pandas as pd
+        if col_names:
+            return pd.read_csv(table_file, encoding="utf-8", sep="\t", header="infer", names=col_names)
+        return pd.read_csv(table_file, encoding="utf-8", sep="\t", header=0)
+    @staticmethod
+    def dump_tsv(df, table_file: str, col_names: list = None):
+        import pandas as pd
+        assert isinstance(df, pd.DataFrame)
+        os.makedirs(os.path.dirname(table_file), exist_ok=True)
+        if col_names:
+            df.loc[:, col_names].to_csv(table_file, encoding="utf-8", sep="\t", index=False, header=True)
+        else:
+            df.to_csv(table_file, encoding="utf-8", sep="\t", index=False, header=True)
 
 
 if __name__ == '__main__':
