@@ -56,7 +56,7 @@ class Converter:
                     product = Utils.safe_get(qualifiers, "product")
                     annotation = {"sample_name": self.sample_name, "contig": contig, "locus_tag": locus_tag,
                                   "gene": gene, "product": product, "location": str(seq_feature.location),
-                                  "pfasta_id": id_str}
+                                  "pfasta_id": id_str, "nfasta_bp": len(seq_record.seq)}
                     self._out_pfasta_records.append(
                         SeqRecord(Seq(Utils.safe_get(qualifiers, "translation"), IUPAC.protein),
                                   id=id_str, description=""))
