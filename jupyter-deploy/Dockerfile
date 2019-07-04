@@ -43,17 +43,19 @@ RUN ln -s /usr/bin/python3 /usr/bin/python && \
     ln -s /usr/bin/pip3 /usr/bin/pip && \
 
 RUN pip3 install --upgrade pip
-RUN pip3 install setuptools
-# Base data analysis
-RUN pip3 install pandas statsmodels scipy xlrd
-# Web scraping
-RUN pip3 install  requests bs4 lxml jinja2 pyyaml
-# Visualization
-RUN pip3 install matplotlib seaborn
-# External access
-RUN pip3 install ipython jupyter jupyterlab
-# ML-related
-RUN pip3 install scikit-learn tensorflow
+RUN pip3 install setuptools \
+    # Base data analysis
+    pandas statsmodels scipy xlrd \
+    # Sequence data processing
+    biopython \
+    # Web scraping
+    requests bs4 lxml jinja2 pyyaml \
+    # Visualization
+    matplotlib seaborn \
+    # Web interface
+    ipython jupyter jupyterlab \
+    # ML-related
+    scikit-learn tensorflow
 
 # Web port forwarding
 EXPOSE 80 443 31522
