@@ -15,26 +15,26 @@ class ArgParser:
         _parser = argparse.ArgumentParser(description="Extract amino acid sequence from provided GenBank file.".strip(),
                                           epilog="Note: the input file must be compliant with actual GenBank standard, "
                                                  "otherwise it won't be parsed with BioPython")
-        _parser.add_argument("-i", "--input", metavar="<input.gbk>", type=str, required=True, help="Input GenBank file")
+        _parser.add_argument("-i", "--input", metavar="<input.gb>", type=str, required=True, help="Input GenBank file")
         _parser.add_argument("-s", "--sample_name", metavar="<str>", type=str, default="",
                              help="Sample name to add into prefix")
         _parser.add_argument("-o", "--output", metavar="<output.faa>", type=str, required=True, help="Output file name")
         self._namespace = _parser.parse_args()
-        self.input_gbk = self._namespace.input
+        self.input_genbank = self._namespace.input
         self.sample_name = self._namespace.sample_name
         self.out_pfasta = self._namespace.output
 
 
 class Converter:
     def __init__(self):
-        self.input_gbk = parser.input_gbk
+        self.input_genbank = parser.input_genbank
         self.sample_name = parser.sample_name
         self.out_pfasta = parser.out_pfasta
         self._out_pfasta_records = []
         self._out_annotations = pd.DataFrame()
 
     def parse(self):
-        seq_records = list(SeqIO.parse(self.input_gbk, "genbank"))
+        seq_records = list(SeqIO.parse(self.input_genbank, "genbank"))
         max_ids = 0
         for seq_record in seq_records:
             for seq_feature in seq_record.features:

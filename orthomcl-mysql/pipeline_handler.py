@@ -173,8 +173,8 @@ class OrthoMCLHandler:
         keeper.password = db_config_dict.get("dbpassword")
         return keeper
 
-    def _extract_pfasta_from_gbk(self, sampledata: SampleDataLine):
-        _TOOL = "extract_pfasta_from_gbk"
+    def _extract_pfasta_from_genbank(self, sampledata: SampleDataLine):
+        _TOOL = "extract_pfasta_from_genbank"
         tool_dir = os.path.join(self.output_dir_root, _TOOL)
         os.makedirs(tool_dir, exist_ok=True)
         sampledata.pfasta = os.path.join(tool_dir, "{}.faa".format(sampledata.name))
@@ -185,9 +185,9 @@ class OrthoMCLHandler:
         Utils.run_and_log("python3 /opt/my_tools/{}.py -i {} -s {} -o {}".format(
             _TOOL, sampledata.genbank, sampledata.name, sampledata.pfasta))
 
-    def extract_pfasta_from_gbk_wrapper(self):
+    def extract_pfasta_from_genbank_wrapper(self):
         logging.info("Create protein sequence and annotation files")
-        self.sampledata_array.apply_single_core_function(self._extract_pfasta_from_gbk)
+        self.sampledata_array.apply_single_core_function(self._extract_pfasta_from_genbank)
 
     @staticmethod
     def _orthomcl_adjust_fasta(line: SampleDataLine):
@@ -287,7 +287,7 @@ class OrthoMCLHandler:
         Utils.run_and_log("chmod -R 777 {}".format(self.output_dir_root))
 
     def handle(self):
-        functions = (self.extract_pfasta_from_gbk_wrapper, self.run_orthomcl_adjust_fasta, self.run_diamond,
+        functions = (self.extract_pfasta_from_genbank_wrapper, self.run_orthomcl_adjust_fasta, self.run_diamond,
                      self.run_mysql_tasks, self.run_mcl, self.convert_mcl_groups_to_pivot)
         # TODO: Apply `for idx in validator.stages_to_do:`
         for idx, func in enumerate(functions):
@@ -339,14 +339,11 @@ class Utils:
         return Utils.split_lines(Utils.load_string(file))
     @staticmethod
     def load_tsv(table_file: str, col_names: list = None):
-        import pandas as pd
         if col_names:
             return pd.read_csv(table_file, encoding="utf-8", sep="\t", header="infer", names=col_names)
         return pd.read_csv(table_file, encoding="utf-8", sep="\t", header=0)
     @staticmethod
-    def dump_tsv(df, table_file: str, col_names: list = None):
-        import pandas as pd
-        assert isinstance(df, pd.DataFrame)
+    def dump_tsv(df: pd.DataFrame, table_file: str, col_names: list = None):
         os.makedirs(os.path.dirname(table_file), exist_ok=True)
         if col_names:
             df.loc[:, col_names].to_csv(table_file, encoding="utf-8", sep="\t", index=False, header=True)
