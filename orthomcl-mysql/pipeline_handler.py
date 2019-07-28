@@ -277,10 +277,12 @@ class OrthoMCLHandler:
         annotation_ds = pd.concat(
             [Utils.load_tsv(i.annotation) for i in self.sampledata_array.lines],
             axis=0, ignore_index=True, sort=False).set_index(_INDEX_COL_NAMES)
-        Utils.dump_tsv(annotation_ds.reset_index(), "annotation_ds.tsv")
+        annotation_ds.index.names = _INDEX_COL_NAMES
+        Utils.dump_tsv(annotation_ds.reset_index(), os.path.join(self.output_dir_root, "tables", "annotation_ds.tsv"))
         mcl_annotated_ds = pd.concat([annotation_ds, mcl_groups_ds], axis=1, sort=False)
+        mcl_annotated_ds.index.names = _INDEX_COL_NAMES
         mcl_annotated_ds.reset_index(inplace=True)
-        Utils.dump_tsv(mcl_annotated_ds, "mcl_annotated_ds.tsv")
+        Utils.dump_tsv(mcl_annotated_ds, os.path.join(self.output_dir_root, "tables", "mcl_annotated_ds.tsv"))
 
     def fix_permissions(self):
         logging.info("Fix permissions for the output dir: {}".format(self.output_dir_root))
