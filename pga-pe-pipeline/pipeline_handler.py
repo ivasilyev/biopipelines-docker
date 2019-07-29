@@ -146,8 +146,8 @@ class SampleDataLine:
 
 
 class Handler:
-    TOOLS = ("fastqc", "trimmomatic", "cutadapt", "spades", "prokka", "bowtie2", "samtools", "vcftools", "snpeff",
-             "srst2", "orthomcl")
+    TOOLS = ("fastqc", "trimmomatic", "cutadapt", "bowtie2_hg", "spades", "prokka", "bowtie2_snp", "samtools",
+             "vcftools", "snpeff", "srst2", "orthomcl")
 
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
@@ -155,8 +155,6 @@ class Handler:
             logging.warning("The path exists: '{}'".format(self.output_dir_root))
         os.makedirs(self.output_dir_root, exist_ok=True)
         # Output paths for each step
-        self.output_dirs = {i: os.path.normpath(os.path.join(self.output_dir_root, "{}_{}".format(idx + 1, i))) for
-                            idx, i in enumerate(self.TOOLS)}
         self.output_dirs = {i: os.path.normpath(os.path.join(
             self.output_dir_root, "_".join([str(idx + 1).zfill(len(str(len(self.TOOLS)))), i]))) for
             idx, i in enumerate(self.TOOLS)}
@@ -267,7 +265,7 @@ class Handler:
         # One per sample
         _TOOL = "cutadapt"
         _ADAPTER = "AGATCGGAAGAG"
-        stage_dir = os.path.join(self.output_dirs["cutadapt"], sampledata.name)
+        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         cmd = """
         bash -c \
@@ -283,6 +281,47 @@ class Handler:
         else:
             logging.info("Skip.")
         sampledata.set_reads(trimmed_reads)
+
+    def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
+        _TOOL = "bowtie2"
+        _IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
+        stage_dir = self.output_dirs["{}_hg".format(_TOOL)]
+        index_dir = os.path.join(stage_dir, "index")
+        mapped_reads_dir = os.path.join(stage_dir, "mapped")
+        mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
+        unmapped_reads_dir = os.path.join(stage_dir, "unmapped", sampledata.name)
+        unmapped_file_mask = os.path.join(unmapped_reads_dir, "{}.fq.gz".format(sampledata.name))
+        if skip:
+            logging.info("Skip.")
+            return
+        if not os.path.exists(index_dir):
+            logging.info("Download the human genome bowtie2 indexes")
+            dl_file = Utils.download_file(_IDX_URL, stage_dir)
+            decompressed_files = sorted(Utils.unzip_archive(dl_file, index_dir), key=len)
+        else:
+            decompressed_files = sorted(Utils.scan_whole_dir(index_dir), key=len)
+        index_mask = ".".join(decompressed_files[0].split(".")[:-2])
+        os.makedirs(mapped_reads_dir, exist_ok=True)
+        cmd = """
+        bash -c \
+            'cd {o};
+             {T} --local -D 20 -R 3 -L 3 -N 1 --gbar 1 --mp 3 --threads {t} \
+                --un-conc-gz {u} -x {i} -1 {r1} -2 {r2} -S {s}
+             chmod -R 777 {o}'
+        """.strip().format(T=_TOOL, t=validator.threads, u=unmapped_file_mask, i=index_mask, s=mapped_reads_file,
+                           r1=sampledata.reads[0], r2=sampledata.reads[1], o=stage_dir)
+        self.clean_path(unmapped_reads_dir)
+        log = self.run_quay_image(_TOOL, cmd=cmd)
+        Utils.append_log(log, _TOOL, sampledata.name)
+        unmapped_reads_files = Utils.scan_whole_dir(unmapped_reads_dir)
+        if len(unmapped_reads_files) != 2:
+            logging.warning(
+                "The number of output unmapped reads is not equal to 2, please check the directory: '{}'".format(
+                    unmapped_reads_dir))
+        else:
+            sampledata.set_reads(unmapped_reads_files)
+        logging.info("Remove the redundant alignment file: '{}'".format(mapped_reads_file))
+        os.remove(mapped_reads_file)
 
     def run_spades(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -346,7 +385,7 @@ class Handler:
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip.")
-        sampledata.genome_genbank = os.path.join(stage_dir, "{}.gbk".format(sampledata.name))
+        sampledata.genome_genbank = os.path.join(stage_dir, "{}.gbf".format(sampledata.name))
         sampledata.genome_pfasta = os.path.join(stage_dir, "{}.faa".format(sampledata.name))
 
     # SNP calling
@@ -476,9 +515,10 @@ class Handler:
         Utils.append_log(log, _TOOL, "all")
 
     def handle(self, sampledata_array: SampleDataArray):
-        _SAMPLE_METHODS = (self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.run_spades, self.run_prokka,
-                           self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2)
-        _GROUP_METHODS = (self.run_orthomcl,)
+        _SAMPLE_METHODS = [self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg, self.run_spades,
+                           self.run_prokka, self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff,
+                           self.run_srst2]
+        _GROUP_METHODS = [self.run_orthomcl, ]
         for idx, func in enumerate(_SAMPLE_METHODS + _GROUP_METHODS):
             try:
                 logging.info("Starting the pipeline step {} of {} ({} in total)".format(
@@ -613,6 +653,49 @@ class Utils:
         pool.close()
         pool.join()
         return output
+
+    @staticmethod
+    def download_file(url, out_dir):
+        import subprocess
+        from time import sleep
+        _RETRIES_LEFT = 5
+        _SLEEP_SECONDS = 3
+        _ERROR_REPORTS = ("transfer closed with",)
+        url = url.strip()
+        out_dir = os.path.normpath(out_dir.strip())
+        assert len(url) > 0 and len(out_dir) > 0
+        os.makedirs(out_dir, exist_ok=True)
+        while _RETRIES_LEFT > 0:
+            out_file = os.path.join(out_dir, url.split("/")[-1])
+            log = subprocess.getoutput("curl -fsSL {} -o {}".format(url, out_file))
+            print(log)
+            if os.path.isfile(out_file) and all(i not in log for i in _ERROR_REPORTS):
+                print("Download finished: '{}'".format(out_file))
+                return out_file
+            _RETRIES_LEFT -= 1
+            sleep(_SLEEP_SECONDS)
+            print("Warning! Failed download: '{}'. Retries left: {}".format(url, _RETRIES_LEFT))
+        print("Exceeded URL download limits: '{}'".format(url))
+        return ""
+
+    @staticmethod
+    def scan_whole_dir(dir_name: str):
+        out = []
+        for root, dirs, files in os.walk(dir_name):
+            for file in files:
+                out.append(os.path.join(root, file))
+        return out
+
+    @staticmethod
+    def unzip_archive(archive: str, extract_path: str, remove=True):
+        import shutil
+        os.makedirs(extract_path, exist_ok=True)
+        shutil.unpack_archive(archive, extract_path)
+        print("Extracting completed: '{}'".format(archive))
+        if remove:
+            os.remove(archive)
+            print("Removed: '{}'".format(archive))
+        return Utils.scan_whole_dir(extract_path)
 
 
 if __name__ == '__main__':
