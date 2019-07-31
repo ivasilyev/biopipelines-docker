@@ -400,29 +400,17 @@ class Handler:
     def run_snpeff(self, sampledata: SampleDataLine, skip: bool = False):
         pass
 
-    # MLST typing
-    def run_srst2(self, sampledata: SampleDataLine, skip: bool = False):
+    def _run_getmlst(self, genus: str, species: str, srst2_out_dir: str, sample_name: str):
         # One per sample, full cleaning is NOT required
-        _TOOL = "srst2"
-        _GETMLST_ATTEMPTS = 5
-        _SRST2_ATTEMPTS = 5
         """
         # Sample launch:
-        IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \ 
+        IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
         docker pull $IMG && \
         docker run --rm --net=host -it $IMG getmlst.py -h
-        
-        docker run --rm --net=host -it $IMG srst2 -h
         """
-        tool_dir = self.output_dirs[_TOOL]
-        stage_dir = os.path.join(tool_dir, sampledata.name)
-        genus, species = (sampledata.taxa["genus"], sampledata.taxa["species"])
-        mlst_db_local = "{}_{}.fasta".format(genus, species)
-        mlst_definitions_local = "{}{}.txt".format(genus.lower()[0], species)
-        mlst_db_abs, mlst_definitions_abs = [os.path.join(tool_dir, i) for i in (mlst_db_local, mlst_definitions_local)]
         """
         # Sample output for `getmlst.py --species 'Klebsiella pneumoniae'`
-        
+
         For SRST2, remember to check what separator is being used in this allele database
 
         Looks like --mlst_delimiter '_'
@@ -433,41 +421,75 @@ class Handler:
 
         srst2 --output test --input_pe *.fastq.gz --mlst_db Klebsiella_pneumoniae.fasta \
             --mlst_definitions kpneumoniae.txt --mlst_delimiter '_'
-        
+
         # Sample srst2 output:
-        
+
         Klebsiella_MLST__mlst__Klebsiella_pneumoniae__results.txt
         """
+        _GETMLST_ATTEMPTS = 5
+        os.makedirs(srst2_out_dir, exist_ok=True)
+        getmlst_attempt = 0
+        while getmlst_attempt < _GETMLST_ATTEMPTS:
+            getmlst_attempt += 1
+            getmlst_cmd = """
+            bash -c \
+                'cd {o};
+                 getmlst.py --species "{g} {s}";
+                 chmod -R 777 {o}'
+            """.format(g=genus, s=species, o=srst2_out_dir)
+            getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
+            srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
+            Utils.append_log(getmlst_log, "getmlst", sample_name)
+            if not srst2_cmd.startswith("srst2"):
+                logging.warning("`getmlst.py` did not finish correctly for attempt {} of {}".format(
+                    getmlst_attempt, _GETMLST_ATTEMPTS))
+            else:
+                break
+        if getmlst_attempt == _GETMLST_ATTEMPTS:
+            logging.warning("Exceeded attempts number for `getmlst.py` to finish processing correctly")
+
+    @staticmethod
+    def _locate_srst2_result_file(srst2_out_dir: str):
+        results = [i for i in Utils.scan_whole_dir(srst2_out_dir) if i.endswith("__results.txt")]
+        if len(results) > 0:
+            result = results[0]
+            if len(results) > 1:
+                logging.warning("More than 1 SRST2 result files were found, using the first one: {}".format(results))
+            logging.info("Located the SRST2 result file: '{}'".format(result))
+            return result
+        else:
+            logging.warning("Cannot locate a suitable SRST2 result file in the directory: '{}'".format(srst2_out_dir))
+            return ""
+
+    # MLST typing
+    def run_srst2(self, sampledata: SampleDataLine, skip: bool = False):
+        # One per sample, full cleaning is NOT required
+        _TOOL = "srst2"
+        _SRST2_ATTEMPTS = 5
+        """
+        # Sample launch:
+        IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
+        docker pull $IMG && \
+        docker run --rm --net=host -it $IMG srst2 -h
+        """
+        tool_dir = self.output_dirs[_TOOL]
+        stage_dir = os.path.join(tool_dir, sampledata.name)
+        genus, species = (sampledata.taxa["genus"], sampledata.taxa["species"])
+        mlst_db_local = "{}_{}.fasta".format(genus, species)
+        mlst_definitions_local = "{}{}.txt".format(genus.lower()[0], species)
+        mlst_db_abs, mlst_definitions_abs = [os.path.join(tool_dir, i) for i in (mlst_db_local, mlst_definitions_local)]
         # Default cmd
         srst2_cmd = """
         srst2 --output test --input_pe *.fastq.gz --mlst_db {} --mlst_definitions {} --mlst_delimiter '_'
         """.format(mlst_db_local, mlst_definitions_local)
         sampledata.reference_nfasta = mlst_db_abs
-        sampledata.srst2_result = "{}__mlst__{}_{}__results.txt".format(sampledata.name, genus, species)
+        sampledata.srst2_result = os.path.join(stage_dir,
+                                               "{}_MLST__{}_{}__results.txt".format(sampledata.name, genus, species))
         if skip:
             logging.info("Skip.")
             return
         if not all(os.path.isfile(i) for i in (mlst_db_abs, mlst_definitions_abs)):
-            os.makedirs(tool_dir, exist_ok=True)
-            getmlst_attempt = 0
-            while getmlst_attempt < _GETMLST_ATTEMPTS:
-                getmlst_attempt += 1
-                getmlst_cmd = """
-                bash -c \
-                    'cd {o};
-                     getmlst.py --species "{g} {s}";
-                     chmod -R 777 {o}'
-                """.format(g=genus, s=species, o=tool_dir)
-                getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
-                srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
-                Utils.append_log(getmlst_log, "getmlst", sampledata.name)
-                if not srst2_cmd.startswith("srst2"):
-                    logging.warning("`getmlst.py` did not finish correctly for attempt {} of {}".format(
-                        getmlst_attempt, _GETMLST_ATTEMPTS))
-                else:
-                    break
-            if getmlst_attempt == _GETMLST_ATTEMPTS:
-                logging.warning("Exceeded attempts number for `getmlst.py` to finish processing correctly")
+            self._run_getmlst(genus=genus, species=species, srst2_out_dir=tool_dir, sample_name=sampledata.name)
         # The input read files must be named by a strict pattern:
         # https://github.com/katholt/srst2#input-read-formats-and-options
         input_reads = ["{}_{}.fastq.gz".format(sampledata.name, idx + 1) for idx, i in enumerate(sampledata.reads)]
@@ -490,12 +512,18 @@ class Handler:
                                         bad_phrases=["Encountered internal Bowtie 2 exception",
                                                      "[main_samview] truncated file."])
         Utils.append_log(srst2_log, _TOOL, sampledata.name)
+        if not os.path.isfile(sampledata.srst2_result):
+            logging.warning("Not found the SRST2 processing result file: '{}', trying to locate it".format(
+                sampledata.srst2_result))
+            sampledata.srst2_result = self._locate_srst2_result_file(stage_dir)
 
     def merge_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
-        if skip:
-            return
         _TOOL = "srst2_merger"
         tool_dir = self.output_dirs[_TOOL]
+        if skip:
+            logging.info("Skip.")
+            return
+        self.clean_path(tool_dir)
         merged_file = os.path.join(tool_dir, "merged_results.tsv")
         merged_lines = []
         for sampledata in sampledata_array.lines:
@@ -506,9 +534,10 @@ class Handler:
                 else:
                     merged_lines.extend(result_lines[1:])
             else:
-                logging.warning("Not found the SRST2 processing result for the sample: '{}'".format(sampledata.name))
+                logging.warning("Not found the SRST2 processing result file: '{}'".format(sampledata.srst2_result))
         if len(merged_lines) > 0:
             Utils.dump_list(merged_lines, merged_file)
+            logging.info("Merged SRST2 result file: '{}'".format(merged_file))
         else:
             logging.warning("Cannot merge SRST2 results: nothing to merge")
 
@@ -703,7 +732,7 @@ class Utils:
         for root, dirs, files in os.walk(dir_name):
             for file in files:
                 out.append(os.path.join(root, file))
-        return out
+        return sorted(out)
 
     @staticmethod
     def unzip_archive(archive: str, extract_path: str, remove=True):
