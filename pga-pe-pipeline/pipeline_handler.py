@@ -77,7 +77,7 @@ class SampleDataArray:
 
 class SampleDataLine:
     exists = False
-    prefix, genome, plasmid, genome_genbank, genome_pfasta, genome_annotation, reference_nfasta, mlst_results = ("",) * 8
+    prefix, genome, plasmid, genome_genbank, genome_pfasta, genome_annotation, reference_nfasta, srst2_result = ("",) * 8
 
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
@@ -147,7 +147,7 @@ class SampleDataLine:
 
 class Handler:
     TOOLS = ("fastqc", "trimmomatic", "cutadapt", "bowtie2_hg", "spades", "prokka", "bowtie2_snp", "samtools",
-             "vcftools", "snpeff", "srst2", "orthomcl")
+             "vcftools", "snpeff", "srst2", "srst2_merger", "orthomcl")
 
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
@@ -243,7 +243,7 @@ class Handler:
         _TOOL = "trimmomatic"
         stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
-        untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrinned".format(_TOOL))
+        untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrimmed".format(_TOOL))
         cmd = """
         bash -c \
             'cd {o};
@@ -283,9 +283,9 @@ class Handler:
         sampledata.set_reads(trimmed_reads)
 
     def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
-        _TOOL = "bowtie2"
+        _TOOL = "bowtie2_hg"
         _IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
-        stage_dir = self.output_dirs["{}_hg".format(_TOOL)]
+        stage_dir = self.output_dirs[_TOOL]
         index_dir = os.path.join(stage_dir, "index")
         mapped_reads_dir = os.path.join(stage_dir, "mapped")
         mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
@@ -305,11 +305,11 @@ class Handler:
         cmd = """
         bash -c \
             'cd {o};
-             {T} --local -D 20 -R 3 -L 3 -N 1 --gbar 1 --mp 3 --threads {t} \
+             bowtie2 --local -D 20 -R 3 -L 3 -N 1 --gbar 1 --mp 3 --threads {t} \
                 --un-conc-gz {u} -x {i} -1 {r1} -2 {r2} -S {s}
              chmod -R 777 {o}'
-        """.strip().format(T=_TOOL, t=validator.threads, u=unmapped_file_mask, i=index_mask, s=mapped_reads_file,
-                           r1=sampledata.reads[0], r2=sampledata.reads[1], o=stage_dir)
+        """.strip().format(t=validator.threads, u=unmapped_file_mask, i=index_mask, s=mapped_reads_file, o=stage_dir,
+                           r1=sampledata.reads[0], r2=sampledata.reads[1])
         self.clean_path(unmapped_reads_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
@@ -445,7 +445,7 @@ class Handler:
         srst2 --output test --input_pe *.fastq.gz --mlst_db {} --mlst_definitions {} --mlst_delimiter '_'
         """.format(mlst_db_local, mlst_definitions_local)
         sampledata.reference_nfasta = mlst_db_abs
-        sampledata.mlst_results = "{}__mlst__{}_{}__results.txt".format(sampledata.name, genus, species)
+        sampledata.srst2_result = "{}__mlst__{}_{}__results.txt".format(sampledata.name, genus, species)
         if skip:
             logging.info("Skip.")
             return
@@ -493,6 +493,27 @@ class Handler:
                                                      "[main_samview] truncated file."])
         Utils.append_log(srst2_log, _TOOL, sampledata.name)
 
+    def merge_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
+        if skip:
+            return
+        _TOOL = "srst2_merger"
+        tool_dir = self.output_dirs[_TOOL]
+        merged_file = os.path.join(tool_dir, "merged_results.tsv")
+        merged_lines = []
+        for sampledata in sampledata_array.lines:
+            if os.path.isfile(sampledata.srst2_result):
+                result_lines = Utils.load_list(sampledata.srst2_result)
+                if len(merged_lines) == 0:
+                    merged_lines.extend(result_lines)
+                else:
+                    merged_lines.extend(result_lines[1:])
+            else:
+                logging.warning("Not found the SRST2 processing result for the sample: '{}'".format(sampledata.name))
+        if len(merged_lines) > 0:
+            Utils.dump_list(merged_lines, merged_file)
+        else:
+            logging.warning("Cannot merge SRST2 results: nothing to merge")
+
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
         # One per all samples
@@ -518,7 +539,7 @@ class Handler:
         _SAMPLE_METHODS = [self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg, self.run_spades,
                            self.run_prokka, self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff,
                            self.run_srst2]
-        _GROUP_METHODS = [self.run_orthomcl, ]
+        _GROUP_METHODS = [self.merge_srst2_results, self.run_orthomcl, ]
         for idx, func in enumerate(_SAMPLE_METHODS + _GROUP_METHODS):
             try:
                 logging.info("Starting the pipeline step {} of {} ({} in total)".format(
