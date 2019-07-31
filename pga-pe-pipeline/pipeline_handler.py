@@ -306,7 +306,7 @@ class Handler:
         bash -c \
             'cd {o};
              bowtie2 --local -D 20 -R 3 -L 3 -N 1 --gbar 1 --mp 3 --threads {t} \
-                --un-conc-gz {u} -x {i} -1 {r1} -2 {r2} -S {s}
+                --un-conc-gz {u} -x {i} -S {s} -1 {r1} -2 {r2}
              chmod -R 777 {o}'
         """.strip().format(t=validator.threads, u=unmapped_file_mask, i=index_mask, s=mapped_reads_file, o=stage_dir,
                            r1=sampledata.reads[0], r2=sampledata.reads[1])
@@ -320,8 +320,6 @@ class Handler:
                     unmapped_reads_dir))
         else:
             sampledata.set_reads(unmapped_reads_files)
-        logging.info("Remove the redundant alignment file: '{}'".format(mapped_reads_file))
-        os.remove(mapped_reads_file)
 
     def run_spades(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
