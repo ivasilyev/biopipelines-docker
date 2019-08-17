@@ -242,7 +242,7 @@ class Handler:
         # One per sample
         _TOOL = "trimmomatic"
         stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
-        trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
+        trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_trimmed".format(_TOOL))
         untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrimmed".format(_TOOL))
         cmd = """
         bash -c \
@@ -283,9 +283,9 @@ class Handler:
         sampledata.set_reads(trimmed_reads)
 
     def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
-        _TOOL = "bowtie2_hg"
+        _TOOL = "bowtie2"
         _IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
-        stage_dir = self.output_dirs[_TOOL]
+        stage_dir = self.output_dirs["bowtie2_hg"]
         index_dir = os.path.join(stage_dir, "index")
         mapped_reads_dir = os.path.join(stage_dir, "mapped")
         mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
@@ -305,11 +305,11 @@ class Handler:
         cmd = """
         bash -c \
             'cd {o};
-             bowtie2 --local -D 20 -R 3 -L 3 -N 1 --gbar 1 --mp 3 --threads {t} \
+             {T} --local -D 20 -R 3 -L 3 -N 1 --gbar 1 --mp 3 --threads {t} \
                 --un-conc-gz {u} -x {i} -S {s} -1 {r1} -2 {r2}
              chmod -R 777 {o}'
         """.strip().format(t=validator.threads, u=unmapped_file_mask, i=index_mask, s=mapped_reads_file, o=stage_dir,
-                           r1=sampledata.reads[0], r2=sampledata.reads[1])
+                           r1=sampledata.reads[0], r2=sampledata.reads[1], T=_TOOL)
         self.clean_path(unmapped_reads_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
@@ -372,8 +372,8 @@ class Handler:
                 taxa_append = "{} --{} {}".format(taxa_append, taxon_name, taxon_value)
         cmd = """
         bash -c \
-            'cd {o}
-             {T} --compliant --centre UoN --cpu {c} --outdir {o} --force --prefix {n} --locustag {n} {a} {g}
+            'cd {o};
+             {T} --compliant --centre UoN --cpu {c} --outdir {o} --force --prefix {n} --locustag {n} {a} {g};
              chmod -R 777 {o}'
         """.format(T=_TOOL, g=sampledata.genome, a=taxa_append, n=sampledata.name, o=stage_dir,
                    c=validator.threads)
@@ -526,6 +526,8 @@ class Handler:
         self.clean_path(tool_dir)
         merged_file = os.path.join(tool_dir, "merged_results.tsv")
         merged_lines = []
+        # SRST2 output file columns:
+        # Sample, ST, gapA, infB, mdh, pgi, phoE, rpoB, tonB, mismatches, uncertainty, depth, maxMAF
         for sampledata in sampledata_array.lines:
             if os.path.isfile(sampledata.srst2_result):
                 result_lines = Utils.load_list(sampledata.srst2_result)
