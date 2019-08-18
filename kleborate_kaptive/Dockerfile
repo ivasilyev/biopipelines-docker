@@ -15,7 +15,7 @@ RUN echo "Cleanup" && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN echo "Software install" && \
-    conda install --channel bioconda -y biopython kleborate kaptive && \
+    conda install --channel bioconda --quiet -y biopython kleborate kaptive && \
     cd /opt/ && \
     git clone --recursive https://github.com/katholt/Kleborate.git && \
     cd Kleborate && \

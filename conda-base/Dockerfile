@@ -59,7 +59,7 @@ RUN echo "Cleanup" && \
 ENV PATH=${PATH}:/opt/conda/bin
 
 RUN conda config --add channels bioconda && \
-    conda upgrade -y conda
+    conda upgrade --quiet -y conda
 
 # Overwrite this with 'CMD []' in a dependent Dockerfile
 CMD ["bash"]
