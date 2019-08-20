@@ -77,14 +77,15 @@ class SampleDataArray:
 
 class SampleDataLine:
     exists = False
-    prefix, genome, plasmid, genome_genbank, genome_pfasta, genome_annotation, reference_nfasta, srst2_result = ("",) * 8
+    prefix, chromosome_assembly, plasmid_assembly, genome_assembly, \
+        genbank, faa, chromosome_annotation, reference_fna, srst2_result = ["", ] * 9
 
     def __init__(self, sample_name: str, sample_reads: list, taxa: list):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
         self.name = sample_name.strip()
         self.reads = [i.strip() for i in sample_reads]
-        if not all([os.path.isfile(i) for i in self.reads]):
-            logging.warning("File(s) not found: '{}'".format(self.reads))
+        if not all([Utils.is_file_exists(i) for i in self.reads]):
+            logging.warning("Some raw read files are missing!")
         else:
             self.exists = True
             self.extension = self.get_extension(self.reads[0].strip())
@@ -146,8 +147,8 @@ class SampleDataLine:
 
 
 class Handler:
-    TOOLS = ("fastqc", "trimmomatic", "cutadapt", "bowtie2_hg", "spades", "prokka", "bowtie2_snp", "samtools",
-             "vcftools", "snpeff", "srst2", "srst2_merger", "orthomcl")
+    TOOLS = ("fastqc", "trimmomatic", "cutadapt", "bowtie2_hg", "spades", "merge_chromosome_and_plasmid_assemblies",
+             "prokka", "bowtie2_snp", "samtools", "vcftools", "snpeff", "srst2", "srst2_merger", "orthomcl")
 
     def __init__(self, output_dir: str):
         self.output_dir_root = os.path.normpath(output_dir)
@@ -332,7 +333,7 @@ class Handler:
             'TOOL=$(find /usr/local/share/ -name spades.py | grep spades | head -n 1) && $TOOL -v'
         """
         stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
-        assemblies = {"genome": "", "plasmid": ""}
+        assemblies = {"chromosome": "", "plasmid": ""}
         for assembly_type in assemblies:
             assembly_dir = os.path.join(stage_dir, assembly_type)
             cmd_append = ""
@@ -352,8 +353,30 @@ class Handler:
             else:
                 logging.info("Skip.")
             assemblies[assembly_type] = os.path.join(assembly_dir, "contigs.fasta")
-        sampledata.genome = assemblies["genome"]
-        sampledata.plasmid = assemblies["plasmid"]
+        sampledata.chromosome_assembly = assemblies["chromosome"]
+        sampledata.plasmid_assembly = assemblies["plasmid"]
+
+    def run_plasmid_merger(self, sampledata: SampleDataLine, skip: bool = False):
+        _TOOL = "merge_chromosome_and_plasmid_assemblies"
+        if skip:
+            logging.info("Skip.")
+            return
+        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
+        self.clean_path(stage_dir)
+        genome_assembly = os.path.join(stage_dir, "{}_genome.fna".format(sampledata.name))
+        cmd = """
+        bash -c \
+            '
+            git pull;
+            python3 ./meta/scripts/merge_chromosome_and_plasmid_assemblies.py \
+                -c {c} -p {p} -r -o {g};
+            chmod -R 777 {d}
+            '
+        """.format(c=sampledata.chromosome_assembly, p=sampledata.plasmid_assembly, g=genome_assembly, d=stage_dir)
+        log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+        Utils.append_log(log, _TOOL, sampledata.name)
+        if Utils.is_file_exists(genome_assembly):
+            sampledata.genome_assembly = genome_assembly
 
     def run_prokka(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -373,18 +396,18 @@ class Handler:
         cmd = """
         bash -c \
             'cd {o};
-             {T} --compliant --centre UoN --cpu {c} --outdir {o} --force --prefix {n} --locustag {n} {a} {g};
+             {T} --compliant --centre UoN --cpu {t} --outdir {o} --force --prefix {n} --locustag {n} {a} {g};
              chmod -R 777 {o}'
-        """.format(T=_TOOL, g=sampledata.genome, a=taxa_append, n=sampledata.name, o=stage_dir,
-                   c=validator.threads)
+        """.format(T=_TOOL, g=sampledata.genome_assembly, a=taxa_append,
+                   n=sampledata.name, o=stage_dir, t=validator.threads)
         if not skip:
             self.clean_path(stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip.")
-        sampledata.genome_genbank = os.path.join(stage_dir, "{}.gbf".format(sampledata.name))
-        sampledata.genome_pfasta = os.path.join(stage_dir, "{}.faa".format(sampledata.name))
+        sampledata.genbank = os.path.join(stage_dir, "{}.gbf".format(sampledata.name))
+        sampledata.faa = os.path.join(stage_dir, "{}.faa".format(sampledata.name))
 
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
@@ -554,7 +577,7 @@ class Handler:
         self.clean_path(tool_dir)
         sampledata_file = os.path.join(tool_dir, "orthomcl_input.sampledata")
         logging.info("Save OrthoMCL sample data: '{}'".format(sampledata_file))
-        Utils.dump_2d_array([[i.name, i.genome_genbank] for i in sampledata_array.lines], sampledata_file)
+        Utils.dump_2d_array([[i.name, i.genbank] for i in sampledata_array.lines], sampledata_file)
         log = Utils.run_image(img_name="ivasilyev/orthomcl-mysql:latest",
                               container_cmd="""
                               bash -c \
@@ -566,8 +589,8 @@ class Handler:
 
     def handle(self, sampledata_array: SampleDataArray):
         _SAMPLE_METHODS = [self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg, self.run_spades,
-                           self.run_prokka, self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff,
-                           self.run_srst2]
+                           self.run_prokka, self.run_plasmid_merger, self.run_bowtie2, self.run_samtools,
+                           self.run_vcftools, self.run_snpeff, self.run_srst2]
         _GROUP_METHODS = [self.merge_srst2_results, self.run_orthomcl, ]
         for idx, func in enumerate(_SAMPLE_METHODS + _GROUP_METHODS):
             try:
@@ -727,6 +750,13 @@ class Utils:
             print("Warning! Failed download: '{}'. Retries left: {}".format(url, _RETRIES_LEFT))
         print("Exceeded URL download limits: '{}'".format(url))
         return ""
+
+    @staticmethod
+    def is_file_exists(file_name: str):
+        if not os.path.exists(file_name):
+            logging.warning("Not found: '{}'".format(file_name))
+            return False
+        return True
 
     @staticmethod
     def scan_whole_dir(dir_name: str):
