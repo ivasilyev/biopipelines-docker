@@ -6,6 +6,7 @@
 
 import os
 import re
+import inspect
 import logging
 import subprocess
 import multiprocessing
@@ -15,9 +16,11 @@ from time import sleep
 class ArgValidator:
     def __init__(self):
         import argparse
-        _STEPS = list(range(1, len(Handler.TOOLS) + 1))
+        _handler = Handler()
+        _handler_methods = _handler.sample_methods + _handler.group_methods
+        _STEPS = list(range(1, len(_handler_methods) + 1))
         _STAGES = "<{}>".format("|".join([str(i) for i in _STEPS]))
-        _STAGES_DESCRIPTION = "\n".join(["{}. {};".format(idx + 1, i) for idx, i in enumerate(Handler.TOOLS)])
+        _STAGES_DESCRIPTION = "\n".join(["{}. {};".format(idx + 1, i) for idx, i in enumerate(_handler_methods)])
         parser = argparse.ArgumentParser(description="""
 Run prokaryotic genome analysis pipeline for group of files with given taxa information""".strip(),
                                          epilog="""
@@ -63,15 +66,18 @@ class SampleDataArray:
     lines = []
 
     def validate(self):
-        self.lines = [i for i in self.lines if i.exists]
+        self.lines = sorted([i for i in self.lines if i.exists])
+
+    def __len__(self):
+        return len(self.lines)
 
     @staticmethod
     def parse(file):
         arr = SampleDataArray()
         with open(file, mode="r", encoding="utf-8") as f:
-            arr.lines = [SampleDataLine.parse(j) for j in [i.strip() for i in f] if len(j) > 0]
-            arr.validate()
+            arr.lines = [SampleDataLine.parse(j) for j in Utils.remove_empty_values([i for i in f])]
             f.close()
+        arr.validate()
         return arr
 
 
@@ -80,27 +86,35 @@ class SampleDataLine:
     prefix, chromosome_assembly, plasmid_assembly, genome_assembly, \
         genbank, faa, chromosome_annotation, reference_fna, srst2_result = ["", ] * 9
 
-    def __init__(self, sample_name: str, sample_reads: list, taxa: list):
+    def __init__(self, sample_name: str, sample_reads: list, taxa: str = ""):
         # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
         self.name = sample_name.strip()
-        self.reads = [i.strip() for i in sample_reads]
-        if not all([Utils.is_file_exists(i) for i in self.reads]):
-            logging.warning("Some raw read files are missing!")
-        else:
-            self.exists = True
-            self.extension = self.get_extension(self.reads[0].strip())
-            self.taxa = self._parse_taxa(taxa)
-            self._set_prefix()
+        self.reads = Utils.remove_empty_values(sample_reads)
+        self._validate_reads()
+        self.extension = self.get_extension(self.reads[0].strip())
+        self.taxa = self._parse_taxa(taxa)
+        self._set_prefix()
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __lt__(self, other):
+        return self.name < other.name
 
     @staticmethod
     def parse(line: str):
-        name, reads, taxa = [j for j in [i.strip() for i in line.split("\t")] if len(j) > 0]
-        reads = SampleDataLine._parse_reads(reads.split(";"))
-        if len(reads) > 2:
-            logging.warning("More than 2 paired end read files were given, only 2 first will be used: '{}'".format(
-                reads))
-            reads = reads[:2]
-        taxa = [j for j in [i.strip() for i in taxa.split(" ")] if len(j) > 0]
+        # Sample data line example:
+        # sample_name\treads1;reads2\tGenera species strain
+        items = Utils.remove_empty_values(line.split("\t"))
+        if len(items) < 2:
+            Utils.log_and_raise("Not enough columns given: '{}'".format(items))
+        name = items[0]
+        reads = SampleDataLine._parse_reads(items[1].split(";"))
+        if len(items) < 3:
+            logging.warning("Taxa data were not defined, some stages would be passed")
+            taxa = ""
+        else:
+            taxa = items[2]
         return SampleDataLine(name, reads, taxa)
 
     @staticmethod
@@ -113,12 +127,26 @@ class SampleDataLine:
 
     @staticmethod
     def _parse_reads(reads: list):
-        return sorted([j for j in [i.strip() for i in reads] if len(j) > 0])
+        _reads = sorted(Utils.remove_empty_values(reads))
+        if len(_reads) > 2:
+            logging.warning("More than 2 paired end read files were given, only 2 first will be used: '{}'".format(
+                _reads))
+            _reads = _reads[:2]
+        return _reads
+
+    def _validate_reads(self):
+        if all([Utils.is_file_exists(i) for i in self.reads]):
+            self.exists = True
+        else:
+            logging.warning("Some raw read files are missing!")
+            self.exists = False
 
     @staticmethod
-    def _parse_taxa(taxa: list):
+    def _parse_taxa(taxa: str):
+        if len(taxa) == 0:
+            return
         out = {i: "" for i in ("genus", "species", "strain")}
-        taxa = [j for j in [i.strip() for i in taxa] if len(j) > 0]
+        taxa = Utils.remove_empty_values(taxa.split(" "))
         if len(taxa) == 0:
             Utils.log_and_raise("Empty taxon data!")
         out["genus"] = taxa[0].capitalize()
@@ -135,6 +163,8 @@ class SampleDataLine:
 
     def _set_prefix(self):
         _MAX_PREFIX_LENGTH = 4
+        if not self.taxa:
+            return
         if len(self.taxa["species"]) >= _MAX_PREFIX_LENGTH - 1:
             self.prefix = self.taxa["genus"][0].upper() + self.taxa["species"][:_MAX_PREFIX_LENGTH - 1].lower()
         else:
@@ -147,22 +177,33 @@ class SampleDataLine:
 
 
 class Handler:
-    TOOLS = ("fastqc", "trimmomatic", "cutadapt", "bowtie2_hg", "spades", "merge_chromosome_and_plasmid_assemblies",
-             "prokka", "bowtie2_snp", "samtools", "vcftools", "snpeff", "srst2", "srst2_merger", "orthomcl")
+    def __init__(self, output_dir: str = ""):
+        self.sample_methods = [self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
+                               self.run_spades, self.run_prokka, self.run_plasmid_merger, self.run_bowtie2,
+                               self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2]
+        self.group_methods = [self.merge_srst2_results, self.run_orthomcl]
+        #
+        self.valid = False
+        self.output_dir_root = output_dir.strip()
+        self.output_dirs = dict()
+        #
+        self.prepare_environment()
 
-    def __init__(self, output_dir: str):
-        self.output_dir_root = os.path.normpath(output_dir)
+    def prepare_environment(self):
+        if len(self.output_dir_root) == 0:
+            return
+        self.valid = True
+        self.output_dir_root = os.path.normpath(self.output_dir_root)
         if os.path.exists(self.output_dir_root):
             logging.warning("The path exists: '{}'".format(self.output_dir_root))
         os.makedirs(self.output_dir_root, exist_ok=True)
         # Output paths for each step
-        self.output_dirs = {i: os.path.normpath(os.path.join(
-            self.output_dir_root, "_".join([str(idx + 1).zfill(len(str(len(self.TOOLS)))), i]))) for
-            idx, i in enumerate(self.TOOLS)}
-        # TODO Implement these lines instead of method constants
-        self._current_tool_name = ""
-        self._current_tool_attempt = 0
-        self._current_tool_max_attempts = 5
+        methods = self.sample_methods + self.group_methods
+        for idx, method in enumerate(methods):
+            prefix = str(idx + 1).zfill(len(str(len(methods))))
+            method_name = "_".join([i for i in method.__name__.split("_") if len(i) > 0 and i != "run"])
+            dir_name = os.path.normpath(os.path.join(self.output_dir_root, "_".join([prefix, method_name])))
+            self.output_dirs[method.__name__] = dir_name
 
     @staticmethod
     def filename_only(path):
@@ -223,7 +264,7 @@ class Handler:
         _TOOL = "fastqc"
         # One per read sample
         for idx, reads_file in enumerate(sampledata.reads):
-            stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name,
+            stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name,
                                      "{}_{}".format(sampledata.name, idx + 1))
             cmd = """
             bash -c \
@@ -242,7 +283,7 @@ class Handler:
     def run_trimmomatic(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "trimmomatic"
-        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
+        stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_trimmed".format(_TOOL))
         untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrimmed".format(_TOOL))
         cmd = """
@@ -266,7 +307,7 @@ class Handler:
         # One per sample
         _TOOL = "cutadapt"
         _ADAPTER = "AGATCGGAAGAG"
-        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
+        stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
         cmd = """
         bash -c \
@@ -286,7 +327,7 @@ class Handler:
     def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "bowtie2"
         _IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
-        stage_dir = self.output_dirs["bowtie2_hg"]
+        stage_dir = self.output_dirs[Utils.get_caller_name()]
         index_dir = os.path.join(stage_dir, "index")
         mapped_reads_dir = os.path.join(stage_dir, "mapped")
         mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
@@ -327,12 +368,12 @@ class Handler:
         _TOOL = "spades"
         """
         # Sample launch:
-        IMG=quay.io/biocontainers/spades:3.13.1--0 && \ 
+        IMG=quay.io/biocontainers/spades:3.13.1--0 && \
         docker pull $IMG && \
         docker run --rm --net=host -it $IMG bash -c \
             'TOOL=$(find /usr/local/share/ -name spades.py | grep spades | head -n 1) && $TOOL -v'
         """
-        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
+        stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         assemblies = {"chromosome": "", "plasmid": ""}
         for assembly_type in assemblies:
             assembly_dir = os.path.join(stage_dir, assembly_type)
@@ -361,7 +402,7 @@ class Handler:
         if skip:
             logging.info("Skip.")
             return
-        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
+        stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         self.clean_path(stage_dir)
         genome_assembly = os.path.join(stage_dir, "{}_genome.fna".format(sampledata.name))
         cmd = """
@@ -383,11 +424,16 @@ class Handler:
         _TOOL = "prokka"
         """
         # Sample launch:
-        IMG=quay.io/biocontainers/prokka:1.12--pl526_0 && \ 
+        IMG=quay.io/biocontainers/prokka:1.12--pl526_0 && \
         docker pull $IMG && \
         docker run --rm --net=host -it $IMG prokka
         """
-        stage_dir = os.path.join(self.output_dirs[_TOOL], sampledata.name)
+        stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
+        sampledata.genbank = os.path.join(stage_dir, "{}.gbf".format(sampledata.name))
+        sampledata.faa = os.path.join(stage_dir, "{}.faa".format(sampledata.name))
+        if skip or sampledata.taxa is None:
+            logging.info("Skip.")
+            return
         taxa_append = ""
         for taxon_name in ("genus", "species", "strain"):
             taxon_value = sampledata.taxa.get(taxon_name)
@@ -400,14 +446,9 @@ class Handler:
              chmod -R 777 {o}'
         """.format(T=_TOOL, g=sampledata.genome_assembly, a=taxa_append,
                    n=sampledata.name, o=stage_dir, t=validator.threads)
-        if not skip:
-            self.clean_path(stage_dir)
-            log = self.run_quay_image(_TOOL, cmd=cmd)
-            Utils.append_log(log, _TOOL, sampledata.name)
-        else:
-            logging.info("Skip.")
-        sampledata.genbank = os.path.join(stage_dir, "{}.gbf".format(sampledata.name))
-        sampledata.faa = os.path.join(stage_dir, "{}.faa".format(sampledata.name))
+        self.clean_path(stage_dir)
+        log = self.run_quay_image(_TOOL, cmd=cmd)
+        Utils.append_log(log, _TOOL, sampledata.name)
 
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
@@ -495,9 +536,12 @@ class Handler:
         docker pull $IMG && \
         docker run --rm --net=host -it $IMG srst2 -h
         """
-        tool_dir = self.output_dirs[_TOOL]
+        tool_dir = self.output_dirs[Utils.get_caller_name()]
         stage_dir = os.path.join(tool_dir, sampledata.name)
-        genus, species = (sampledata.taxa["genus"], sampledata.taxa["species"])
+        if skip or sampledata.taxa is None:
+            logging.info("Skip.")
+            return
+        genus, species = (sampledata.taxa.get("genus"), sampledata.taxa.get("species"))
         mlst_db_local = "{}_{}.fasta".format(genus, species)
         mlst_definitions_local = "{}{}.txt".format(genus.lower()[0], species)
         mlst_db_abs, mlst_definitions_abs = [os.path.join(tool_dir, i) for i in (mlst_db_local, mlst_definitions_local)]
@@ -508,9 +552,6 @@ class Handler:
         sampledata.reference_nfasta = mlst_db_abs
         sampledata.srst2_result = os.path.join(stage_dir,
                                                "{}_MLST__{}_{}__results.txt".format(sampledata.name, genus, species))
-        if skip:
-            logging.info("Skip.")
-            return
         if not all(os.path.isfile(i) for i in (mlst_db_abs, mlst_definitions_abs)):
             self._run_getmlst(genus=genus, species=species, srst2_out_dir=tool_dir, sample_name=sampledata.name)
         # The input read files must be named by a strict pattern:
@@ -541,8 +582,7 @@ class Handler:
             sampledata.srst2_result = self._locate_srst2_result_file(stage_dir)
 
     def merge_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
-        _TOOL = "srst2_merger"
-        tool_dir = self.output_dirs[_TOOL]
+        tool_dir = self.output_dirs[Utils.get_caller_name()]
         if skip:
             logging.info("Skip.")
             return
@@ -570,7 +610,7 @@ class Handler:
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
         # One per all samples
         _TOOL = "orthomcl"
-        tool_dir = self.output_dirs[_TOOL]
+        tool_dir = self.output_dirs[Utils.get_caller_name()]
         if skip:
             logging.info("Skip.")
             return
@@ -588,20 +628,18 @@ class Handler:
         Utils.append_log(log, _TOOL, "all")
 
     def handle(self, sampledata_array: SampleDataArray):
-        _SAMPLE_METHODS = [self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg, self.run_spades,
-                           self.run_prokka, self.run_plasmid_merger, self.run_bowtie2, self.run_samtools,
-                           self.run_vcftools, self.run_snpeff, self.run_srst2]
-        _GROUP_METHODS = [self.merge_srst2_results, self.run_orthomcl, ]
-        for idx, func in enumerate(_SAMPLE_METHODS + _GROUP_METHODS):
+        if not self.valid:
+            return
+        for idx, func in enumerate(self.sample_methods + self.group_methods):
             try:
                 logging.info("Starting the pipeline step {} of {} ({} in total)".format(
-                    idx + 1, len(_SAMPLE_METHODS + _GROUP_METHODS), len(validator.stages_to_do)))
+                    idx + 1, len(self.sample_methods + self.group_methods), len(validator.stages_to_do)))
                 # Per-sample processing
-                if func in _SAMPLE_METHODS:
+                if func in self.sample_methods:
                     queue = [(func, i, idx not in validator.stages_to_do) for i in sampledata_array.lines]
                     _ = Utils.single_core_queue(Utils.wrap_func, queue)
                 # Per-group functions
-                else:
+                elif func in self.group_methods:
                     _ = func(sampledata_array, skip=idx not in validator.stages_to_do)
             except PermissionError:
                 logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
@@ -609,6 +647,10 @@ class Handler:
 
 
 class Utils:
+    @staticmethod
+    def get_caller_name():
+        return str(inspect.stack()[1][3])
+
     @staticmethod
     def get_time():
         from datetime import datetime
