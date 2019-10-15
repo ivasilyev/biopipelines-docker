@@ -179,7 +179,7 @@ class SampleDataLine:
 class Handler:
     def __init__(self, output_dir: str = ""):
         self.sample_methods = [self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
-                               self.run_spades, self.run_prokka, self.run_plasmid_merger, self.run_bowtie2,
+                               self.run_spades, self.run_plasmid_merger, self.run_prokka, self.run_bowtie2,
                                self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2]
         self.group_methods = [self.merge_srst2_results, self.run_orthomcl]
         #
@@ -410,7 +410,7 @@ class Handler:
             '
             git pull;
             python3 ./meta/scripts/merge_chromosome_and_plasmid_assemblies.py \
-                -c {c} -p {p} -r -o {g};
+                -c {c} -p {p} -o {g};
             chmod -R 777 {d}
             '
         """.format(c=sampledata.chromosome_assembly, p=sampledata.plasmid_assembly, g=genome_assembly, d=stage_dir)
