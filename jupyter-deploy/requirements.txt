@@ -1,0 +1,21 @@
+# pip install -r requirements.txt
+
+setuptools
+pandas
+statsmodels
+scipy
+urllib3
+bs4
+lxml
+requests
+xlrd
+biopython
+jinja2
+pyyaml
+matplotlib
+seaborn
+ipython
+jupyter
+jupyterlab
+scikit-learn
+# tensorflow
