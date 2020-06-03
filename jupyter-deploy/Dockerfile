@@ -13,6 +13,9 @@ RUN apt-get -y update && \
             curl \
             git \
             nano \
+            # Unicode stuff
+            catdoc \
+            convmv \
             # Python
             python3-dev \
             python3-pip \
@@ -51,6 +54,8 @@ RUN pip3 install setuptools \
     matplotlib seaborn \
     # Web interface
     ipython jupyter jupyterlab \
+    # Text processing
+    win-unicode-console unidecode \
     # ML-related
     scikit-learn tensorflow
 
