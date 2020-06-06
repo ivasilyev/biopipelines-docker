@@ -41,21 +41,25 @@ RUN apt-get -y autoremove && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install Python packages
+# Install primary Python packages
 RUN pip3 install --upgrade pip
-RUN pip3 install setuptools \
+RUN pip3 install setuptools
+RUN pip3 install \
     # Base data analysis
     numpy pandas statsmodels scipy xlrd \
     # Web scraping
     requests bs4 lxml \
     # Templating
     jinja2 pyyaml \
-    # Visualization
-    matplotlib seaborn \
-    # Web interface
-    ipython jupyter jupyterlab \
     # Text processing
     win-unicode-console unidecode \
+    # Visualization
+    matplotlib seaborn
+
+# Install secondary Python packages
+RUN pip3 install \
+    # Web interface
+    ipython jupyter jupyterlab \
     # ML-related
     scikit-learn tensorflow \
     # Biological data processing
