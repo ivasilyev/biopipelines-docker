@@ -63,7 +63,7 @@ RUN pip3 install \
     # ML-related
     scikit-learn tensorflow \
     # Biological data processing
-    biopython scikit-bio bioinfokit
+    biopython scikit-bio
 
 # Web port forwarding
 EXPOSE 80 443 31522
