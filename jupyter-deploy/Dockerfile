@@ -45,11 +45,11 @@ RUN apt-get -y autoremove && \
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools \
     # Base data analysis
-    pandas statsmodels scipy xlrd \
-    # Sequence data processing
-    biopython \
+    numpy pandas statsmodels scipy xlrd \
     # Web scraping
-    requests bs4 lxml jinja2 pyyaml \
+    requests bs4 lxml \
+    # Templating
+    jinja2 pyyaml \
     # Visualization
     matplotlib seaborn \
     # Web interface
@@ -57,7 +57,9 @@ RUN pip3 install setuptools \
     # Text processing
     win-unicode-console unidecode \
     # ML-related
-    scikit-learn tensorflow
+    scikit-learn tensorflow \
+    # Biological data processing
+    biopython scikit-bio bioinfokit
 
 # Web port forwarding
 EXPOSE 80 443 31522
