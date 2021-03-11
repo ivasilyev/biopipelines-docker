@@ -6,25 +6,29 @@
 
 import os
 import re
+import json
 import inspect
 import logging
 import subprocess
 import multiprocessing
 from time import sleep
+from datetime import datetime
 
 
 class ArgValidator:
     def __init__(self):
         import argparse
         _handler = Handler()
-        _handler_methods = _handler.sample_methods + _handler.group_methods
+        _handler_methods = [i.__name__ for i in (_handler.sample_methods + _handler.group_methods)]
         _STEPS = list(range(1, len(_handler_methods) + 1))
         _STAGES = "<{}>".format("|".join([str(i) for i in _STEPS]))
         _STAGES_DESCRIPTION = "\n".join(["{}. {};".format(idx + 1, i) for idx, i in enumerate(_handler_methods)])
-        parser = argparse.ArgumentParser(description="""
-Run prokaryotic genome analysis pipeline for group of files with given taxa information""".strip(),
+        parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
+                                         description="""
+Run prokaryotic genome analysis pipeline for group of raw read files with given taxa information""".strip(),
                                          epilog="""
 Stages: https://github.com/boulygina/bioinformatics-pipelines/blob/master/Prokaryotes_analysis/prokaryotes.md
+
 Description:
 {}
             """.format(_STAGES_DESCRIPTION).strip())
@@ -221,24 +225,33 @@ class Handler:
             _try += 1
         return out
 
+    def get_latest_quay_tag(self, repo_name, img_name):
+        url = "https://quay.io/api/v1/repository/{}/{}".format(repo_name, img_name)
+        api_response = json.loads(self.get_page(url))
+        tool_tags = api_response["tags"].values()
+        # Sample datetime:
+        # Wed, 11 Apr 2018 17:20:46 -0000
+        # https://docs.python.org/3/library/datetime.html#strftime-strptime-behavior
+        _ = [i.update(
+            {"datetime": datetime.strptime(i["last_modified"], "%a, %d %b %Y %H:%M:%S %z")})
+             for i in tool_tags]
+        return sorted(tool_tags, key=lambda x: x["datetime"], reverse=True)[0]["name"]
+
     def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo",
                        bad_phrases: list = (), attempts: int = 5):
-        import json
-        # Get API response
         if not img_tag:
+            # Get API response
             attempt = 0
-            url = "https://quay.io/api/v1/repository/{}/{}".format(repo_name, img_name)
             while attempt <= attempts:
                 attempt += 1
                 try:
-                    api_response = json.loads(self.get_page(url))
-                    img_tag = sorted(set(api_response.get("tags")))[-1]
+                    img_tag = self.get_latest_quay_tag(repo_name, img_name)
                     break
                 except json.decoder.JSONDecodeError:
-                    logging.warning("Cannot get API response from the URL '{}' for attempt {} of {}".format(
-                        url, attempt, attempts))
+                    logging.warning("Cannot get API response for the image the URL '{}' for attempt {} of {}".format(
+                        img_name, attempt, attempts))
             if attempt > attempts:
-                logging.warning("Exceeded attempts number to get API response from the URL '{}'".format(url))
+                logging.warning("Exceeded attempts number to get API response for the image '{}'".format(img_name))
         # Pull & run image
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
         return Utils.run_image(img_name=img_name_full, container_cmd=cmd, bad_phrases=bad_phrases, attempts=attempts)
