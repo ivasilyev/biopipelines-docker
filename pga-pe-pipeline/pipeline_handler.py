@@ -192,11 +192,11 @@ class Handler:
         self.output_dirs = dict()
         #
         self.prepare_environment()
+        self.software = dict()
 
     def prepare_environment(self):
         if len(self.output_dir_root) == 0:
             return
-        self.valid = True
         self.output_dir_root = os.path.normpath(self.output_dir_root)
         if os.path.exists(self.output_dir_root):
             logging.warning("The path exists: '{}'".format(self.output_dir_root))
@@ -208,6 +208,7 @@ class Handler:
             method_name = "_".join([i for i in method.__name__.split("_") if len(i) > 0 and i != "run"])
             dir_name = os.path.normpath(os.path.join(self.output_dir_root, "_".join([prefix, method_name])))
             self.output_dirs[method.__name__] = dir_name
+        self.valid = True
 
     @staticmethod
     def filename_only(path):
@@ -235,7 +236,11 @@ class Handler:
         _ = [i.update(
             {"datetime": datetime.strptime(i["last_modified"], "%a, %d %b %Y %H:%M:%S %z")})
              for i in tool_tags]
-        return sorted(tool_tags, key=lambda x: x["datetime"], reverse=True)[0]["name"]
+        img_tag = sorted(tool_tags, key=lambda x: x["datetime"], reverse=True)[0]["name"]
+        if repo_name not in self.software.keys():
+            self.software[repo_name] = dict()
+        self.software[repo_name][img_name] = img_tag
+        return img_tag
 
     def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo",
                        bad_phrases: list = (), attempts: int = 5):
@@ -640,6 +645,9 @@ class Handler:
                               """.format(s=sampledata_file, o=tool_dir))
         Utils.append_log(log, _TOOL, "all")
 
+    def export_software(self):
+        Utils.dump_string(json.dumps(self.software), os.path.join(self.output_dir_root, "software.json"))
+
     def handle(self, sampledata_array: SampleDataArray):
         if not self.valid:
             return
@@ -657,6 +665,7 @@ class Handler:
             except PermissionError:
                 logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
                     idx, self.output_dir_root))
+        self.export_software()
 
 
 class Utils:
