@@ -33,7 +33,7 @@ Description:
 {}
             """.format(_STAGES_DESCRIPTION).strip())
         parser.add_argument(
-            "-i", '--input', metavar='<input.sampledata>', required=True,
+            "-i", "--input", metavar="<input.sampledata>", required=True,
             help="""
 A tab-delimited table file containing information for each sample (strain) per row. 
 Columns: 
@@ -42,13 +42,15 @@ Columns:
 3. Taxon information divided with spaces, e.g. 'Escherichia coli O157:H7'""".strip())
         parser.add_argument("-s", "--start", help="Stage to start the pipeline, inclusive", type=int, default=_STEPS[0],
                             metavar=_STAGES, choices=_STEPS)
-        parser.add_argument('-f', '--finish', help='Stage to finish the pipeline, inclusive', type=int,
+        parser.add_argument("-f", "--finish", help="Stage to finish the pipeline, inclusive", type=int,
                             default=_STEPS[-1], metavar=_STAGES, choices=_STEPS)
-        parser.add_argument('-o', '--output_dir', metavar='<dir>', help='Output directory', required=True)
+        parser.add_argument("--hg", metavar="<file.tar.gz>", help="Compressed human genome bowtie2 indexes", default="")
+        parser.add_argument("-o", "--output_dir", metavar="<dir>", help="Output directory", required=True)
         self._namespace = parser.parse_args()
         self.sampledata_file = self._namespace.input
         self.threads = multiprocessing.cpu_count()
         self.stages_to_do = []
+        self.hg = self._namespace.hg
         self.output_dir = self._namespace.output_dir
         self.log_dir = os.path.join(self.output_dir, "log", Utils.get_time())
 
@@ -191,8 +193,10 @@ class Handler:
         self.output_dir_root = output_dir.strip()
         self.output_dirs = dict()
         #
-        self.prepare_environment()
         self.software = dict()
+        self.hg_bwt2_idx_zip = validator.hg
+        #
+        self.prepare_environment()
 
     def prepare_environment(self):
         if len(self.output_dir_root) == 0:
@@ -347,6 +351,8 @@ class Handler:
         _IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
         stage_dir = self.output_dirs[Utils.get_caller_name()]
         index_dir = os.path.join(stage_dir, "index")
+        if len(self.hg_bwt2_idx_zip) == 0:
+            self.hg_bwt2_idx_zip = os.path.join(index_dir, _IDX_URL.split("/")[-1])
         mapped_reads_dir = os.path.join(stage_dir, "mapped")
         mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
         unmapped_reads_dir = os.path.join(stage_dir, "unmapped", sampledata.name)
@@ -354,10 +360,9 @@ class Handler:
         if skip:
             logging.info("Skip.")
             return
-        if not os.path.exists(index_dir):
+        if not os.path.isfile(self.hg_bwt2_idx_zip):
             logging.info("Download the human genome bowtie2 indexes")
-            dl_file = Utils.download_file(_IDX_URL, stage_dir)
-            decompressed_files = sorted(Utils.unzip_archive(dl_file, index_dir), key=len)
+            decompressed_files = sorted(Utils.unzip_archive(self.hg_bwt2_idx_zip, index_dir), key=len)
         else:
             decompressed_files = sorted(Utils.scan_whole_dir(index_dir), key=len)
         index_mask = ".".join(decompressed_files[0].split(".")[:-2])
@@ -792,28 +797,26 @@ class Utils:
         return output
 
     @staticmethod
-    def download_file(url, out_dir):
+    def download_file(url, out_file):
         import subprocess
         from time import sleep
-        _RETRIES_LEFT = 5
+        _RETRIES = 5
         _SLEEP_SECONDS = 3
         _ERROR_REPORTS = ("transfer closed with",)
         url = url.strip()
-        out_dir = os.path.normpath(out_dir.strip())
+        out_file = out_file.strip()
+        out_dir = os.path.dirname(out_file)
         assert len(url) > 0 and len(out_dir) > 0
         os.makedirs(out_dir, exist_ok=True)
-        while _RETRIES_LEFT > 0:
-            out_file = os.path.join(out_dir, url.split("/")[-1])
+        for c in range(_RETRIES):
             log = subprocess.getoutput("curl -fsSL {} -o {}".format(url, out_file))
             print(log)
             if os.path.isfile(out_file) and all(i not in log for i in _ERROR_REPORTS):
                 print("Download finished: '{}'".format(out_file))
-                return out_file
-            _RETRIES_LEFT -= 1
+                return
             sleep(_SLEEP_SECONDS)
-            print("Warning! Failed download: '{}'. Retries left: {}".format(url, _RETRIES_LEFT))
+            print("Warning! Failed download: '{}'. Retries left: {}".format(url, _RETRIES - c - 1))
         print("Exceeded URL download limits: '{}'".format(url))
-        return ""
 
     @staticmethod
     def is_file_exists(file_name: str):
