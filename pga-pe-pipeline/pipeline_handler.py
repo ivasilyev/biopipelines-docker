@@ -356,7 +356,7 @@ class Handler:
         mapped_reads_dir = os.path.join(stage_dir, "mapped")
         mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
         unmapped_reads_dir = os.path.join(stage_dir, "unmapped", sampledata.name)
-        unmapped_file_mask = os.path.join(unmapped_reads_dir, "{}.fq.gz".format(sampledata.name))
+        unmapped_file_mask = os.path.join(unmapped_reads_dir, "{}.fq".format(sampledata.name))
         if skip:
             logging.info("Skip.")
             return
