@@ -44,13 +44,13 @@ Columns:
                             metavar=_STAGES, choices=_STEPS)
         parser.add_argument("-f", "--finish", help="Stage to finish the pipeline, inclusive", type=int,
                             default=_STEPS[-1], metavar=_STAGES, choices=_STEPS)
-        parser.add_argument("--hg", metavar="<file.tar.gz>", help="Compressed human genome bowtie2 indexes", default="")
+        parser.add_argument("--hg_dir", metavar="<dir>", help="A directory with human genome bowtie2 (*.bt2) indexes", default="")
         parser.add_argument("-o", "--output_dir", metavar="<dir>", help="Output directory", required=True)
         self._namespace = parser.parse_args()
         self.sampledata_file = self._namespace.input
         self.threads = multiprocessing.cpu_count()
         self.stages_to_do = []
-        self.hg = self._namespace.hg
+        self.hg_dir = self._namespace.hg_dir
         self.output_dir = self._namespace.output_dir
         self.log_dir = os.path.join(self.output_dir, "log", Utils.get_time())
 
@@ -62,10 +62,6 @@ Columns:
                 start_point, finish_point))
         # Make 'stages_to_do' zero-based
         self.stages_to_do = range(start_point - 1, finish_point)
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
-        else:
-            logging.warning("The output directory exists: '{}'".format(self.output_dir))
 
 
 class SampleDataArray:
@@ -194,7 +190,6 @@ class Handler:
         self.output_dirs = dict()
         #
         self.software = dict()
-        self.hg_bwt2_idx_zip = validator.hg
         #
         self.prepare_environment()
 
@@ -293,7 +288,7 @@ class Handler:
                 'cd {o};
                  {T} -t {c} {r} -o {o};
                  chmod -R 777 {o}'
-            """.format(T=_TOOL, c=validator.threads, r=reads_file, o=stage_dir)
+            """.format(T=_TOOL, c=argValidator.threads, r=reads_file, o=stage_dir)
             if not skip:
                 self.clean_path(stage_dir)
                 log = self.run_quay_image(_TOOL, cmd=cmd)
@@ -315,7 +310,7 @@ class Handler:
                 ILLUMINACLIP:/data2/bio/ecoli_komfi/adapters.fasta:2:30:10 \
                 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36;
              chmod -R 777 {o}'
-        """.format(T=_TOOL, t=validator.threads, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1],
+        """.format(T=_TOOL, t=argValidator.threads, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1],
                    t1=trimmed_reads[0], t2=trimmed_reads[1], u1=untrimmed_reads[0], u2=untrimmed_reads[1])
         if not skip:
             self.clean_path(stage_dir)
@@ -373,7 +368,7 @@ class Handler:
              {T} --local -D 20 -R 3 -L 3 -N 1 --gbar 1 --mp 3 --threads {t} \
                 --un-conc-gz {u} -x {i} -S {s} -1 {r1} -2 {r2}
              chmod -R 777 {o}'
-        """.strip().format(t=validator.threads, u=unmapped_file_mask, i=index_mask, s=mapped_reads_file, o=stage_dir,
+        """.strip().format(t=argValidator.threads, u=unmapped_file_mask, i=index_mask, s=mapped_reads_file, o=stage_dir,
                            r1=sampledata.reads[0], r2=sampledata.reads[1], T=_TOOL)
         self.clean_path(unmapped_reads_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
@@ -468,7 +463,7 @@ class Handler:
              {T} --compliant --centre UoN --cpu {t} --outdir {o} --force --prefix {n} --locustag {n} {a} {g};
              chmod -R 777 {o}'
         """.format(T=_TOOL, g=sampledata.genome_assembly, a=taxa_append,
-                   n=sampledata.name, o=stage_dir, t=validator.threads)
+                   n=sampledata.name, o=stage_dir, t=argValidator.threads)
         self.clean_path(stage_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
@@ -592,7 +587,7 @@ class Handler:
              ln -s {r2} {l2};
              {c} --log --threads {t};
              chmod -R 777 {o}'
-        """.format(c=srst2_cmd.strip(), o=stage_dir, t=validator.threads,
+        """.format(c=srst2_cmd.strip(), o=stage_dir, t=argValidator.threads,
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         self.clean_path(stage_dir)
         srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
@@ -659,14 +654,14 @@ class Handler:
         for idx, func in enumerate(self.sample_methods + self.group_methods):
             try:
                 logging.info("Starting the pipeline step {} of {} ({} in total)".format(
-                    idx + 1, len(self.sample_methods + self.group_methods), len(validator.stages_to_do)))
+                    idx + 1, len(self.sample_methods + self.group_methods), len(argValidator.stages_to_do)))
                 # Per-sample processing
                 if func in self.sample_methods:
-                    queue = [(func, i, idx not in validator.stages_to_do) for i in sampledata_array.lines]
+                    queue = [(func, i, idx not in argValidator.stages_to_do) for i in sampledata_array.lines]
                     _ = Utils.single_core_queue(Utils.wrap_func, queue)
                 # Per-group functions
                 elif func in self.group_methods:
-                    _ = func(sampledata_array, skip=idx not in validator.stages_to_do)
+                    _ = func(sampledata_array, skip=idx not in argValidator.stages_to_do)
             except PermissionError:
                 logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
                     idx, self.output_dir_root))
@@ -732,7 +727,7 @@ class Utils:
     @staticmethod
     def append_log(msg: str, tool_name: str, sample_name: str):
         logging.debug(msg)
-        file = os.path.join(validator.log_dir, "{}_{}.log".format(tool_name, sample_name))
+        file = os.path.join(argValidator.log_dir, "{}_{}.log".format(tool_name, sample_name))
         with open(file, mode="a", encoding="utf-8") as f:
             f.write(msg + "\n")
             f.close()
@@ -846,15 +841,15 @@ class Utils:
 
 
 if __name__ == '__main__':
-    validator = ArgValidator()
-    mainLogFile = os.path.join(validator.log_dir, "main.log")
-    os.makedirs(validator.log_dir, exist_ok=True)
+    argValidator = ArgValidator()
+    mainLogFile = os.path.join(argValidator.log_dir, "main.log")
+    os.makedirs(argValidator.log_dir, exist_ok=True)
     logging.basicConfig(level=logging.DEBUG, handlers=[logging.FileHandler(mainLogFile), logging.StreamHandler()],
                         format="asctime=%(asctime)s levelname=%(levelname)s process=%(process)d name=%(name)s "
                                "funcName=%(funcName)s lineno=%(lineno)s message=\"\"\"%(message)s\"\"\"")
-    validator.validate()
-    sampleDataArray = SampleDataArray.parse(validator.sampledata_file)
-    handler = Handler(validator.output_dir)
+    argValidator.validate()
+    sampleDataArray = SampleDataArray.parse(argValidator.sampledata_file)
+    handler = Handler(argValidator.output_dir)
     logging.info("The pipeline processing has been started")
     handler.handle(sampleDataArray)
     logging.info("The pipeline processing has been completed")
