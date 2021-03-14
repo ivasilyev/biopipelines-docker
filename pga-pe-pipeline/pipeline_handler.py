@@ -406,7 +406,7 @@ class Handler:
             cmd = """
             bash -c \
                 'cd {o};
-                 TOOL=$(find /usr/local/share/ -name {t}.py | grep {t} | head -n 1) && \
+                 TOOL=$(find /usr -name spades.py -type f 2>/dev/null | grep spades | head -n 1) && \
                  $TOOL --careful -o {o} -1 {r1} -2 {r2}{a};
                  chmod -R 777 {o}'
             """.format(o=assembly_dir, t=_TOOL, r1=sampledata.reads[0], r2=sampledata.reads[1], a=cmd_append)
