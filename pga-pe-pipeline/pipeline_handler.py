@@ -194,7 +194,7 @@ class Handler:
         self.output_dir_root = output_dir.strip()
         self.output_dirs = dict()
         #
-        self.software = dict()
+        self.state = dict()
         #
         self.prepare_environment()
 
@@ -241,9 +241,12 @@ class Handler:
             {"datetime": datetime.strptime(i["last_modified"], "%a, %d %b %Y %H:%M:%S %z")})
              for i in tool_tags]
         img_tag = sorted(tool_tags, key=lambda x: x["datetime"], reverse=True)[0]["name"]
-        if repo_name not in self.software.keys():
-            self.software[repo_name] = dict()
-        self.software[repo_name][img_name] = img_tag
+        state_key = "software"
+        if state_key not in self.state.keys():
+            self.state[state_key] = dict()
+        if repo_name not in self.state[state_key].keys():
+            self.state[state_key][repo_name] = dict()
+        self.state[state_key][repo_name][img_name] = img_tag
         return img_tag
 
     def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo",
@@ -658,8 +661,8 @@ class Handler:
                               """.format(s=sampledata_file, o=tool_dir))
         Utils.append_log(log, _TOOL, "all")
 
-    def export_software(self):
-        Utils.dump_string(json.dumps(self.software), os.path.join(self.output_dir_root, "software.json"))
+    def dump_state(self):
+        Utils.dump_string(json.dumps(self.state), os.path.join(self.output_dir_root, "state.json"))
 
     def handle(self, sampledata_array: SampleDataArray):
         if not self.valid:
@@ -678,7 +681,7 @@ class Handler:
             except PermissionError:
                 logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
                     idx, self.output_dir_root))
-        self.export_software()
+        self.dump_state()
 
 
 class Utils:
