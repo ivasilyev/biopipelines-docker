@@ -50,7 +50,8 @@ Columns:
         self.sampledata_file = self._namespace.input
         self.threads = multiprocessing.cpu_count()
         self.stages_to_do = []
-        self.hg_dir = self._namespace.hg_dir
+        self.hg_index_dir = self._namespace.hg_dir
+        self.hg_index_mask = ""
         self.output_dir = self._namespace.output_dir
         self.log_dir = os.path.join(self.output_dir, "log", Utils.get_time())
 
@@ -62,6 +63,10 @@ Columns:
                 start_point, finish_point))
         # Make 'stages_to_do' zero-based
         self.stages_to_do = range(start_point - 1, finish_point)
+        if len(self.hg_index_dir) > 0:
+            self.hg_index_mask = Utils.parse_index_mask_from_dir(self.hg_index_dir)
+            if len(self.hg_index_mask) == 0:
+                logging.warning("The directory does not contain valid bowtie2 (*.bt2) indexes: '{}'".format(self.hg_index_mask))
 
 
 class SampleDataArray:
@@ -344,23 +349,25 @@ class Handler:
     def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "bowtie2"
         _IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
-        stage_dir = self.output_dirs[Utils.get_caller_name()]
-        index_dir = os.path.join(stage_dir, "index")
-        if len(self.hg_bwt2_idx_zip) == 0:
-            self.hg_bwt2_idx_zip = os.path.join(index_dir, _IDX_URL.split("/")[-1])
-        mapped_reads_dir = os.path.join(stage_dir, "mapped")
-        mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
-        unmapped_reads_dir = os.path.join(stage_dir, "unmapped", sampledata.name)
-        unmapped_file_mask = os.path.join(unmapped_reads_dir, "{}.fq".format(sampledata.name))
         if skip:
             logging.info("Skip.")
             return
-        if not os.path.isfile(self.hg_bwt2_idx_zip):
-            logging.info("Download the human genome bowtie2 indexes")
-            decompressed_files = sorted(Utils.unzip_archive(self.hg_bwt2_idx_zip, index_dir), key=len)
-        else:
-            decompressed_files = sorted(Utils.scan_whole_dir(index_dir), key=len)
-        index_mask = ".".join(decompressed_files[0].split(".")[:-2])
+        stage_dir = self.output_dirs[Utils.get_caller_name()]
+        index_dir = os.path.join(stage_dir, "index")
+        if len(argValidator.hg_index_dir) > 0:
+            index_dir = argValidator.hg_index_dir
+        index_mask = argValidator.hg_index_mask
+        if len(index_mask) == 0:
+            archive = os.path.join(index_dir, "index.tar.gz")
+            if not os.path.isfile(archive):
+                logging.info("Download the human genome bowtie2 indexes")
+                Utils.download_file(_IDX_URL, archive)
+            Utils.unzip_archive(archive, index_dir)
+            index_mask = Utils.parse_index_mask_from_dir(index_dir)
+        mapped_reads_dir = os.path.join(stage_dir, "mapped")
+        mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
+        unmapped_reads_dir = os.path.join(stage_dir, "unmapped", sampledata.name)
+        unmapped_file_mask = os.path.join(unmapped_reads_dir, sampledata.name)
         os.makedirs(mapped_reads_dir, exist_ok=True)
         cmd = """
         bash -c \
@@ -837,7 +844,13 @@ class Utils:
         if remove:
             os.remove(archive)
             print("Removed: '{}'".format(archive))
-        return Utils.scan_whole_dir(extract_path)
+
+    @staticmethod
+    def parse_index_mask_from_dir(dir_name: str):
+        indexes = sorted([i for i in Utils.scan_whole_dir(dir_name) if i.endswith(".bt2")], key=len)
+        if len(indexes) > 0:
+            return ".".join(indexes[0].split(".")[:-2])
+        return ""
 
 
 if __name__ == '__main__':
