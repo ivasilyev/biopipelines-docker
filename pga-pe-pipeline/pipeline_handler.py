@@ -418,7 +418,13 @@ class Handler:
                 Utils.append_log(log, _TOOL, sampledata.name)
             else:
                 logging.info("Skip.")
-            assemblies[assembly_type] = os.path.join(assembly_dir, "contigs.fasta")
+            #  For most analyses, use scaffolds
+            assembly_file = os.path.join(assembly_dir, "scaffolds.fasta")
+            if not os.path.isfile(assembly_file):
+                assembly_file = os.path.join(assembly_dir, "contigs.fasta")
+                if not os.path.isfile(assembly_file):
+                    logging.warning("The genome assemblies are missing for the sample: '{}'".format(sampledata.name))
+            assemblies[assembly_type] = assembly_file
         sampledata.chromosome_assembly = assemblies["chromosome"]
         sampledata.plasmid_assembly = assemblies["plasmid"]
 
