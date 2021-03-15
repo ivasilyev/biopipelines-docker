@@ -9,6 +9,7 @@ import re
 import json
 import inspect
 import logging
+import zipfile
 import subprocess
 import multiprocessing
 from time import sleep
@@ -280,9 +281,12 @@ class Handler:
     def run_fastqc(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "fastqc"
         # One per read sample
-        for idx, reads_file in enumerate(sampledata.reads):
-            stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name,
-                                     "{}_{}".format(sampledata.name, idx + 1))
+        name = Utils.get_caller_name()
+        stage_dirs = {j: os.path.join(
+            self.output_dirs[name], sampledata.name, "{}_{}".format(
+                sampledata.name, i + 1)) for i, j in enumerate(sampledata.reads)}
+        for reads_file in stage_dirs.keys():
+            stage_dir = stage_dirs[reads_file]
             cmd = """
             bash -c \
                 'cd {o};
@@ -296,6 +300,15 @@ class Handler:
             else:
                 logging.info("Skip.")
         # Reads are unchanged, so there is nothing to return
+        # Parse output
+        self.state[name] = dict()
+        for reads_file in stage_dirs.keys():
+            stage_dir = stage_dirs[reads_file]
+            out_zip = [i for i in Utils.scan_whole_dir(stage_dir) if i.endswith(".zip")][0]
+            archive = zipfile.ZipFile(out_zip, "r")
+            basename = os.path.splitext(os.path.basename(out_zip))[0]
+            summary = archive.read(os.path.join(basename, "summary.txt")).decode("utf-8")
+            self.state[name][os.path.basename(reads_file)]: {i[1]: i[0] for i in Utils.string_to_2d_array(summary)}
 
     def run_trimmomatic(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -745,6 +758,15 @@ class Utils:
     @staticmethod
     def load_list(file: str):
         return Utils.split_lines(Utils.load_string(file))
+
+    @staticmethod
+    def string_to_2d_array(string: str):
+        out = [[j.strip() for j in i.split("\t")] for i in Utils.split_lines(string)]
+        return Utils.remove_empty_values(out)
+
+    @staticmethod
+    def load_2d_array(file: str):
+        return Utils.string_to_2d_array(Utils.load_string(file))
 
     @staticmethod
     def dump_list(lst: list, file: str):
