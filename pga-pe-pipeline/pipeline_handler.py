@@ -347,7 +347,8 @@ class Handler:
         if skip:
             logging.info("Skip.")
             return
-        stage_dir = self.output_dirs[Utils.get_caller_name()]
+        this_name = Utils.get_caller_name()
+        stage_dir = self.output_dirs[this_name]
         index_dir = os.path.join(stage_dir, "index")
         if len(argValidator.hg_index_dir) > 0:
             index_dir = argValidator.hg_index_dir
@@ -389,6 +390,14 @@ class Handler:
                 os.rename(unmapped_reads_file_old, unmapped_reads_file_new)
                 unmapped_reads_files_new.append(unmapped_reads_file_new)
             sampledata.set_reads(unmapped_reads_files_new)
+        # Parse log
+        log_lines = Utils.split_lines(log)
+        total_reads_number = int(Utils.safe_findall("[0-9]+", log_lines[0]))
+        hg_reads_number = sum([int(Utils.safe_findall("[0-9]+", j[0])) for j in [i.split("aligned") for i in log_lines if "aligned" in i] if "0" not in j[-1]])
+        self.state.update({this_name: dict(
+            total_reads_number=total_reads_number,
+            hg_reads_number=hg_reads_number,
+            hg_reads_percentage=round(100 * hg_reads_number / total_reads_number, 2))})
 
     def run_spades(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -744,6 +753,15 @@ class Utils:
     @staticmethod
     def dump_2d_array(array: list, file: str):
         Utils.dump_list(lst=["\t".join([str(j) for j in i]) for i in array], file=file)
+
+    @staticmethod
+    def safe_findall(pattern, string, idx: int = 0):
+        import re
+        try:
+            return re.findall(pattern, string)[idx]
+        except IndexError:
+            print("Warning! Can't find the regex pattern '{}' within the string: '{}'".format(pattern, string))
+            return ""
 
     @staticmethod
     def log_and_raise(msg):
