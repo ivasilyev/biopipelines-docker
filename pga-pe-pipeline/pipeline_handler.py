@@ -98,7 +98,7 @@ class SampleDataLine:
         self.name = sample_name.strip()
         self.reads = Utils.remove_empty_values(sample_reads)
         self._validate_reads()
-        self.extension = self.get_extension(self.reads[0].strip())
+        self.extension = Utils.get_file_extension(self.reads[0])
         self.taxa = self._parse_taxa(taxa)
         self._set_prefix()
 
@@ -123,14 +123,6 @@ class SampleDataLine:
         else:
             taxa = items[2]
         return SampleDataLine(name, reads, taxa)
-
-    @staticmethod
-    def get_extension(path):
-        import pathlib  # Since Python 3.4
-        suf = pathlib.Path(path).suffixes
-        if len(suf) > 1:  # e.g. '*.fq.gz'
-            return "".join(suf[-2:])
-        return "".join(suf)
 
     @staticmethod
     def _parse_reads(reads: list):
@@ -370,6 +362,7 @@ class Handler:
         mapped_reads_dir = os.path.join(stage_dir, "mapped")
         mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
         unmapped_reads_dir = os.path.join(stage_dir, "unmapped", sampledata.name)
+        # bowtie2 may mess with double extensions, e.g. ".fq.1.gz" instead of ".1.fq.gz"
         unmapped_file_mask = os.path.join(unmapped_reads_dir, sampledata.name)
         os.makedirs(mapped_reads_dir, exist_ok=True)
         cmd = """
@@ -383,13 +376,19 @@ class Handler:
         self.clean_path(unmapped_reads_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
-        unmapped_reads_files = Utils.scan_whole_dir(unmapped_reads_dir)
+        unmapped_reads_files = [i for i in Utils.scan_whole_dir(unmapped_reads_dir) if unmapped_file_mask in i]
         if len(unmapped_reads_files) != 2:
             logging.warning(
                 "The number of output unmapped reads is not equal to 2, please check the directory: '{}'".format(
                     unmapped_reads_dir))
         else:
-            sampledata.set_reads(unmapped_reads_files)
+            unmapped_reads_files_new = []
+            # SPAdes needs clearly specified extension
+            for unmapped_reads_file_old in unmapped_reads_files:
+                unmapped_reads_file_new = "{}{}".format(unmapped_reads_file_old, sampledata.extension)
+                os.rename(unmapped_reads_file_old, unmapped_reads_file_new)
+                unmapped_reads_files_new.append(unmapped_reads_file_new)
+            sampledata.set_reads(unmapped_reads_files_new)
 
     def run_spades(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -700,6 +699,17 @@ class Utils:
                 time_unit = '0' + time_unit
             output_list.append(time_unit)
         return '-'.join(output_list)
+
+    @staticmethod
+    def get_file_extension(file: str, deep: int = 2):
+        split = os.path.basename(file.strip()).split(".")[::-1]
+        out = []
+        for sub in split:
+            if 5 >= len(sub) > 1:
+                out.append(str(sub))
+            else:
+                break
+        return ".{}".format(".".join(out[:deep][::-1]))
 
     @staticmethod
     def load_string(file: str):
