@@ -234,12 +234,6 @@ class Handler:
             {"datetime": datetime.strptime(i["last_modified"], "%a, %d %b %Y %H:%M:%S %z")})
              for i in tool_tags]
         img_tag = sorted(tool_tags, key=lambda x: x["datetime"], reverse=True)[0]["name"]
-        state_key = "software"
-        if state_key not in self.state.keys():
-            self.state[state_key] = dict()
-        if repo_name not in self.state[state_key].keys():
-            self.state[state_key][repo_name] = dict()
-        self.state[state_key][repo_name][img_name] = img_tag
         return img_tag
 
     def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo",
@@ -259,6 +253,13 @@ class Handler:
                 logging.warning("Exceeded attempts number to get API response for the image '{}'".format(img_name))
         # Pull & run image
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
+        # Update software
+        state_key = "software"
+        if state_key not in self.state.keys():
+            self.state[state_key] = dict()
+        if repo_name not in self.state[state_key].keys():
+            self.state[state_key][repo_name] = dict()
+        self.state[state_key][repo_name][img_name] = img_name_full
         return Utils.run_image(img_name=img_name_full, container_cmd=cmd, bad_phrases=bad_phrases, attempts=attempts)
 
     @staticmethod
