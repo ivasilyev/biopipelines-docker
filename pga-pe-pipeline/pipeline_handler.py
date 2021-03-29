@@ -13,6 +13,7 @@ import zipfile
 import subprocess
 import multiprocessing
 from time import sleep
+from copy import deepcopy
 from datetime import datetime
 
 
@@ -70,11 +71,107 @@ Columns:
                 logging.warning("The directory does not contain valid bowtie2 (*.bt2) indexes: '{}'".format(self.hg_index_mask))
 
 
+class SampleDataLine:
+    prefix, chromosome_assembly, plasmid_assembly, genome_assembly, \
+        genbank, faa, chromosome_annotation, reference_fna, srst2_result = ["", ] * 9
+
+    def __init__(self, sample_name: str, sample_reads: list, taxa):
+        # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
+        self.name = sample_name.strip()
+        self.reads = []
+        self.set_reads(sample_reads)
+        self.state = dict()
+        self.is_valid = False
+        self._validate()
+        self.extension = Utils.get_file_extension(self.reads[0])
+        self.taxa = dict()
+        self._parse_taxa(taxa)
+        self._set_prefix()
+
+    def __eq__(self, other):
+        return self.name == other.name
+
+    def __lt__(self, other):
+        return self.name < other.name
+
+    def set_reads(self, reads: list):
+        self.reads = sorted(Utils.remove_empty_values(reads))
+        if len(self.reads) > 2:
+            logging.warning("Too much of reads are given (the maximum is 2)!")
+            self.reads = self.reads[:2]
+
+    def _validate(self):
+        c = 0
+        # Validate reads
+        if len(self.reads) < 2:  # PE are the only library strategy supported
+            logging.warning("Not enough of reads are given (the minimum is 2)!")
+            c += 1
+        if not all([Utils.is_file_valid(i) for i in self.reads]):
+            logging.warning("Some read files are missing!")
+            c += 1
+        self.is_valid = c == 0
+
+    @staticmethod
+    def parse(d: dict):
+        """
+        :param d: {sample_name: str, reads: [str,], taxa: str}
+        :return: SampleDataLine object
+        """
+        return SampleDataLine(d["name"], d["reads"], d["taxa"])
+
+    def _set_taxa(self, genus: str = "", species: str = "", strain: str = ""):
+        # E.g. Escherichia coli O157:H7
+        if len(genus) > 0:
+            self.taxa["genus"] = genus.strip().capitalize()
+        if len(species) > 0:
+            self.taxa["species"] = species.strip().replace(".", "").lower()
+        if len(strain) > 0:
+            self.taxa["strain"] = strain.strip().lower()
+        if len(self.taxa.keys()) == 0:
+            logging.warning("No taxonomy data specified, some steps will be passed for the sample '{}'".format(self.name))
+
+    def _parse_taxa(self, taxa):
+        if isinstance(taxa, dict):
+            try:
+                self.taxa = deepcopy(taxa)
+                return
+            except KeyError:
+                pass
+        # If taxa is str
+        taxa = Utils.remove_empty_values(str(taxa).strip().split(" "))
+        if len(taxa) == 0:
+            return
+        genus = taxa[0]
+        species = ""
+        strain = ""
+        if len(taxa) > 1:
+            if not any(i.isdigit() for i in taxa[1]):
+                sp = taxa[1].replace(".", "").lower()
+                if sp != "sp":
+                    species = sp
+            else:
+                strain = taxa[1]
+        if len(taxa) > 2:
+            strain = taxa[2]
+        self._set_taxa(genus, species, strain)
+
+    def _set_prefix(self):
+        _MAX_PREFIX_LENGTH = 4
+        if not self.taxa:
+            return
+        if len(self.taxa["species"]) >= _MAX_PREFIX_LENGTH - 1:
+            self.prefix = self.taxa["genus"][0].upper() + self.taxa["species"][:_MAX_PREFIX_LENGTH - 1].lower()
+        else:
+            self.prefix = self.taxa["genus"][:_MAX_PREFIX_LENGTH - len(
+                self.taxa["species"])].capitalize() + self.taxa["species"].lower()
+
+
 class SampleDataArray:
-    lines = []
+    def __init__(self):
+        self.lines = dict()
 
     def validate(self):
-        self.lines = sorted([i for i in self.lines if i.exists])
+        self.lines = sorted([i for i in self.lines if i.is_valid])
 
     def __len__(self):
         return len(self.lines)
@@ -87,93 +184,6 @@ class SampleDataArray:
             f.close()
         arr.validate()
         return arr
-
-
-class SampleDataLine:
-    exists = False
-    prefix, chromosome_assembly, plasmid_assembly, genome_assembly, \
-        genbank, faa, chromosome_annotation, reference_fna, srst2_result = ["", ] * 9
-
-    def __init__(self, sample_name: str, sample_reads: list, taxa: str = ""):
-        # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
-        self.name = sample_name.strip()
-        self.reads = Utils.remove_empty_values(sample_reads)
-        self._validate_reads()
-        self.extension = Utils.get_file_extension(self.reads[0])
-        self.taxa = self._parse_taxa(taxa)
-        self._set_prefix()
-
-    def __eq__(self, other):
-        return self.name == other.name
-
-    def __lt__(self, other):
-        return self.name < other.name
-
-    @staticmethod
-    def parse(line: str):
-        # Sample data line example:
-        # sample_name\treads1;reads2\tGenera species strain
-        items = Utils.remove_empty_values(line.split("\t"))
-        if len(items) < 2:
-            Utils.log_and_raise("Not enough columns given: '{}'".format(items))
-        name = items[0]
-        reads = SampleDataLine._parse_reads(items[1].split(";"))
-        if len(items) < 3:
-            logging.warning("Taxa data were not defined, some stages would be passed")
-            taxa = ""
-        else:
-            taxa = items[2]
-        return SampleDataLine(name, reads, taxa)
-
-    @staticmethod
-    def _parse_reads(reads: list):
-        _reads = sorted(Utils.remove_empty_values(reads))
-        if len(_reads) > 2:
-            logging.warning("More than 2 paired end read files were given, only 2 first will be used: '{}'".format(
-                _reads))
-            _reads = _reads[:2]
-        return _reads
-
-    def _validate_reads(self):
-        if all([Utils.is_file_exists(i) for i in self.reads]):
-            self.exists = True
-        else:
-            logging.warning("Some raw read files are missing!")
-            self.exists = False
-
-    @staticmethod
-    def _parse_taxa(taxa: str):
-        if len(taxa) == 0:
-            return
-        out = {i: "" for i in ("genus", "species", "strain")}
-        taxa = Utils.remove_empty_values(taxa.split(" "))
-        if len(taxa) == 0:
-            Utils.log_and_raise("Empty taxon data!")
-        out["genus"] = taxa[0].capitalize()
-        if len(taxa) > 1:
-            if not any(i.isdigit() for i in taxa[1]):
-                sp = taxa[1].replace(".", "").lower()
-                if sp != "sp":
-                    out["species"] = sp
-            else:
-                out["strain"] = taxa[1]
-        if len(taxa) > 2:
-            out["strain"] = taxa[2]
-        return out
-
-    def _set_prefix(self):
-        _MAX_PREFIX_LENGTH = 4
-        if not self.taxa:
-            return
-        if len(self.taxa["species"]) >= _MAX_PREFIX_LENGTH - 1:
-            self.prefix = self.taxa["genus"][0].upper() + self.taxa["species"][:_MAX_PREFIX_LENGTH - 1].lower()
-        else:
-            self.prefix = self.taxa["genus"][:_MAX_PREFIX_LENGTH - len(
-                self.taxa["species"])].capitalize() + self.taxa["species"].lower()
-
-    def set_reads(self, reads: list):
-        reads = self._parse_reads(reads)
-        self.reads = reads
 
 
 class Handler:
@@ -472,7 +482,7 @@ class Handler:
         """.format(c=sampledata.chromosome_assembly, p=sampledata.plasmid_assembly, g=genome_assembly, d=stage_dir)
         log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
-        if Utils.is_file_exists(genome_assembly):
+        if Utils.is_file_valid(genome_assembly):
             sampledata.genome_assembly = genome_assembly
 
     def run_prokka(self, sampledata: SampleDataLine, skip: bool = False):
@@ -874,16 +884,25 @@ class Utils:
             log = subprocess.getoutput("curl -fsSL {} -o {}".format(url, out_file))
             print(log)
             if os.path.isfile(out_file) and all(i not in log for i in _ERROR_REPORTS):
-                print("Download finished: '{}'".format(out_file))
+                logging.debug("Download finished: '{}'".format(out_file))
                 return
             sleep(_SLEEP_SECONDS)
-            print("Warning! Failed download: '{}'. Retries left: {}".format(url, _RETRIES - c - 1))
-        print("Exceeded URL download limits: '{}'".format(url))
+            logging.warning("Warning! Failed download: '{}'. Retries left: {}".format(url, _RETRIES - c - 1))
+        logging.warning("Exceeded URL download limits: '{}'".format(url))
 
     @staticmethod
-    def is_file_exists(file_name: str):
-        if not os.path.exists(file_name):
-            logging.warning("Not found: '{}'".format(file_name))
+    def is_file_valid(file: str, report: bool = True):
+        if not os.path.exists(file):
+            if report:
+                logging.warning("Not found: '{}'".format(file))
+            return False
+        if not os.path.isfile(file):
+            if report:
+                logging.warning("Not a file: '{}'".format(file))
+            return False
+        if os.path.getsize(file) == 0:
+            if report:
+                logging.warning("Empty file: '{}'".format(file))
             return False
         return True
 
