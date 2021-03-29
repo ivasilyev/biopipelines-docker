@@ -178,7 +178,16 @@ class SampleDataArray:
         self.lines = dict()
 
     def validate(self):
-        self.lines = sorted([i for i in self.lines if i.is_valid])
+        d = dict()
+        for key in self.lines:
+            line = self.lines[key]
+            if line.is_valid:
+                d[key] = line
+            else:
+                logging.warning("Invalid sample data for the sample: '{}'".format(line.name))
+        if len(d.keys()) == 0:
+            Utils.log_and_raise("No valid sample data lines, exit")
+        self.lines = d
 
     def __len__(self):
         return len(self.lines)
