@@ -184,13 +184,41 @@ class SampleDataArray:
         return len(self.lines)
 
     @staticmethod
-    def parse(file):
+    def parse(d: dict):
         arr = SampleDataArray()
-        with open(file, mode="r", encoding="utf-8") as f:
-            arr.lines = [SampleDataLine.parse(j) for j in Utils.remove_empty_values([i for i in f])]
-            f.close()
+        arr.lines = {k: SampleDataLine.parse(d[k]) for k in d.keys()}
         arr.validate()
         return arr
+
+    @staticmethod
+    def load(file: str):
+        """
+        :param file: sample data JSON
+
+        An example sample data JSON:
+        { "ecoli_sample":
+            { "name": "ecoli_sample",
+              "reads": [ "reads.1.fq", "reads.2.fq" ],
+              "taxa": "Escherichia coli O157:H7" }, }
+
+        or
+
+        { "ecoli_sample":
+            { "name": "ecoli_sample",
+              "reads": [ "reads.1.fq", "reads.2.fq" ],
+              "taxa": { "genus": "Escherichia",
+                        "species": "coli",
+                        "strain": "O157:H7", }, }, }
+
+        :return: dict
+        """
+        return SampleDataArray.parse(json.loads(Utils.load_string(file)))
+
+    def export(self):
+        return {k: self.lines[k].export() for k in self.lines}
+
+    def dump(self, file: str):
+        Utils.dump_string(json.dumps(self.export(), sort_keys=True, indent=4), file)
 
 
 class Handler:
