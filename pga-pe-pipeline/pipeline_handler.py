@@ -72,11 +72,18 @@ Columns:
 
 
 class SampleDataLine:
-    prefix, chromosome_assembly, plasmid_assembly, genome_assembly, \
-        genbank, faa, chromosome_annotation, reference_fna, srst2_result = ["", ] * 9
-
     def __init__(self, sample_name: str, sample_reads: list, taxa):
-        # e.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], ["Escherichia", "coli", "O157:H7"]
+        self.prefix = ""
+        self.chromosome_assembly = ""
+        self.plasmid_assembly = ""
+        self.genome_assembly = ""
+        self.genbank = ""
+        self.faa = ""
+        self.chromosome_annotation = ""
+        self.reference_fna = ""
+        self.srst2_result = ""
+
+        # E.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], "Escherichia coli O157:H7"]
         self.name = sample_name.strip()
         self.reads = []
         self.set_reads(sample_reads)
