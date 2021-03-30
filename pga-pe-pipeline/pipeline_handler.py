@@ -7,7 +7,6 @@
 import os
 import re
 import json
-import inspect
 import logging
 import zipfile
 import subprocess
@@ -262,25 +261,9 @@ class Handler:
             self.output_dirs[method.__name__] = dir_name
         self.valid = True
 
-    @staticmethod
-    def filename_only(path):
-        return os.path.splitext(os.path.basename(os.path.normpath(path)))[0]
-
-    @staticmethod
-    def get_page(url, attempts: int = 5):
-        def _get_page(_url):
-            return subprocess.getoutput("curl -fsSL '{}'".format(url))
-
-        out = _get_page(url)
-        _try = 0
-        while out.startswith("curl") and _try < attempts:  # An error report
-            out = _get_page(url)
-            _try += 1
-        return out
-
     def get_latest_quay_tag(self, repo_name, img_name):
         url = "https://quay.io/api/v1/repository/{}/{}".format(repo_name, img_name)
-        api_response = json.loads(self.get_page(url))
+        api_response = json.loads(Utils.get_page(url))
         tool_tags = api_response["tags"].values()
         # Sample datetime:
         # Wed, 11 Apr 2018 17:20:46 -0000
@@ -762,9 +745,54 @@ class Handler:
 
 
 class Utils:
+    # File system based methods
     @staticmethod
-    def get_caller_name():
-        return str(inspect.stack()[1][3])
+    def is_file_valid(file: str, report: bool = True):
+        if not os.path.exists(file):
+            if report:
+                logging.warning("Not found: '{}'".format(file))
+            return False
+        if not os.path.isfile(file):
+            if report:
+                logging.warning("Not a file: '{}'".format(file))
+            return False
+        if os.path.getsize(file) == 0:
+            if report:
+                logging.warning("Empty file: '{}'".format(file))
+            return False
+        return True
+
+    @staticmethod
+    def scan_whole_dir(dir_name: str):
+        out = []
+        for root, dirs, files in os.walk(dir_name):
+            for file in files:
+                out.append(os.path.join(root, file))
+        return sorted(out)
+
+    @staticmethod
+    def filename_only(path):
+        return os.path.splitext(os.path.basename(os.path.normpath(path)))[0]
+
+    @staticmethod
+    def get_file_extension(file: str, deep: int = 2):
+        split = os.path.basename(file.strip()).split(".")[::-1]
+        out = []
+        for sub in split:
+            if 5 >= len(sub) > 1:
+                out.append(str(sub))
+            else:
+                break
+        return ".{}".format(".".join(out[:deep][::-1]))
+
+    @staticmethod
+    def parse_index_mask_from_dir(dir_name: str):
+        indexes = sorted([i for i in Utils.scan_whole_dir(dir_name) if i.endswith(".bt2")], key=len)
+        if len(indexes) > 0:
+            return ".".join(indexes[0].split(".")[:-2])
+        return ""
+
+    # System methods
 
     @staticmethod
     def get_time():
@@ -778,16 +806,7 @@ class Utils:
             output_list.append(time_unit)
         return '-'.join(output_list)
 
-    @staticmethod
-    def get_file_extension(file: str, deep: int = 2):
-        split = os.path.basename(file.strip()).split(".")[::-1]
-        out = []
-        for sub in split:
-            if 5 >= len(sub) > 1:
-                out.append(str(sub))
-            else:
-                break
-        return ".{}".format(".".join(out[:deep][::-1]))
+    # I/O methods
 
     @staticmethod
     def load_string(file: str):
@@ -804,47 +823,20 @@ class Utils:
             f.close()
 
     @staticmethod
-    def remove_empty_values(input_list: list):
-        return [j for j in [i.strip() for i in input_list] if len(j) > 0]
-
-    @staticmethod
-    def split_lines(string: str):
-        return Utils.remove_empty_values(re.sub("[\r\n]+", "\n", string).split("\n"))
-
-    @staticmethod
     def load_list(file: str):
         return Utils.split_lines(Utils.load_string(file))
-
-    @staticmethod
-    def string_to_2d_array(string: str):
-        out = [[j.strip() for j in i.split("\t")] for i in Utils.split_lines(string)]
-        return Utils.remove_empty_values(out)
-
-    @staticmethod
-    def load_2d_array(file: str):
-        return Utils.string_to_2d_array(Utils.load_string(file))
 
     @staticmethod
     def dump_list(lst: list, file: str):
         Utils.dump_string(string="\n".join([str(i) for i in lst]) + "\n", file=file)
 
     @staticmethod
+    def load_2d_array(file: str):
+        return Utils.string_to_2d_array(Utils.load_string(file))
+
+    @staticmethod
     def dump_2d_array(array: list, file: str):
         Utils.dump_list(lst=["\t".join([str(j) for j in i]) for i in array], file=file)
-
-    @staticmethod
-    def safe_findall(pattern, string, idx: int = 0):
-        import re
-        try:
-            return re.findall(pattern, string)[idx]
-        except IndexError:
-            print("Warning! Can't find the regex pattern '{}' within the string: '{}'".format(pattern, string))
-            return ""
-
-    @staticmethod
-    def log_and_raise(msg):
-        logging.critical(msg)
-        raise ValueError(msg)
 
     @staticmethod
     def append_log(msg: str, tool_name: str, sample_name: str):
@@ -853,6 +845,71 @@ class Utils:
         with open(file, mode="a", encoding="utf-8") as f:
             f.write(msg + "\n")
             f.close()
+
+    @staticmethod
+    def unzip_archive(archive: str, extract_path: str, remove=True):
+        import shutil
+        os.makedirs(extract_path, exist_ok=True)
+        shutil.unpack_archive(archive, extract_path)
+        print("Extracting completed: '{}'".format(archive))
+        if remove:
+            os.remove(archive)
+            print("Removed: '{}'".format(archive))
+
+    # Primitive processing methods
+
+    @staticmethod
+    def safe_findall(pattern, string, idx: int = 0):
+        try:
+            return re.findall(pattern, string)[idx]
+        except IndexError:
+            print("Warning! Can't find the regex pattern '{}' within the string: '{}'".format(pattern, string))
+            return ""
+
+    @staticmethod
+    def split_lines(string: str):
+        out = [i.strip() for i in re.sub("[\r\n]+", "\n", string).split("\n")]
+        return Utils.remove_empty_values(out)
+
+    @staticmethod
+    def string_to_2d_array(string: str):
+        out = [[j.strip() for j in i.split("\t")] for i in Utils.split_lines(string)]
+        return Utils.remove_empty_values(out)
+
+    @staticmethod
+    def remove_empty_values(input_list):
+        output_list = []
+        if input_list is not None:
+            for i in input_list:
+                if i is not None:
+                    try:
+                        if len(i) > 0:
+                            output_list.append(i)
+                    except TypeError:
+                        continue
+        return output_list
+
+    @staticmethod
+    def flatten_2d_array(array: list):
+        return [j for i in array for j in i]
+
+    # Function handling methods
+
+    @staticmethod
+    def randomize_sleep(min_: int = 30, max_: int = 120):
+        from time import sleep
+        from random import randint
+        sleep(randint(min_, max_))
+
+    @staticmethod
+    def get_caller_name():
+        import inspect
+        return str(inspect.stack()[1][3])
+
+    @staticmethod
+    def log_and_raise(msg):
+        logging.critical(msg)
+        raise ValueError(msg)
 
     @staticmethod
     def is_log_valid(log: str, bad_phrases: list):
@@ -899,6 +956,8 @@ class Utils:
     def wrap_func(args: list):
         return args[0](*args[1:])
 
+    # Queue processing methods
+
     @staticmethod
     def single_core_queue(func, queue: list):
         return [func(i) for i in queue]
@@ -912,6 +971,8 @@ class Utils:
         pool.close()
         pool.join()
         return output
+
+    # Web-based methods
 
     @staticmethod
     def download_file(url, out_file):
@@ -936,45 +997,16 @@ class Utils:
         logging.warning("Exceeded URL download limits: '{}'".format(url))
 
     @staticmethod
-    def is_file_valid(file: str, report: bool = True):
-        if not os.path.exists(file):
-            if report:
-                logging.warning("Not found: '{}'".format(file))
-            return False
-        if not os.path.isfile(file):
-            if report:
-                logging.warning("Not a file: '{}'".format(file))
-            return False
-        if os.path.getsize(file) == 0:
-            if report:
-                logging.warning("Empty file: '{}'".format(file))
-            return False
-        return True
+    def get_page(url, attempts: int = 5):
+        def _get_page(_url):
+            return subprocess.getoutput("curl -fsSL '{}'".format(url))
 
-    @staticmethod
-    def scan_whole_dir(dir_name: str):
-        out = []
-        for root, dirs, files in os.walk(dir_name):
-            for file in files:
-                out.append(os.path.join(root, file))
-        return sorted(out)
-
-    @staticmethod
-    def unzip_archive(archive: str, extract_path: str, remove=True):
-        import shutil
-        os.makedirs(extract_path, exist_ok=True)
-        shutil.unpack_archive(archive, extract_path)
-        print("Extracting completed: '{}'".format(archive))
-        if remove:
-            os.remove(archive)
-            print("Removed: '{}'".format(archive))
-
-    @staticmethod
-    def parse_index_mask_from_dir(dir_name: str):
-        indexes = sorted([i for i in Utils.scan_whole_dir(dir_name) if i.endswith(".bt2")], key=len)
-        if len(indexes) > 0:
-            return ".".join(indexes[0].split(".")[:-2])
-        return ""
+        out = _get_page(url)
+        _try = 0
+        while out.startswith("curl") and _try < attempts:  # An error report
+            out = _get_page(url)
+            _try += 1
+        return out
 
 
 if __name__ == '__main__':
