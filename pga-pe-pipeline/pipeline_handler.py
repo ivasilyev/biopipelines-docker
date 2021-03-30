@@ -73,6 +73,7 @@ Columns:
 
 class SampleDataLine:
     def __init__(self, sample_name: str, sample_reads: list, taxa):
+        self.state = dict()
         self.prefix = ""
         self.chromosome_assembly = ""
         self.plasmid_assembly = ""
@@ -87,7 +88,6 @@ class SampleDataLine:
         self.name = sample_name.strip()
         self.reads = []
         self.set_reads(sample_reads)
-        self.state = dict()
         self.is_valid = False
         self._validate()
         self.extension = Utils.get_file_extension(self.reads[0])
@@ -167,10 +167,11 @@ class SampleDataLine:
         if not self.taxa:
             return
         if len(self.taxa["species"]) >= _MAX_PREFIX_LENGTH - 1:
-            self.prefix = self.taxa["genus"][0].upper() + self.taxa["species"][:_MAX_PREFIX_LENGTH - 1].lower()
+            self.prefix = "{}{}".format(self.taxa["genus"][0].upper(),
+                                        self.taxa["species"][:_MAX_PREFIX_LENGTH - 1].lower())
         else:
-            self.prefix = self.taxa["genus"][:_MAX_PREFIX_LENGTH - len(
-                self.taxa["species"])].capitalize() + self.taxa["species"].lower()
+            self.prefix = "{}{}".format(self.taxa["genus"][:_MAX_PREFIX_LENGTH - len(
+                self.taxa["species"])].capitalize(), self.taxa["species"].lower())
 
 
 class SampleDataArray:
