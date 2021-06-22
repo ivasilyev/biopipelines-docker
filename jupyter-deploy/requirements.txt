@@ -1,6 +1,10 @@
+# pip install --upgrade pip
 # pip install -r requirements.txt
 
 setuptools
+wheel
+
+numpy
 pandas
 statsmodels
 scipy
@@ -10,6 +14,7 @@ lxml
 requests
 xlrd
 biopython
+scikit-bio  # Buggy at all!
 jinja2
 pyyaml
 matplotlib
@@ -17,5 +22,8 @@ seaborn
 ipython
 jupyter
 jupyterlab
+joblib
 scikit-learn
-# tensorflow
+# tensorflow  # Weird dependencies sometimes
+# tf-nightly  # Same
+# torch  # Same
