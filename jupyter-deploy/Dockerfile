@@ -43,10 +43,12 @@ RUN apt-get -y autoremove && \
 
 # Install primary Python packages
 RUN pip3 install --upgrade pip
-RUN pip3 install setuptools
+RUN pip3 install setuptools wheel
 RUN pip3 install \
     # Base data analysis
     numpy pandas statsmodels scipy xlrd \
+    # Queueing & pipelining
+    joblib \
     # Web scraping
     requests bs4 lxml \
     # Templating
