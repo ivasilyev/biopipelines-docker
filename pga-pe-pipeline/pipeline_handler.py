@@ -232,9 +232,11 @@ class SampleDataArray:
 
 class Handler:
     def __init__(self, output_dir: str = ""):
-        self.sample_methods = [self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
-                               self.run_spades, self.run_plasmid_merger, self.run_prokka, self.run_bowtie2,
-                               self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2]
+        self.sample_methods = [
+            self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
+            self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_prokka,
+            self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2
+        ]
         self.group_methods = [self.merge_srst2_results, self.run_orthomcl]
         #
         self.valid = False
@@ -329,7 +331,7 @@ class Handler:
             cmd = """
             bash -c \
                 'cd {o};
-                 {T} -t {c} {r} -o {o};
+                 {T} -o {o} -t {c} {r};
                  chmod -R 777 {o}'
             """.format(T=_TOOL, c=argValidator.threads, r=reads_file, o=stage_dir)
             if not skip:
@@ -513,6 +515,31 @@ class Handler:
         if Utils.is_file_valid(genome_assembly):
             sampledata.genome_assembly = genome_assembly
 
+    def run_blast(self, sampledata: SampleDataLine, skip: bool = False):
+        _TOOL = "blast_nucleotide_sequence"
+        if skip:
+            logging.info("Skip.")
+            return
+        stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
+        self.clean_path(stage_dir)
+        cmd = """
+        bash -c \
+            '
+            git pull;
+            python3 ./meta/scripts/blast_nucleotide_sequence.py \
+                -i {g} --blast_only -o {d};
+            chmod -R 777 {d}
+            '
+        """.format(g=sampledata.genome_assembly, p=sampledata.plasmid_assembly, d=stage_dir)
+        log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+        Utils.append_log(log, _TOOL, sampledata.name)
+        blast_result_file = [i for i in Utils.scan_whole_dir(os.path.join(stage_dir, "blast")) if i.endswith("json")][0]
+        blast_result_dict = json.loads(Utils.load_string(blast_result_file))
+        blast_top_result = list(blast_result_dict.keys())[0]
+        taxa_part = blast_top_result.split("| ")[-1]
+        genus, species = Utils.safe_findall("^[A-Z][a-z]+ [a-z]+", taxa_part).split(" ")
+        sampledata.taxa.update(dict(genus=genus, species=species))
+
     def run_prokka(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "prokka"
@@ -531,8 +558,11 @@ class Handler:
         taxa_append = ""
         for taxon_name in ("genus", "species", "strain"):
             taxon_value = sampledata.taxa.get(taxon_name)
-            if len(taxon_value) > 0:
+            if taxon_value is not None and len(taxon_value) > 0:
                 taxa_append = "{} --{} {}".format(taxa_append, taxon_name, taxon_value)
+        if len(taxa_append) == 0:
+            logging.info("Skip.")
+            return
         cmd = """
         bash -c \
             'cd {o};
@@ -702,6 +732,7 @@ class Handler:
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
+        return
         # One per all samples
         _TOOL = "orthomcl"
         tool_dir = self.output_dirs[Utils.get_caller_name()]
