@@ -92,7 +92,6 @@ class SampleDataLine:
         self.extension = Utils.get_file_extension(self.reads[0])
         self.taxa_genus, self.taxa_species, self.taxa_strain = ["", ] * 3
         self._parse_taxa(taxa)
-        self._set_prefix()
 
     def __eq__(self, other):
         return self.name == other.name
@@ -126,6 +125,10 @@ class SampleDataLine:
         return SampleDataLine(d["name"], d["raw_reads"], d["taxa"])
 
     @property
+    def reads_string(self):
+        return " ".join(self.reads)
+
+    @property
     def taxa_string(self):
         return " ".join([self.taxa_genus, self.taxa_species, self.taxa_strain])
 
@@ -137,6 +140,8 @@ class SampleDataLine:
         self.taxa_genus, self.taxa_species, self.taxa_strain = genus, species, strain
         if not self.is_taxa_valid:
             logging.warning("No taxonomy data specified, some steps will be passed for the sample '{}'".format(self.name))
+        else:
+            self._set_prefix()
 
     def _parse_taxa(self, taxa):
         self.set_taxa(**Utils.parse_taxa(taxa))
@@ -575,7 +580,7 @@ class Handler:
     def run_snpeff(self, sampledata: SampleDataLine, skip: bool = False):
         pass
 
-    def _run_getmlst(self, genus: str, species: str, srst2_out_dir: str, sample_name: str):
+    def _run_getmlst(self, taxa: str, out_dir: str, out_file: str, sample_name: str):
         # One per sample, full cleaning is NOT required
         """
         # Sample launch:
@@ -602,25 +607,40 @@ class Handler:
         Klebsiella_MLST__mlst__Klebsiella_pneumoniae__results.txt
         """
         _GETMLST_ATTEMPTS = 5
-        os.makedirs(srst2_out_dir, exist_ok=True)
-        getmlst_attempt = 0
-        while getmlst_attempt < _GETMLST_ATTEMPTS:
-            getmlst_attempt += 1
+        os.makedirs(out_dir, exist_ok=True)
+        for getmlst_attempt in range(1, _GETMLST_ATTEMPTS + 1):
             getmlst_cmd = """
             bash -c \
                 'cd {o};
-                 getmlst.py --species "{g} {s}";
+                 getmlst.py --species "{t}";
                  chmod -R 777 {o}'
-            """.format(g=genus, s=species, o=srst2_out_dir)
+            """.format(t=taxa, o=out_dir)
             getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
+            Utils.append_log(getmlst_log, "getmlst", sample_name)
             srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
             if not srst2_cmd.startswith("srst2"):
                 logging.warning("`getmlst.py` did not finish correctly for attempt {} of {}".format(
                     getmlst_attempt, _GETMLST_ATTEMPTS))
             else:
-                break
-        if getmlst_attempt == _GETMLST_ATTEMPTS:
-            logging.warning("Exceeded attempts number for `getmlst.py` to finish processing correctly")
+                logging.info("Got the SRST2 output: '{}'".format(srst2_cmd))
+                out = {j[0]: " ".join(j[1:]) for j in [i.strip().split(" ") for i in srst2_cmd.split("--")[1:]]}
+                out.update({i: os.path.join(out_dir, out[i]) for i in ["mlst_db", "mlst_definitions"]})
+                Utils.dump_string(json.dumps(out, sort_keys=True, indent=4), out_file)
+                return out
+            if getmlst_attempt == _GETMLST_ATTEMPTS:
+                logging.warning("Exceeded attempts number for `getmlst.py` to finish processing correctly")
+
+    @staticmethod
+    def _parse_srst2_result_log(srst2_out_mask: str):
+        # Extract information from the internal SRST2 log
+        _PHRASE = " MLST output printed to "
+        log_file = "{}.log".format(srst2_out_mask)
+        if Utils.is_file_valid(log_file):
+            log_lines = [j for j in Utils.remove_empty_values(
+                [i.strip() for i in Utils.load_list(log_file)]) if _PHRASE in j]
+            if len(log_lines) > 0:
+                srst2_result_file = log_lines[0].split(_PHRASE)[-1].strip()
+                return srst2_result_file
 
     @staticmethod
     def _locate_srst2_result_file(srst2_out_dir: str):
@@ -647,53 +667,56 @@ class Handler:
         docker run --rm --net=host -it $IMG srst2 -h
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
+        reference_dir = os.path.join(tool_dir, "reference")
         stage_dir = os.path.join(tool_dir, sampledata.name)
+        self.clean_path(stage_dir)
         if skip or sampledata.is_taxa_valid is None:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
+        os.makedirs(stage_dir, exist_ok=True)
         genus, species = sampledata.taxa_genus, sampledata.taxa_species
-        mlst_db_local = "{}_{}.fasta".format(genus, species)
-        mlst_definitions_local = "{}{}.txt".format(genus.lower()[0], species)
-        mlst_db_abs, mlst_definitions_abs = [os.path.join(tool_dir, i) for i in (mlst_db_local, mlst_definitions_local)]
-        # Default cmd
-        srst2_cmd = """
-        srst2 --output test --input_pe *.fastq.gz --mlst_db {} --mlst_definitions {} --mlst_delimiter '_'
-        """.format(mlst_db_local, mlst_definitions_local)
-        sampledata.reference_nfasta = mlst_db_abs
-        sampledata.srst2_result = os.path.join(stage_dir,
-                                               "{}_MLST__{}_{}__results.txt".format(sampledata.name, genus, species))
-        if not all(os.path.isfile(i) for i in (mlst_db_abs, mlst_definitions_abs)):
-            self._run_getmlst(genus=genus, species=species, srst2_out_dir=tool_dir, sample_name=sampledata.name)
+        taxa = " ".join([genus, species])
+        getmlst_state_file = os.path.join(reference_dir, "getmlst_state_{}.json".format(taxa))
+        if Utils.is_file_valid(getmlst_state_file):
+            getmlst_state = json.loads(Utils.load_string(getmlst_state_file))
+        else:
+            getmlst_state = self._run_getmlst(taxa=taxa, out_dir=reference_dir,
+                                              out_file=getmlst_state_file, sample_name=sampledata.name)
         # The input read files must be named by a strict pattern:
         # https://github.com/katholt/srst2#input-read-formats-and-options
-        input_reads = ["{}_{}.fastq.gz".format(sampledata.name, idx + 1) for idx, i in enumerate(sampledata.reads)]
-        srst2_cmd = srst2_cmd.replace(
-            "*.fastq.gz", " ".join(input_reads)).replace(
-            "--output test", "--output {}_MLST".format(sampledata.name)).replace(
-            mlst_db_local, mlst_db_abs).replace(
-            mlst_definitions_local, mlst_definitions_abs)
-        srst2_cmd_full = """
+        input_reads = [os.path.join(stage_dir, "{}_{}.fastq.gz".format(sampledata.name, idx + 1))
+                       for idx, i in enumerate(sampledata.reads)]
+        out_mask = os.path.join(stage_dir, sampledata.prefix)
+        srst2_cmd_full = f"""
         bash -c \
-            'cd {o};
-             ln -s {r1} {l1};
-             ln -s {r2} {l2};
-             {c} --log --threads {t};
-             chmod -R 777 {o}'
-        """.format(c=srst2_cmd.strip(), o=stage_dir, t=argValidator.threads,
-                   r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
-        self.clean_path(stage_dir)
+            'cd {stage_dir};
+             ln -s {sampledata.reads[0]} {input_reads[0]};
+             ln -s {sampledata.reads[1]} {input_reads[1]};
+             srst2 --log \
+                --input_pe {" ".join(input_reads)} \
+                --mlst_db {getmlst_state["mlst_db"]} \
+                --mlst_definitions {getmlst_state["mlst_definitions"]} \
+                --mlst_delimiter {getmlst_state["mlst_delimiter"]} \
+                --output {out_mask} \
+                --threads {argValidator.threads};
+             chmod -R 777 {stage_dir}'
+        """
         # Deliberately set tag with supported version for the `threads` argument
         # https://quay.io/repository/biocontainers/srst2?tab=tags
-        srst2_log = self.run_quay_image(_TOOL, img_tag="0.2.0--py_4", cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
+        srst2_log = self.run_quay_image(_TOOL, img_tag="0.2.0--py27_2", cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
                                         bad_phrases=["Encountered internal Bowtie 2 exception",
                                                      "[main_samview] truncated file."])
         Utils.append_log(srst2_log, _TOOL, sampledata.name)
+        sampledata.srst2_result = self._parse_srst2_result_log(out_mask)
         if not os.path.isfile(sampledata.srst2_result):
             logging.warning("Not found the SRST2 processing result file: '{}', trying to locate it".format(
                 sampledata.srst2_result))
             sampledata.srst2_result = self._locate_srst2_result_file(stage_dir)
 
     def merge_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
+        """
+        Simple data concatenation method
+        """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
@@ -701,10 +724,10 @@ class Handler:
         self.clean_path(tool_dir)
         merged_file = os.path.join(tool_dir, "merged_results.tsv")
         merged_lines = []
-        # SRST2 output file columns:
+        # Example SRST2 output file columns:
         # Sample, ST, gapA, infB, mdh, pgi, phoE, rpoB, tonB, mismatches, uncertainty, depth, maxMAF
         for sampledata in sampledata_array.lines.values():
-            if os.path.isfile(sampledata.srst2_result):
+            if Utils.is_file_valid(sampledata.srst2_result):
                 result_lines = Utils.load_list(sampledata.srst2_result)
                 if len(merged_lines) == 0:
                     merged_lines.extend(result_lines)
@@ -766,7 +789,7 @@ class Handler:
 class Utils:
     # File system based methods
     @staticmethod
-    def is_file_valid(file: str, report: bool = True):
+    def is_file_valid(file: str, report: bool = False):
         if not os.path.exists(file):
             if report:
                 logging.warning("Not found: '{}'".format(file))
