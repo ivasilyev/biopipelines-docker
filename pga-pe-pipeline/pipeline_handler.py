@@ -12,7 +12,6 @@ import zipfile
 import subprocess
 import multiprocessing
 from time import sleep
-from copy import deepcopy
 from datetime import datetime
 
 
@@ -91,7 +90,7 @@ class SampleDataLine:
         self.is_valid = False
         self._validate()
         self.extension = Utils.get_file_extension(self.reads[0])
-        self.taxa = dict()
+        self.taxa_genus, self.taxa_species, self.taxa_strain = ["", ] * 3
         self._parse_taxa(taxa)
         self._set_prefix()
 
@@ -126,30 +125,32 @@ class SampleDataLine:
         """
         return SampleDataLine(d["name"], d["raw_reads"], d["taxa"])
 
-    def _set_taxa(self, genus: str = "", species: str = "", strain: str = ""):
-        # E.g. Escherichia coli O157:H7
-        if len(genus) > 0:
-            self.taxa["genus"] = genus.strip().capitalize()
-        if len(species) > 0:
-            self.taxa["species"] = species.strip().replace(".", "").lower()
-        if len(strain) > 0:
-            self.taxa["strain"] = strain.strip().lower()
-        if len(self.taxa.keys()) == 0:
+    @property
+    def taxa_string(self):
+        return " ".join([self.taxa_genus, self.taxa_species, self.taxa_strain])
+
+    @property
+    def is_taxa_valid(self):
+        return len(self.taxa_string) > 0
+
+    def set_taxa(self, genus: str = "", species: str = "", strain: str = ""):
+        self.taxa_genus, self.taxa_species, self.taxa_strain = genus, species, strain
+        if not self.is_taxa_valid:
             logging.warning("No taxonomy data specified, some steps will be passed for the sample '{}'".format(self.name))
 
     def _parse_taxa(self, taxa):
-        self._set_taxa(**Utils.parse_taxa(taxa))
+        self.set_taxa(**Utils.parse_taxa(taxa))
 
     def _set_prefix(self):
         _MAX_PREFIX_LENGTH = 4
-        if not self.taxa or len(self.taxa.keys()) == 0:
+        if not self.is_taxa_valid:
             return
-        if len(self.taxa["species"]) >= _MAX_PREFIX_LENGTH - 1:
-            self.prefix = "{}{}".format(self.taxa["genus"][0].upper(),
-                                        self.taxa["species"][:_MAX_PREFIX_LENGTH - 1].lower())
+        if len(self.taxa_species) >= _MAX_PREFIX_LENGTH - 1:
+            self.prefix = "{}{}".format(self.taxa_genus[0].upper(),
+                                        self.taxa_species[:_MAX_PREFIX_LENGTH - 1].lower())
         else:
-            self.prefix = "{}{}".format(self.taxa["genus"][:_MAX_PREFIX_LENGTH - len(
-                self.taxa["species"])].capitalize(), self.taxa["species"].lower())
+            self.prefix = "{}{}".format(self.taxa_genus[:_MAX_PREFIX_LENGTH - len(self.taxa_species)].capitalize(),
+                                        self.taxa_species.lower())
 
 
 class SampleDataArray:
@@ -318,7 +319,7 @@ class Handler:
                 log = self.run_quay_image(_TOOL, cmd=cmd)
                 Utils.append_log(log, _TOOL, sampledata.name)
             else:
-                logging.info("Skip.")
+                logging.info("Skip {}".format(Utils.get_caller_name()))
         # Reads are unchanged, so there is nothing to return
         # Parse output
         self.state[name] = dict()
@@ -350,7 +351,7 @@ class Handler:
             log = self.run_quay_image(_TOOL, cmd=cmd)
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
-            logging.info("Skip.")
+            logging.info("Skip {}".format(Utils.get_caller_name()))
         sampledata.set_reads(trimmed_reads)
 
     def run_cutadapt(self, sampledata: SampleDataLine, skip: bool = False):
@@ -371,14 +372,14 @@ class Handler:
             log = self.run_quay_image(_TOOL, cmd=cmd)
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
-            logging.info("Skip.")
+            logging.info("Skip {}".format(Utils.get_caller_name()))
         sampledata.set_reads(trimmed_reads)
 
     def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "bowtie2"
         _IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
         if skip:
-            logging.info("Skip.")
+            logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         this_name = Utils.get_caller_name()
         stage_dir = self.output_dirs[this_name]
@@ -461,7 +462,7 @@ class Handler:
                 log = self.run_quay_image(_TOOL, cmd=cmd)
                 Utils.append_log(log, _TOOL, sampledata.name)
             else:
-                logging.info("Skip.")
+                logging.info("Skip {} for {}".format(Utils.get_caller_name(), assembly_type))
             #  For most analyses, use scaffolds
             assembly_file = os.path.join(assembly_dir, "scaffolds.fasta")
             if not os.path.isfile(assembly_file):
@@ -474,11 +475,7 @@ class Handler:
 
     def run_plasmid_merger(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "merge_chromosome_and_plasmid_assemblies"
-        if skip:
-            logging.info("Skip.")
-            return
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
-        self.clean_path(stage_dir)
         genome_assembly = os.path.join(stage_dir, "{}_genome.fna".format(sampledata.name))
         cmd = """
         bash -c \
@@ -489,18 +486,18 @@ class Handler:
             chmod -R 777 {d}
             '
         """.format(c=sampledata.chromosome_assembly, p=sampledata.plasmid_assembly, g=genome_assembly, d=stage_dir)
-        log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
-        Utils.append_log(log, _TOOL, sampledata.name)
+        if not skip:
+            self.clean_path(stage_dir)
+            log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+            Utils.append_log(log, _TOOL, sampledata.name)
+        else:
+            logging.info("Skip {}".format(Utils.get_caller_name()))
         if Utils.is_file_valid(genome_assembly):
             sampledata.genome_assembly = genome_assembly
 
     def run_blast(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "blast_nucleotide_sequence"
-        if skip:
-            logging.info("Skip.")
-            return
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
-        self.clean_path(stage_dir)
         cmd = """
         bash -c \
             '
@@ -510,14 +507,23 @@ class Handler:
             chmod -R 777 {d}
             '
         """.format(g=sampledata.genome_assembly, p=sampledata.plasmid_assembly, d=stage_dir)
-        log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
-        Utils.append_log(log, _TOOL, sampledata.name)
-        sampledata.blast_result_file = [i for i in Utils.scan_whole_dir(os.path.join(stage_dir, "blast")) if i.endswith("json")][0]
+        if not skip:
+            self.clean_path(stage_dir)
+            log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+            Utils.append_log(log, _TOOL, sampledata.name)
+        else:
+            logging.info("Skip {}".format(Utils.get_caller_name()))
+        blast_result_files = [i for i in Utils.scan_whole_dir(os.path.join(stage_dir, "blast")) if i.endswith(".json")]
+        if len(blast_result_files) == 0:
+            logging.warning("No BLAST results!")
+            return
+        sampledata.blast_result_file = blast_result_files[0]
         blast_result_dict = json.loads(Utils.load_string(sampledata.blast_result_file))
         blast_top_result = list(blast_result_dict.keys())[0]
         taxa_part = blast_top_result.split("| ")[-1]
         genus, species = Utils.safe_findall("^[A-Z][a-z]+ [a-z]+", taxa_part).split(" ")
-        sampledata.taxa.update(dict(genus=genus, species=species))
+        logging.info("The best matching organism is {} {}".format(genus, species))
+        sampledata.set_taxa(genus=genus, species=species, strain="")
 
     def run_prokka(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -531,16 +537,18 @@ class Handler:
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         sampledata.genbank = os.path.join(stage_dir, "{}.gbf".format(sampledata.name))
         sampledata.faa = os.path.join(stage_dir, "{}.faa".format(sampledata.name))
-        if skip or sampledata.taxa is None:
-            logging.info("Skip.")
+        if skip or not sampledata.is_valid:
+            logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         taxa_append = ""
-        for taxon_name in ("genus", "species", "strain"):
-            taxon_value = sampledata.taxa.get(taxon_name)
+        for taxon_name, taxon_value in zip(
+            ["genus", "species", "strain"],
+            [sampledata.taxa_genus, sampledata.taxa_species, sampledata.taxa_strain]
+        ):
             if taxon_value is not None and len(taxon_value) > 0:
                 taxa_append = "{} --{} {}".format(taxa_append, taxon_name, taxon_value)
         if len(taxa_append) == 0:
-            logging.info("Skip.")
+            logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         cmd = """
         bash -c \
@@ -606,7 +614,6 @@ class Handler:
             """.format(g=genus, s=species, o=srst2_out_dir)
             getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
             srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
-            Utils.append_log(getmlst_log, "getmlst", sample_name)
             if not srst2_cmd.startswith("srst2"):
                 logging.warning("`getmlst.py` did not finish correctly for attempt {} of {}".format(
                     getmlst_attempt, _GETMLST_ATTEMPTS))
@@ -641,10 +648,10 @@ class Handler:
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         stage_dir = os.path.join(tool_dir, sampledata.name)
-        if skip or sampledata.taxa is None:
-            logging.info("Skip.")
+        if skip or sampledata.is_taxa_valid is None:
+            logging.info("Skip {}".format(Utils.get_caller_name()))
             return
-        genus, species = (sampledata.taxa.get("genus"), sampledata.taxa.get("species"))
+        genus, species = sampledata.taxa_genus, sampledata.taxa_species
         mlst_db_local = "{}_{}.fasta".format(genus, species)
         mlst_definitions_local = "{}{}.txt".format(genus.lower()[0], species)
         mlst_db_abs, mlst_definitions_abs = [os.path.join(tool_dir, i) for i in (mlst_db_local, mlst_definitions_local)]
@@ -675,7 +682,9 @@ class Handler:
         """.format(c=srst2_cmd.strip(), o=stage_dir, t=argValidator.threads,
                    r1=sampledata.reads[0], r2=sampledata.reads[1], l1=input_reads[0], l2=input_reads[1])
         self.clean_path(stage_dir)
-        srst2_log = self.run_quay_image(_TOOL, cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
+        # Deliberately set tag with supported version for the `threads` argument
+        # https://quay.io/repository/biocontainers/srst2?tab=tags
+        srst2_log = self.run_quay_image(_TOOL, img_tag="0.2.0--py_4", cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
                                         bad_phrases=["Encountered internal Bowtie 2 exception",
                                                      "[main_samview] truncated file."])
         Utils.append_log(srst2_log, _TOOL, sampledata.name)
@@ -687,7 +696,7 @@ class Handler:
     def merge_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         if skip:
-            logging.info("Skip.")
+            logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         self.clean_path(tool_dir)
         merged_file = os.path.join(tool_dir, "merged_results.tsv")
@@ -716,7 +725,7 @@ class Handler:
         _TOOL = "orthomcl"
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         if skip:
-            logging.info("Skip.")
+            logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         self.clean_path(tool_dir)
         sampledata_file = os.path.join(tool_dir, "orthomcl_input.sampledata")
@@ -905,27 +914,25 @@ class Utils:
 
     @staticmethod
     def parse_taxa(taxa):
+        genus, species, strain = ["", ] * 3
+        if isinstance(taxa, str):
+            # E.g. 'Escherichia coli O157:H7'
+            taxa = Utils.remove_empty_values(str(taxa).strip().split(" "))
+            if len(taxa) == 0:
+                return
+            genus = taxa[0]
+            if len(taxa) > 1:
+                if not any(i.isdigit() for i in taxa[1]):
+                    sp = taxa[1].replace(".", "").lower()
+                    if sp != "sp":
+                        species = sp
+                else:
+                    strain = taxa[1]
+            if len(taxa) > 2:
+                strain = taxa[2]
         if isinstance(taxa, dict):
-            try:
-                return deepcopy(taxa)
-            except KeyError:
-                pass
-        # If taxa is str
-        taxa = Utils.remove_empty_values(str(taxa).strip().split(" "))
-        if len(taxa) == 0:
-            return
-        genus = taxa[0]
-        species = ""
-        strain = ""
-        if len(taxa) > 1:
-            if not any(i.isdigit() for i in taxa[1]):
-                sp = taxa[1].replace(".", "").lower()
-                if sp != "sp":
-                    species = sp
-            else:
-                strain = taxa[1]
-        if len(taxa) > 2:
-            strain = taxa[2]
+            genus, species, strain = [j if j is not None else "" for j in
+                                      [taxa.get(i) for i in "genus, species, strain".split(", ")]]
         return dict(genus=genus, species=species, strain=strain)
 
     # Function handling methods
