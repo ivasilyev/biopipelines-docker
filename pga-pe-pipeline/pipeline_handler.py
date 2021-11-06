@@ -54,7 +54,7 @@ Columns:
         self.hg_index_dir = self._namespace.hg_dir
         self.hg_index_mask = ""
         self.output_dir = self._namespace.output_dir
-        self.log_dir = os.path.join(self.output_dir, "log", Utils.get_time())
+        self.log_dir = os.path.join(self.output_dir, "logs", Utils.get_time())
 
     def validate(self):
         start_point = self._namespace.start
@@ -80,6 +80,7 @@ class SampleDataLine:
         self.genbank = ""
         self.faa = ""
         self.chromosome_annotation = ""
+        self.blast_result_file = ""
         self.reference_fna = ""
         self.srst2_result = ""
 
@@ -120,10 +121,10 @@ class SampleDataLine:
     @staticmethod
     def parse(d: dict):
         """
-        :param d: {sample_name: str, reads: [str,], taxa: str}
+        :param d: {sample_name: str, raw_reads: [str, ...], taxa: str}
         :return: SampleDataLine object
         """
-        return SampleDataLine(d["name"], d["reads"], d["taxa"])
+        return SampleDataLine(d["name"], d["raw_reads"], d["taxa"])
 
     def _set_taxa(self, genus: str = "", species: str = "", strain: str = ""):
         # E.g. Escherichia coli O157:H7
@@ -137,33 +138,11 @@ class SampleDataLine:
             logging.warning("No taxonomy data specified, some steps will be passed for the sample '{}'".format(self.name))
 
     def _parse_taxa(self, taxa):
-        if isinstance(taxa, dict):
-            try:
-                self.taxa = deepcopy(taxa)
-                return
-            except KeyError:
-                pass
-        # If taxa is str
-        taxa = Utils.remove_empty_values(str(taxa).strip().split(" "))
-        if len(taxa) == 0:
-            return
-        genus = taxa[0]
-        species = ""
-        strain = ""
-        if len(taxa) > 1:
-            if not any(i.isdigit() for i in taxa[1]):
-                sp = taxa[1].replace(".", "").lower()
-                if sp != "sp":
-                    species = sp
-            else:
-                strain = taxa[1]
-        if len(taxa) > 2:
-            strain = taxa[2]
-        self._set_taxa(genus, species, strain)
+        self._set_taxa(**Utils.parse_taxa(taxa))
 
     def _set_prefix(self):
         _MAX_PREFIX_LENGTH = 4
-        if not self.taxa:
+        if not self.taxa or len(self.taxa.keys()) == 0:
             return
         if len(self.taxa["species"]) >= _MAX_PREFIX_LENGTH - 1:
             self.prefix = "{}{}".format(self.taxa["genus"][0].upper(),
@@ -195,26 +174,26 @@ class SampleDataArray:
     @staticmethod
     def parse(d: dict):
         arr = SampleDataArray()
-        arr.lines = {k: SampleDataLine.parse(d[k]) for k in d.keys()}
+        arr.lines = {k: SampleDataLine.parse(v) for k, v in d.items()}
         arr.validate()
         return arr
 
     @staticmethod
     def load(file: str):
         """
-        :param file: sample data JSON
+        :param file: str
 
         An example sample data JSON:
         { "ecoli_sample":
             { "name": "ecoli_sample",
-              "reads": [ "reads.1.fq", "reads.2.fq" ],
+              "raw_reads": [ "reads.1.fq", "reads.2.fq" ],
               "taxa": "Escherichia coli O157:H7" }, }
 
         or
 
         { "ecoli_sample":
             { "name": "ecoli_sample",
-              "reads": [ "reads.1.fq", "reads.2.fq" ],
+              "raw_reads": [ "reads.1.fq", "reads.2.fq" ],
               "taxa": { "genus": "Escherichia",
                         "species": "coli",
                         "strain": "O157:H7", }, }, }
@@ -533,8 +512,8 @@ class Handler:
         """.format(g=sampledata.genome_assembly, p=sampledata.plasmid_assembly, d=stage_dir)
         log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
-        blast_result_file = [i for i in Utils.scan_whole_dir(os.path.join(stage_dir, "blast")) if i.endswith("json")][0]
-        blast_result_dict = json.loads(Utils.load_string(blast_result_file))
+        sampledata.blast_result_file = [i for i in Utils.scan_whole_dir(os.path.join(stage_dir, "blast")) if i.endswith("json")][0]
+        blast_result_dict = json.loads(Utils.load_string(sampledata.blast_result_file))
         blast_top_result = list(blast_result_dict.keys())[0]
         taxa_part = blast_top_result.split("| ")[-1]
         genus, species = Utils.safe_findall("^[A-Z][a-z]+ [a-z]+", taxa_part).split(" ")
@@ -715,7 +694,7 @@ class Handler:
         merged_lines = []
         # SRST2 output file columns:
         # Sample, ST, gapA, infB, mdh, pgi, phoE, rpoB, tonB, mismatches, uncertainty, depth, maxMAF
-        for sampledata in sampledata_array.lines:
+        for sampledata in sampledata_array.lines.values():
             if os.path.isfile(sampledata.srst2_result):
                 result_lines = Utils.load_list(sampledata.srst2_result)
                 if len(merged_lines) == 0:
@@ -764,7 +743,7 @@ class Handler:
                     idx + 1, len(self.sample_methods + self.group_methods), len(argValidator.stages_to_do)))
                 # Per-sample processing
                 if func in self.sample_methods:
-                    queue = [(func, i, idx not in argValidator.stages_to_do) for i in sampledata_array.lines]
+                    queue = [(func, i, idx not in argValidator.stages_to_do) for i in sampledata_array.lines.values()]
                     _ = Utils.single_core_queue(Utils.wrap_func, queue)
                 # Per-group functions
                 elif func in self.group_methods:
@@ -924,6 +903,31 @@ class Utils:
     def flatten_2d_array(array: list):
         return [j for i in array for j in i]
 
+    @staticmethod
+    def parse_taxa(taxa):
+        if isinstance(taxa, dict):
+            try:
+                return deepcopy(taxa)
+            except KeyError:
+                pass
+        # If taxa is str
+        taxa = Utils.remove_empty_values(str(taxa).strip().split(" "))
+        if len(taxa) == 0:
+            return
+        genus = taxa[0]
+        species = ""
+        strain = ""
+        if len(taxa) > 1:
+            if not any(i.isdigit() for i in taxa[1]):
+                sp = taxa[1].replace(".", "").lower()
+                if sp != "sp":
+                    species = sp
+            else:
+                strain = taxa[1]
+        if len(taxa) > 2:
+            strain = taxa[2]
+        return dict(genus=genus, species=species, strain=strain)
+
     # Function handling methods
 
     @staticmethod
@@ -1048,7 +1052,7 @@ if __name__ == '__main__':
                         format="asctime=%(asctime)s levelname=%(levelname)s process=%(process)d name=%(name)s "
                                "funcName=%(funcName)s lineno=%(lineno)s message=\"\"\"%(message)s\"\"\"")
     argValidator.validate()
-    sampleDataArray = SampleDataArray.parse(argValidator.sampledata_file)
+    sampleDataArray = SampleDataArray.load(argValidator.sampledata_file)
     handler = Handler(argValidator.output_dir)
     logging.info("The pipeline processing has been started")
     handler.handle(sampleDataArray)
