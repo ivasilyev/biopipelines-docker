@@ -485,7 +485,7 @@ class Handler:
         cmd = """
         bash -c \
             '
-            git pull;
+            git pull --quiet;
             python3 ./meta/scripts/merge_chromosome_and_plasmid_assemblies.py \
                 -c {c} -p {p} -o {g};
             chmod -R 777 {d}
@@ -506,7 +506,7 @@ class Handler:
         cmd = """
         bash -c \
             '
-            git pull;
+            git pull --quiet;
             python3 ./meta/scripts/blast_nucleotide_sequence.py \
                 -i {g} --blast_only -o {d};
             chmod -R 777 {d}
@@ -701,7 +701,7 @@ class Handler:
                 --threads {argValidator.threads};
              chmod -R 777 {stage_dir}'
         """
-        # Deliberately set tag with supported version for the `threads` argument
+        # Deliberately set the tag with fully supported environment
         # https://quay.io/repository/biocontainers/srst2?tab=tags
         srst2_log = self.run_quay_image(_TOOL, img_tag="0.2.0--py27_2", cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
                                         bad_phrases=["Encountered internal Bowtie 2 exception",
