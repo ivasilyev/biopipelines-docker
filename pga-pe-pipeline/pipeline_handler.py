@@ -12,6 +12,7 @@ import zipfile
 import subprocess
 import multiprocessing
 from time import sleep
+from shutil import copy2
 from datetime import datetime
 
 
@@ -597,6 +598,12 @@ class Handler:
         Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.genomes.update(self._locate_annotated_genome(stage_dir))
 
+        gff_file = Utils.locate_file_by_tail(stage_dir, ".gff")
+        if len(gff_file) == 0:
+            return
+        os.makedirs(self.roary_reference_dir, exist_ok=True)
+        copy2(gff_file, os.path.join(self.roary_reference_dir, os.path.basename(gff_file)))
+
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
         pass
@@ -858,25 +865,23 @@ class Handler:
         docker run --rm --net=host -it ${IMG} bash
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
-        stage_dir = os.path.join(tool_dir, "roary")
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         self.clean_path(tool_dir)
 
-        gff_dir = os.path.join(self.blast_reference_dir, "gff")
-        self.clean_path(gff_dir)
-        log = self._convert_genbank_to_gff3(self.blast_reference_dir, gff_dir)
+        os.makedirs(self.roary_reference_dir, exist_ok=True)
+        log = self._convert_genbank_to_gff3(self.blast_reference_dir, self.roary_reference_dir)
         Utils.append_log(log, _TOOL)
 
         # Input directory is actually a mask
         cmd = f"""bash -c '
             roary \
-                -f "{stage_dir}" \
+                -f "{os.path.join(tool_dir, "out")}" \
                 -e \
                 --mafft \
                 -p {argValidator.threads} \
-                "{gff_dir}"/*;
+                "{self.roary_reference_dir}"/*;
             chmod -R 777 "{tool_dir}"
         '
         """
@@ -968,6 +973,15 @@ class Utils:
             else:
                 break
         return ".{}".format(".".join(out[:deep][::-1]))
+
+    @staticmethod
+    def locate_file_by_tail(directory_to_search: str, tail: str, multiple: bool = False):
+        files = [i for i in Utils.scan_whole_dir(directory_to_search) if i.endswith(tail)]
+        if len(files) == 0:
+            return ""
+        if multiple:
+            return files
+        return files[0]
 
     @staticmethod
     def parse_index_mask_from_dir(dir_name: str):
