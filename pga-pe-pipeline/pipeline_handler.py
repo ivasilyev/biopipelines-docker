@@ -220,7 +220,8 @@ class Handler:
         self.sample_methods = [
             self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
             self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_prokka,
-            self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff, self.run_srst2
+            self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff,
+            self.run_rgi, self.run_srst2
         ]
         self.group_methods = [self.merge_srst2_results, self.run_orthomcl]
         #
@@ -722,7 +723,7 @@ class Handler:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         self.clean_path(tool_dir)
-        merged_file = os.path.join(tool_dir, "merged_results.tsv")
+        merged_file = os.path.join(tool_dir, "merged_srst2_results.tsv")
         merged_lines = []
         # Example SRST2 output file columns:
         # Sample, ST, gapA, infB, mdh, pgi, phoE, rpoB, tonB, mismatches, uncertainty, depth, maxMAF
@@ -740,6 +741,61 @@ class Handler:
             logging.info("Merged SRST2 result file: '{}'".format(merged_file))
         else:
             logging.warning("Cannot merge SRST2 results: nothing to merge")
+
+    def _download_card_reference(self, reference_dir):
+        # The CARD reference updates relatively frequent, so it's better to fetch a fresh copy per launch
+        self.clean_path(reference_dir)
+        cmd = f"""
+        bash -c '
+            cd {reference_dir};
+            for i in "https://card.mcmaster.ca/latest/data" "https://card.mcmaster.ca/latest/ontology" "https://card.mcmaster.ca/latest/variants";
+                do curl -fsSL "$i" | tar jxf -;
+                done;
+            chmod -R 777 {reference_dir};
+        '
+        """
+        logging.info("Download the CARD reference")
+        return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+
+    def run_rgi(self, sampledata: SampleDataLine, skip: bool = False):
+        # One per sample
+        _TOOL = "rgi"
+        """
+        # Sample launch:
+        IMG=quay.io/biocontainers/rgi:5.1.1--py_0 && \
+        docker pull $IMG && \
+        docker run --rm --net=host -it $IMG rgi
+        """
+        tool_dir = self.output_dirs[Utils.get_caller_name()]
+        reference_dir = os.path.join(tool_dir, "reference")
+        stage_dir = os.path.join(tool_dir, sampledata.name)
+        if skip or not sampledata.is_valid:
+            logging.info("Skip {}".format(Utils.get_caller_name()))
+            return
+        reference_file = os.path.join(reference_dir, "card.json")
+        if "card.json" not in Utils.scan_whole_dir(reference_file):
+            log = self._download_card_reference(reference_dir)
+            Utils.append_log(log, _TOOL, sampledata.name)
+        self.clean_path(stage_dir)
+        # Outputs here are masks only
+        cmd = f"""
+        bash -c '
+            cd "{stage_dir}";
+            rgi load --card_json "{reference_file}";
+            rgi main --clean \
+                --input_sequence "{sampledata.genome_assembly}" \
+                --input_type contig \
+                --num_threads "$(cat /proc/cpuinfo | grep -c processor)" \
+                --output_file "{os.path.join(stage_dir, sampledata.name)}";
+            rgi heatmap \
+                --input "{stage_dir}" \
+                --category drug_class \
+                --output "{os.path.join(stage_dir, f"{sampledata.name}_resistance_heatmap")}"; 
+            chmod -R 777 "{stage_dir}";
+        '
+        """
+        log = self.run_quay_image(_TOOL, cmd=cmd)
+        Utils.append_log(log, _TOOL, sampledata.name)
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
