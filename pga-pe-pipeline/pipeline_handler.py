@@ -16,6 +16,9 @@ from shutil import copy2
 from datetime import datetime
 
 
+BLAST_REFERENCES = 100
+
+
 class ArgValidator:
     def __init__(self):
         import argparse
@@ -517,7 +520,7 @@ class Handler:
             python3 ./meta/scripts/blast_nucleotide_sequence.py \
                 --input {sampledata.genome_assembly} \
                 --chromosomes_only \
-                --results 10 \
+                --results {BLAST_REFERENCES} \
                 --sequence_dir {self.blast_reference_dir} \
                 --output {stage_dir};
             chmod -R 777 {stage_dir}
