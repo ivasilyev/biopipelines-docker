@@ -77,6 +77,7 @@ class SampleDataLine:
         self.plasmid_assembly = ""
         self.genome_assembly = ""
         self.genbank = ""
+        self.genomes = dict()
         self.faa = ""
         self.chromosome_annotation = ""
         self.blast_result_file = ""
@@ -223,11 +224,15 @@ class Handler:
             self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff,
             self.run_rgi, self.run_srst2
         ]
-        self.group_methods = [self.merge_srst2_results, self.run_orthomcl]
+        self.group_methods = [self.merge_srst2_results, self.run_roary, self.run_orthomcl]
         #
         self.valid = False
         self.output_dir_root = output_dir.strip()
         self.output_dirs = dict()
+        #
+        self.reference_dir = os.path.join(self.output_dir_root, "references")
+        self.blast_reference_dir = os.path.join(self.reference_dir, "blast")
+        self.roary_reference_dir = os.path.join(self.reference_dir, "roary")
         #
         self.state = dict()
         #
@@ -503,23 +508,27 @@ class Handler:
 
     def run_blast(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "blast_nucleotide_sequence"
-        stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
-        cmd = """
-        bash -c \
-            '
+        tool_dir = self.output_dirs[Utils.get_caller_name()]
+        stage_dir = os.path.join(tool_dir, sampledata.name)
+        cmd = f"""
+        bash -c '
             git pull --quiet;
             python3 ./meta/scripts/blast_nucleotide_sequence.py \
-                -i {g} --blast_only -o {d};
-            chmod -R 777 {d}
-            '
-        """.format(g=sampledata.genome_assembly, p=sampledata.plasmid_assembly, d=stage_dir)
+                --input {sampledata.genome_assembly} \
+                --chromosomes_only \
+                --results 10 \
+                --sequence_dir {self.blast_reference_dir} \
+                --output {stage_dir};
+            chmod -R 777 {stage_dir}
+        '
+        """
         if not skip:
             self.clean_path(stage_dir)
             log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip {}".format(Utils.get_caller_name()))
-        blast_result_files = [i for i in Utils.scan_whole_dir(os.path.join(stage_dir, "blast")) if i.endswith(".json")]
+        blast_result_files = [i for i in Utils.scan_whole_dir(stage_dir) if i.endswith(".json")]
         if len(blast_result_files) == 0:
             logging.warning("No BLAST results!")
             return
@@ -530,6 +539,17 @@ class Handler:
         genus, species = Utils.safe_findall("^[A-Z][a-z]+ [a-z]+", taxa_part).split(" ")
         logging.info("The best matching organism is {} {}".format(genus, species))
         sampledata.set_taxa(genus=genus, species=species, strain="")
+
+    @staticmethod
+    def _locate_annotated_genome(directory: str):
+        d = {i: "" for i in ["gbk", "gff"]}
+        for extension in d.keys():
+            files = [i for i in Utils.scan_whole_dir(directory) if i.endswith(".{}".format(extension))]
+            if len(files) > 0:
+                d[extension] = files[0]
+            else:
+                logging.warning("No annotated genome of type '{}'".format(extension))
+        return d
 
     def run_prokka(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -556,16 +576,26 @@ class Handler:
         if len(taxa_append) == 0:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
-        cmd = """
-        bash -c \
-            'cd {o};
-             {T} --compliant --centre UoN --cpu {t} --outdir {o} --force --prefix {n} --locustag {n} {a} {g};
-             chmod -R 777 {o}'
-        """.format(T=_TOOL, g=sampledata.genome_assembly, a=taxa_append,
-                   n=sampledata.name, o=stage_dir, t=argValidator.threads)
         self.clean_path(stage_dir)
+
+        cmd = f"""
+        bash -c '
+            cd {stage_dir};
+            {_TOOL} \
+                --compliant \
+                --centre UoN \
+                --cpu {argValidator.threads} \
+                --outdir {stage_dir} \
+                --force \
+                --prefix {sampledata.name} \
+                --locustag {sampledata.name} {taxa_append} \
+                {sampledata.genome_assembly};
+            chmod -R 777 {stage_dir}
+        '
+        """
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
+        sampledata.genomes.update(self._locate_annotated_genome(stage_dir))
 
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
@@ -688,9 +718,10 @@ class Handler:
         input_reads = [os.path.join(stage_dir, "{}_{}.fastq.gz".format(sampledata.name, idx + 1))
                        for idx, i in enumerate(sampledata.reads)]
         out_mask = os.path.join(stage_dir, sampledata.prefix)
-        srst2_cmd_full = f"""
-        bash -c \
-            'cd {stage_dir};
+
+        cmd = f"""
+        bash -c '
+             cd {stage_dir};
              ln -s {sampledata.reads[0]} {input_reads[0]};
              ln -s {sampledata.reads[1]} {input_reads[1]};
              srst2 --log \
@@ -700,14 +731,16 @@ class Handler:
                 --mlst_delimiter {getmlst_state["mlst_delimiter"]} \
                 --output {out_mask} \
                 --threads {argValidator.threads};
-             chmod -R 777 {stage_dir}'
+             chmod -R 777 {stage_dir}
+        '
         """
         # Deliberately set the tag with fully supported environment
         # https://quay.io/repository/biocontainers/srst2?tab=tags
-        srst2_log = self.run_quay_image(_TOOL, img_tag="0.2.0--py27_2", cmd=srst2_cmd_full, attempts=_SRST2_ATTEMPTS,
+        log = self.run_quay_image(_TOOL, img_tag="0.2.0--py27_2", cmd=cmd, attempts=_SRST2_ATTEMPTS,
                                         bad_phrases=["Encountered internal Bowtie 2 exception",
                                                      "[main_samview] truncated file."])
-        Utils.append_log(srst2_log, _TOOL, sampledata.name)
+        Utils.append_log(log, _TOOL, sampledata.name)
+
         sampledata.srst2_result = self._parse_srst2_result_log(out_mask)
         if not os.path.isfile(sampledata.srst2_result):
             logging.warning("Not found the SRST2 processing result file: '{}', trying to locate it".format(
@@ -796,6 +829,59 @@ class Handler:
         """
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
+
+    @staticmethod
+    def _convert_genbank_to_gff3(gbff_dir, gff_dir):
+        _ = [os.makedirs(i, exist_ok=True) for i in (gbff_dir, gff_dir)]
+        exe = os.path.join(gbff_dir, "bp_genbank2gff3.pl")
+        Utils.download_file(
+            url="https://raw.githubusercontent.com/appris/appris/master/modules/bin/bp_genbank2gff3.pl",
+            out_file=exe
+        )
+        cmd = f"""
+        bash -c '
+            cd "{gbff_dir}";
+            perl {exe} \
+                --dir {gbff_dir} \
+                --outdir {gff_dir};
+            chmod -R 777 {gff_dir};
+        '
+        """
+        return Utils.run_image(img_name="bioperl/bioperl:latest", container_cmd=cmd)
+
+    def run_roary(self, sampledata_array: SampleDataArray, skip: bool = False):
+        _TOOL = "roary"
+        """
+        # Sample launch:
+        export IMG=sangerpathogens/roary:latest && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+        """
+        tool_dir = self.output_dirs[Utils.get_caller_name()]
+        stage_dir = os.path.join(tool_dir, "roary")
+        if skip:
+            logging.info("Skip {}".format(Utils.get_caller_name()))
+            return
+        self.clean_path(tool_dir)
+
+        gff_dir = os.path.join(self.blast_reference_dir, "gff")
+        self.clean_path(gff_dir)
+        log = self._convert_genbank_to_gff3(self.blast_reference_dir, gff_dir)
+        Utils.append_log(log, _TOOL)
+
+        # Input directory is actually a mask
+        cmd = f"""bash -c '
+            roary \
+                -f "{stage_dir}" \
+                -e \
+                --mafft \
+                -p {argValidator.threads} \
+                "{gff_dir}"/*;
+            chmod -R 777 "{tool_dir}"
+        '
+        """
+        log = Utils.run_image(img_name="sangerpathogens/roary:latest", container_cmd=cmd)
+        Utils.append_log(log, _TOOL)
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
@@ -937,7 +1023,7 @@ class Utils:
         Utils.dump_list(lst=["\t".join([str(j) for j in i]) for i in array], file=file)
 
     @staticmethod
-    def append_log(msg: str, tool_name: str, sample_name: str):
+    def append_log(msg: str, tool_name: str, sample_name: str = "all"):
         logging.debug(msg)
         file = os.path.join(argValidator.log_dir, "{}_{}.log".format(tool_name, sample_name))
         with open(file, mode="a", encoding="utf-8") as f:
@@ -1096,7 +1182,7 @@ class Utils:
     # Web-based methods
 
     @staticmethod
-    def download_file(url, out_file):
+    def download_file(url, out_file, force: bool = False):
         import subprocess
         from time import sleep
         _RETRIES = 5
@@ -1104,13 +1190,16 @@ class Utils:
         _ERROR_REPORTS = ("transfer closed with",)
         url = url.strip()
         out_file = out_file.strip()
+        if not force and Utils.is_file_valid(out_file):
+            logging.debug("Already downloaded: '{}'".format(out_file))
+            return
         out_dir = os.path.dirname(out_file)
         assert len(url) > 0 and len(out_dir) > 0
         os.makedirs(out_dir, exist_ok=True)
         for c in range(_RETRIES):
             log = subprocess.getoutput("curl -fsSL {} -o {}".format(url, out_file))
             print(log)
-            if os.path.isfile(out_file) and all(i not in log for i in _ERROR_REPORTS):
+            if Utils.is_file_valid(out_file) and all(i not in log for i in _ERROR_REPORTS):
                 logging.debug("Download finished: '{}'".format(out_file))
                 return
             sleep(_SLEEP_SECONDS)
