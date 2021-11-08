@@ -704,19 +704,6 @@ class Handler:
                 srst2_result_file = log_lines[0].split(_PHRASE)[-1].strip()
                 return srst2_result_file
 
-    @staticmethod
-    def _locate_srst2_result_file(srst2_out_dir: str):
-        results = [i for i in Utils.scan_whole_dir(srst2_out_dir) if i.endswith("__results.txt")]
-        if len(results) > 0:
-            result = results[0]
-            if len(results) > 1:
-                logging.warning("More than 1 SRST2 result files were found, using the first one: {}".format(results))
-            logging.info("Located the SRST2 result file: '{}'".format(result))
-            return result
-        else:
-            logging.warning("Cannot locate a suitable SRST2 result file in the directory: '{}'".format(srst2_out_dir))
-            return ""
-
     # MLST typing
     def run_srst2(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample, full cleaning is NOT required
@@ -729,7 +716,7 @@ class Handler:
         docker run --rm --net=host -it $IMG srst2 -h
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
-        reference_dir = os.path.join(tool_dir, "reference")
+        reference_dir = os.path.join(self.srst2_reference_dir, sampledata.prefix)
         stage_dir = os.path.join(tool_dir, sampledata.name)
         self.clean_path(stage_dir)
         if skip or sampledata.is_taxa_valid is None:
@@ -742,8 +729,10 @@ class Handler:
         if Utils.is_file_valid(getmlst_state_file):
             getmlst_state = json.loads(Utils.load_string(getmlst_state_file))
         else:
-            getmlst_state = self._run_getmlst(taxa=taxa, out_dir=reference_dir,
-                                              out_file=getmlst_state_file, sample_name=sampledata.name)
+            getmlst_state = self._run_getmlst(taxa=taxa,
+                                              out_dir=reference_dir,
+                                              out_file=getmlst_state_file,
+                                              sample_name=sampledata.name)
         # The input read files must be named by a strict pattern:
         # https://github.com/katholt/srst2#input-read-formats-and-options
         input_reads = [os.path.join(stage_dir, "{}_{}.fastq.gz".format(sampledata.name, idx + 1))
@@ -755,7 +744,7 @@ class Handler:
              cd {stage_dir};
              ln -s {sampledata.reads[0]} {input_reads[0]};
              ln -s {sampledata.reads[1]} {input_reads[1]};
-             srst2 --log \
+             {_TOOL} --log \
                 --input_pe {" ".join(input_reads)} \
                 --mlst_db {getmlst_state["mlst_db"]} \
                 --mlst_definitions {getmlst_state["mlst_definitions"]} \
@@ -776,7 +765,7 @@ class Handler:
         if not os.path.isfile(sampledata.srst2_result):
             logging.warning("Not found the SRST2 processing result file: '{}', trying to locate it".format(
                 sampledata.srst2_result))
-            sampledata.srst2_result = self._locate_srst2_result_file(stage_dir)
+            sampledata.srst2_result = Utils.locate_file_by_tail(stage_dir, "__results.txt")
 
     def merge_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
         """
