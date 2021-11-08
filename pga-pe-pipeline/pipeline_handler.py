@@ -747,8 +747,8 @@ class Handler:
         # Deliberately set the tag with fully supported environment
         # https://quay.io/repository/biocontainers/srst2?tab=tags
         log = self.run_quay_image(_TOOL, img_tag="0.2.0--py27_2", cmd=cmd, attempts=_SRST2_ATTEMPTS,
-                                        bad_phrases=["Encountered internal Bowtie 2 exception",
-                                                     "[main_samview] truncated file."])
+                                  bad_phrases=["Encountered internal Bowtie 2 exception",
+                                               "[main_samview] truncated file."])
         Utils.append_log(log, _TOOL, sampledata.name)
 
         sampledata.srst2_result = self._parse_srst2_result_log(out_mask)
@@ -820,6 +820,7 @@ class Handler:
             log = self._download_card_reference(reference_dir)
             Utils.append_log(log, _TOOL, sampledata.name)
         self.clean_path(stage_dir)
+
         # Outputs here are masks only
         cmd = f"""
         bash -c '
@@ -859,6 +860,15 @@ class Handler:
         """
         return Utils.run_image(img_name="bioperl/bioperl:latest", container_cmd=cmd)
 
+    @staticmethod
+    def _process_newick(directory: str, out_file: str):
+        file = Utils.locate_file_by_tail(directory, ".newick")
+        if len(file) == 0:
+            logging.warning("No Newick file found!")
+            return
+        content = Utils.load_string(file)
+        Utils.dump_string(re.sub("\.(gbk|gff)", "", content), out_file)
+
     def run_roary(self, sampledata_array: SampleDataArray, skip: bool = False):
         _TOOL = "roary"
         """
@@ -877,9 +887,9 @@ class Handler:
         log = self._convert_genbank_to_gff3(self.blast_reference_dir, self.roary_reference_dir)
         Utils.append_log(log, _TOOL)
 
-        # Input directory is actually a mask
+        # Output here is a mask only
         cmd = f"""bash -c '
-            roary \
+            {_TOOL} \
                 -f "{os.path.join(tool_dir, "out")}" \
                 -e \
                 --mafft \
@@ -890,6 +900,9 @@ class Handler:
         """
         log = Utils.run_image(img_name="sangerpathogens/roary:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL)
+
+        newick_file = os.path.join(tool_dir, f"{_TOOL}.newick")
+        self._process_newick(tool_dir, newick_file)
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
