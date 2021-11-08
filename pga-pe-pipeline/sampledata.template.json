@@ -1,0 +1,7 @@
+{ "sample_name":
+    { "name": "sample_name",
+      "raw_reads": [ "/path/to/R1",
+                 "/path/to/R2"],
+      "taxa": "Genera species strain strain_name"
+    }
+ }
