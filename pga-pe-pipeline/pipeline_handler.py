@@ -841,7 +841,7 @@ class Handler:
                 --input_sequence "{sampledata.genome_assembly}" \
                 --input_type contig \
                 --num_threads {argValidator.threads} \
-                --output_file "{os.path.join(stage_dir, sampledata.name)}";
+                --output_file "{os.path.join(stage_dir, "(}_{}".format(sampledata.name, _TOOL))}";
             for category in "drug_class" "resistance_mechanism" "gene_family";
                 do \
                     {_TOOL} heatmap \
