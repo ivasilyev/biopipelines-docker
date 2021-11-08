@@ -68,10 +68,6 @@ Columns:
                 start_point, finish_point))
         # Make 'stages_to_do' zero-based
         self.stages_to_do = range(start_point - 1, finish_point)
-        if len(self.hg_index_dir) > 0:
-            self.hg_index_mask = Utils.parse_index_mask_from_dir(self.hg_index_dir)
-            if len(self.hg_index_mask) == 0:
-                logging.warning("The directory does not contain valid bowtie2 (*.bt2) indexes: '{}'".format(self.hg_index_mask))
 
 
 class SampleDataLine:
@@ -235,14 +231,15 @@ class Handler:
         self.output_dir_root = output_dir.strip()
         self.output_dirs = dict()
         #
-        self.reference_dir = os.path.join(self.output_dir_root, "references")
-        self.blast_reference_dir = os.path.join(self.reference_dir, "blast")
-        self.roary_reference_dir = os.path.join(self.reference_dir, "roary")
-        self.srst2_reference_dir = os.path.join(self.reference_dir, "srst2")
+        self._reference_dir = os.path.join(self.output_dir_root, "references")
+        self.blast_reference_dir = os.path.join(self._reference_dir, "blast")
+        self.card_reference_dir = os.path.join(self._reference_dir, "card")
+        self.roary_reference_dir = os.path.join(self._reference_dir, "roary")
+        self.srst2_reference_dir = os.path.join(self._reference_dir, "srst2")
 
-        self.hg19_reference_dir = argValidator.hg_index_dir
-        if len(self.hg19_reference_dir) == 0:
-            self.hg19_reference_dir = os.path.join(self.reference_dir, "hg19")
+        self.human_genome_reference_dir = ""
+        if len(self.human_genome_reference_dir) == 0:
+            self.human_genome_reference_dir = os.path.join(self._reference_dir, "human_genome")
         #
         self.state = dict()
         #
@@ -412,7 +409,7 @@ class Handler:
             chmod -R 777 {directory};
         '
         """
-        logging.info("Downloaded the HG reference")
+        logging.info("Downloaded the reference human genome")
         return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
 
     def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
@@ -423,12 +420,13 @@ class Handler:
         this_name = Utils.get_caller_name()
         stage_dir = self.output_dirs[this_name]
 
-        os.makedirs(self.hg19_reference_dir, exist_ok=True)
-        index_mask = self._parse_bowtie2_index_mask(self.hg19_reference_dir)
+        os.makedirs(self.human_genome_reference_dir, exist_ok=True)
+        index_mask = self._parse_bowtie2_index_mask(self.human_genome_reference_dir)
         if len(index_mask) == 0:
-            log = self._download_hg_reference(self.hg19_reference_dir)
+            logging.warning("The directory does not contain valid bowtie2 (*.bt2) indexes: '{}'".format(self.human_genome_reference_dir))
+            log = self._download_hg_reference(self.human_genome_reference_dir)
             Utils.append_log(log, _TOOL, sampledata.name)
-            index_mask = self._parse_bowtie2_index_mask(self.hg19_reference_dir)
+            index_mask = self._parse_bowtie2_index_mask(self.human_genome_reference_dir)
 
         mapped_reads_dir = os.path.join(stage_dir, "mapped")
         mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
@@ -820,7 +818,6 @@ class Handler:
         docker run --rm --net=host -it $IMG rgi
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
-        reference_dir = os.path.join(tool_dir, "reference")
         stage_dir = os.path.join(tool_dir, sampledata.name)
         if skip or not sampledata.is_valid:
             logging.info("Skip {}".format(Utils.get_caller_name()))
