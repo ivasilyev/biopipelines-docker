@@ -17,6 +17,7 @@ from datetime import datetime
 
 
 BLAST_REFERENCES = 100
+BOWTIE2_HG_IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
 
 
 class ArgValidator:
@@ -237,6 +238,11 @@ class Handler:
         self.reference_dir = os.path.join(self.output_dir_root, "references")
         self.blast_reference_dir = os.path.join(self.reference_dir, "blast")
         self.roary_reference_dir = os.path.join(self.reference_dir, "roary")
+        self.srst2_reference_dir = os.path.join(self.reference_dir, "srst2")
+
+        self.hg19_reference_dir = argValidator.hg_index_dir
+        if len(self.hg19_reference_dir) == 0:
+            self.hg19_reference_dir = os.path.join(self.reference_dir, "hg19")
         #
         self.state = dict()
         #
@@ -390,25 +396,40 @@ class Handler:
             logging.info("Skip {}".format(Utils.get_caller_name()))
         sampledata.set_reads(trimmed_reads)
 
+    @staticmethod
+    def _parse_bowtie2_index_mask(directory: str):
+        indices = sorted(Utils.locate_file_by_tail(directory, ".bt2", True), key=len)
+        if len(indices) > 0:
+            return ".".join(indices[0].split(".")[:-2])
+        return ""
+
+    def _download_hg_reference(self, directory: str):
+        self.clean_path(directory)
+        cmd = f"""
+        bash -c '
+            cd {directory};
+            curl -fsSL "{BOWTIE2_HG_IDX_URL}" | tar -xzf -;
+            chmod -R 777 {directory};
+        '
+        """
+        logging.info("Downloaded the HG reference")
+        return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+
     def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "bowtie2"
-        _IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         this_name = Utils.get_caller_name()
         stage_dir = self.output_dirs[this_name]
-        index_dir = os.path.join(stage_dir, "index")
-        if len(argValidator.hg_index_dir) > 0:
-            index_dir = argValidator.hg_index_dir
-        index_mask = argValidator.hg_index_mask
+
+        os.makedirs(self.hg19_reference_dir, exist_ok=True)
+        index_mask = self._parse_bowtie2_index_mask(self.hg19_reference_dir)
         if len(index_mask) == 0:
-            archive = os.path.join(index_dir, "index.tar.gz")
-            if not os.path.isfile(archive):
-                logging.info("Download the human genome bowtie2 indexes")
-                Utils.download_file(_IDX_URL, archive)
-            Utils.unzip_archive(archive, index_dir)
-            index_mask = Utils.parse_index_mask_from_dir(index_dir)
+            log = self._download_hg_reference(self.hg19_reference_dir)
+            Utils.append_log(log, _TOOL, sampledata.name)
+            index_mask = self._parse_bowtie2_index_mask(self.hg19_reference_dir)
+
         mapped_reads_dir = os.path.join(stage_dir, "mapped")
         mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
         unmapped_reads_dir = os.path.join(stage_dir, "unmapped", sampledata.name)
@@ -991,20 +1012,13 @@ class Utils:
         return ".{}".format(".".join(out[:deep][::-1]))
 
     @staticmethod
-    def locate_file_by_tail(directory_to_search: str, tail: str, multiple: bool = False):
-        files = [i for i in Utils.scan_whole_dir(directory_to_search) if i.endswith(tail)]
+    def locate_file_by_tail(dir_name: str, tail: str, multiple: bool = False):
+        files = [i for i in Utils.scan_whole_dir(dir_name) if i.endswith(tail)]
         if len(files) == 0:
             return ""
         if multiple:
             return files
         return files[0]
-
-    @staticmethod
-    def parse_index_mask_from_dir(dir_name: str):
-        indexes = sorted([i for i in Utils.scan_whole_dir(dir_name) if i.endswith(".bt2")], key=len)
-        if len(indexes) > 0:
-            return ".".join(indexes[0].split(".")[:-2])
-        return ""
 
     # System methods
 
