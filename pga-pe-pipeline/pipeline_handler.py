@@ -800,7 +800,8 @@ class Handler:
         bash -c '
             cd {reference_dir};
             for i in "https://card.mcmaster.ca/latest/data" "https://card.mcmaster.ca/latest/ontology" "https://card.mcmaster.ca/latest/variants";
-                do curl -fsSL "$i" | tar jxf -;
+                do \
+                    curl -fsSL "$i" | tar jxf -;
                 done;
             chmod -R 777 {reference_dir};
         '
@@ -813,18 +814,20 @@ class Handler:
         _TOOL = "rgi"
         """
         # Sample launch:
-        IMG=quay.io/biocontainers/rgi:5.1.1--py_0 && \
-        docker pull $IMG && \
-        docker run --rm --net=host -it $IMG rgi
+        export IMG=quay.io/biocontainers/rgi:5.1.1--py_0 && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         stage_dir = os.path.join(tool_dir, sampledata.name)
         if skip or not sampledata.is_valid:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
-        reference_file = os.path.join(reference_dir, "card.json")
-        if "card.json" not in Utils.scan_whole_dir(reference_file):
-            log = self._download_card_reference(reference_dir)
+
+        os.makedirs(self.card_reference_dir, exist_ok=True)
+        reference_file = Utils.locate_file_by_tail(self.card_reference_dir, "card.json")
+        if len(reference_file) == 0:
+            log = self._download_card_reference(self.card_reference_dir)
             Utils.append_log(log, _TOOL, sampledata.name)
         self.clean_path(stage_dir)
 
@@ -832,21 +835,31 @@ class Handler:
         cmd = f"""
         bash -c '
             cd "{stage_dir}";
-            rgi load --card_json "{reference_file}";
-            rgi main --clean \
+            {_TOOL} load --card_json "{reference_file}";
+            {_TOOL} main \
+                --clean \
                 --input_sequence "{sampledata.genome_assembly}" \
                 --input_type contig \
-                --num_threads "$(cat /proc/cpuinfo | grep -c processor)" \
+                --num_threads {argValidator.threads} \
                 --output_file "{os.path.join(stage_dir, sampledata.name)}";
-            rgi heatmap \
-                --input "{stage_dir}" \
-                --category drug_class \
-                --output "{os.path.join(stage_dir, f"{sampledata.name}_resistance_heatmap")}"; 
+            for category in "drug_class" "resistance_mechanism" "gene_family";
+                do \
+                    {_TOOL} heatmap \
+                        --input "{stage_dir}" \
+                        --category "$category" \
+                        --output "{os.path.join(stage_dir, sampledata.name)}_resistance_heatmap_by_$category";
+                done;
             chmod -R 777 "{stage_dir}";
         '
         """
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
+        """
+        Yellow represents a perfect hit, 
+        teal represents a strict hit, 
+        purple represents no hit. 
+        Genes with asterisks (*) appear multiple times.
+        """
 
     @staticmethod
     def _convert_genbank_to_gff3(gbff_dir, gff_dir):
