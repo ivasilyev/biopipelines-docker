@@ -841,13 +841,13 @@ class Handler:
                 --input_sequence "{sampledata.genome_assembly}" \
                 --input_type contig \
                 --num_threads {argValidator.threads} \
-                --output_file "{os.path.join(stage_dir, "(}_{}".format(sampledata.name, _TOOL))}";
+                --output_file "{out_mask}";
             for category in "drug_class" "resistance_mechanism" "gene_family";
                 do \
                     {_TOOL} heatmap \
                         --input "{stage_dir}" \
                         --category "$category" \
-                        --output "{os.path.join(stage_dir, sampledata.name)}_resistance_heatmap_by_$category";
+                        --output "{out_mask}_heatmap_by_$category";
                 done;
             chmod -R 777 "{stage_dir}";
         '
