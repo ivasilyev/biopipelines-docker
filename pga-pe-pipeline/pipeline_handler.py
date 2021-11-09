@@ -81,7 +81,9 @@ class SampleDataLine:
         self.genomes = dict()
         self.faa = ""
         self.chromosome_annotation = ""
-        self.blast_result_file = ""
+        self.blast_result_json = ""
+        self.blast_result_table = ""
+
         self.reference_fna = ""
         self.srst2_result = ""
 
@@ -551,17 +553,17 @@ class Handler:
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip {}".format(Utils.get_caller_name()))
-        blast_result_files = [i for i in Utils.scan_whole_dir(stage_dir) if i.endswith(".json")]
-        if len(blast_result_files) == 0:
-            logging.warning("No BLAST results!")
+        sampledata.blast_result_json = Utils.locate_file_by_tail(stage_dir, ".json")
+        if len(sampledata.blast_result_json) == 0:
+            logging.warning("No BLAST JSON result!")
             return
-        sampledata.blast_result_file = blast_result_files[0]
-        blast_result_dict = json.loads(Utils.load_string(sampledata.blast_result_file))
+        blast_result_dict = json.loads(Utils.load_string(sampledata.blast_result_json))
         blast_top_result = list(blast_result_dict.keys())[0]
         taxa_part = blast_top_result.split("| ")[-1]
         genus, species = Utils.safe_findall("^[A-Z][a-z]+ [a-z]+", taxa_part).split(" ")
         logging.info("The best matching organism is {} {}".format(genus, species))
         sampledata.set_taxa(genus=genus, species=species, strain="")
+        sampledata.blast_result_table = Utils.locate_file_by_tail(stage_dir, "combined_blast_results.tsv")
 
     @staticmethod
     def _locate_annotated_genome(directory: str):
@@ -830,6 +832,7 @@ class Handler:
             log = self._download_card_reference(self.card_reference_dir)
             Utils.append_log(log, _TOOL, sampledata.name)
         self.clean_path(stage_dir)
+        out_mask = os.path.join(stage_dir, sampledata.name)
 
         # Outputs here are masks only
         cmd = f"""
