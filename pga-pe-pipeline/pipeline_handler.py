@@ -166,6 +166,14 @@ class SampleDataArray:
     def __init__(self):
         self.lines = dict()
 
+    @property
+    def blast_result_tables(self):
+        return [i.blast_result_table for i in self.lines.values()]
+
+    @property
+    def srst2_results(self):
+        return [i.srst2_result for i in self.lines.values()]
+
     def validate(self):
         d = dict()
         for key in self.lines:
