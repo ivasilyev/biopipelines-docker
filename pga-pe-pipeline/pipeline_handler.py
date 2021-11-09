@@ -165,14 +165,17 @@ class SampleDataLine:
 class SampleDataArray:
     def __init__(self):
         self.lines = dict()
+        self.srst2_merged_table = ""
+        self.blast_merged_table = ""
+        self.roary_edited_newick = ""
 
     @property
     def blast_result_tables(self):
-        return [i.blast_result_table for i in self.lines.values()]
+        return Utils.remove_empty_values([i.blast_result_table for i in self.lines.values()])
 
     @property
     def srst2_results(self):
-        return [i.srst2_result for i in self.lines.values()]
+        return Utils.remove_empty_values([i.srst2_result for i in self.lines.values()])
 
     def validate(self):
         d = dict()
@@ -235,7 +238,8 @@ class Handler:
             self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff,
             self.run_rgi, self.run_srst2
         ]
-        self.group_methods = [self.merge_srst2_results, self.run_roary, self.run_orthomcl]
+        self.group_methods = [self.merge_srst2_results, self.merge_blast_results, self.run_roary,
+                              self.run_orthomcl]
         #
         self.valid = False
         self.output_dir_root = output_dir.strip()
@@ -784,7 +788,7 @@ class Handler:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         self.clean_path(tool_dir)
-        merged_file = os.path.join(tool_dir, "merged_srst2_results.tsv")
+        merged_file = os.path.join(tool_dir, "srst2_merged_results.tsv")
         merged_lines = []
         # Example SRST2 output file columns:
         # Sample, ST, gapA, infB, mdh, pgi, phoE, rpoB, tonB, mismatches, uncertainty, depth, maxMAF
@@ -872,6 +876,31 @@ class Handler:
         Genes with asterisks (*) appear multiple times.
         """
 
+    def merge_blast_results(self, sampledata_array: SampleDataArray, skip: bool = False):
+        _TOOL = "concatenate_tables"
+        tool_dir = self.output_dirs[Utils.get_caller_name()]
+        if skip:
+            logging.info("Skip {}".format(Utils.get_caller_name()))
+            return
+        sampledata_array.blast_merged_table = os.path.join(tool_dir, "blast_merged_results.tsv")
+        table_list = sampledata_array.blast_result_tables
+        if len(table_list) == 0:
+            logging.warning("No BLAST result tables!")
+            return
+        cmd = f"""
+        bash -c 'join
+            git pull --quiet;
+            python3 ./meta/scripts/{_TOOL}.py \
+                --input {Utils.render_file_list(table_list)} \
+                --axis 0 \
+                --output {sampledata_array.blast_merged_table};
+            chmod -R 777 {sampledata_array.blast_merged_table}
+        '
+        """
+        self.clean_path(tool_dir)
+        log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+        Utils.append_log(log, _TOOL)
+
     @staticmethod
     def _convert_genbank_to_gff3(gbff_dir, gff_dir):
         _ = [os.makedirs(i, exist_ok=True) for i in (gbff_dir, gff_dir)]
@@ -892,13 +921,22 @@ class Handler:
         return Utils.run_image(img_name="bioperl/bioperl:latest", container_cmd=cmd)
 
     @staticmethod
-    def _process_newick(directory: str, out_file: str):
-        file = Utils.locate_file_by_tail(directory, ".newick")
-        if len(file) == 0:
+    def _process_newick(input_dir, blast_result_table, out_file):
+        newick_file = Utils.locate_file_by_tail(input_dir, ".newick")
+        if len(newick_file) == 0:
             logging.warning("No Newick file found!")
-            return
-        content = Utils.load_string(file)
-        Utils.dump_string(re.sub("\.(gbk|gff)", "", content), out_file)
+            return ""
+        cmd = f"""
+        bash -c '
+            git pull --quiet;
+            python3 ./meta/scripts/replace_ids_with_strains_from_blast_result_table.py \
+                --input {newick_file} \
+                --table {blast_result_table} \
+                --output {out_file};
+            chmod -R 777 {newick_file}
+        '
+        """
+        return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
 
     def run_roary(self, sampledata_array: SampleDataArray, skip: bool = False):
         _TOOL = "roary"
@@ -918,7 +956,7 @@ class Handler:
         log = self._convert_genbank_to_gff3(self.blast_reference_dir, self.roary_reference_dir)
         Utils.append_log(log, _TOOL)
 
-        # Output here is a mask only
+        # Output here must be created by the program only
         cmd = f"""bash -c '
             {_TOOL} \
                 -f "{os.path.join(tool_dir, "out")}" \
@@ -932,8 +970,13 @@ class Handler:
         log = Utils.run_image(img_name="sangerpathogens/roary:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL)
 
-        newick_file = os.path.join(tool_dir, f"{_TOOL}.newick")
-        self._process_newick(tool_dir, newick_file)
+        sampledata_array.roary_edited_newick = os.path.join(tool_dir, "roary_edited_results.newick")
+
+        log = self._process_newick(os.path.join(tool_dir, "out"),
+                                   sampledata_array.blast_merged_table,
+                                   sampledata_array.roary_edited_newick)
+        if len(log) > 0:
+            Utils.append_log(log, _TOOL)
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
@@ -1153,6 +1196,10 @@ class Utils:
             genus, species, strain = [j if j is not None else "" for j in
                                       [taxa.get(i) for i in "genus, species, strain".split(", ")]]
         return dict(genus=genus, species=species, strain=strain)
+
+    @staticmethod
+    def render_file_list(x):
+        return '"{}"'.format('", "'.join(Utils.remove_empty_values(x)))
 
     # Function handling methods
 
