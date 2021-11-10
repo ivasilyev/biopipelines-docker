@@ -85,7 +85,7 @@ class SampleDataLine:
         self.blast_result_table = ""
 
         self.reference_fna = ""
-        self.srst2_result = ""
+        self.srst2_result_table = ""
 
         # E.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], "Escherichia coli O157:H7"]
         self.name = sample_name.strip()
@@ -174,8 +174,8 @@ class SampleDataArray:
         return Utils.remove_empty_values([i.blast_result_table for i in self.lines.values()])
 
     @property
-    def srst2_results(self):
-        return Utils.remove_empty_values([i.srst2_result for i in self.lines.values()])
+    def srst2_result_tables(self):
+        return Utils.remove_empty_values([i.srst2_result_table for i in self.lines.values()])
 
     def validate(self):
         d = dict()
@@ -773,39 +773,36 @@ class Handler:
                                                "[main_samview] truncated file."])
         Utils.append_log(log, _TOOL, sampledata.name)
 
-        sampledata.srst2_result = self._parse_srst2_result_log(out_mask)
-        if not os.path.isfile(sampledata.srst2_result):
+        sampledata.srst2_result_table = self._parse_srst2_result_log(out_mask)
+        if not os.path.isfile(sampledata.srst2_result_table):
             logging.warning("Not found the SRST2 processing result file: '{}', trying to locate it".format(
-                sampledata.srst2_result))
-            sampledata.srst2_result = Utils.locate_file_by_tail(stage_dir, "__results.txt")
+                sampledata.srst2_result_table))
+            sampledata.srst2_result_table = Utils.locate_file_by_tail(stage_dir, "__results.txt")
 
     def merge_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
-        """
-        Simple data concatenation method
-        """
+        _TOOL = "concatenate_tables"
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
+        sampledata_array.srst2_merged_table = os.path.join(tool_dir, "srst2_merged_results.tsv")
+        table_list = sampledata_array.srst2_result_tables
+        if len(table_list) == 0:
+            logging.warning("No SRST@ result tables!")
+            return
+        cmd = f"""
+        bash -c 'join
+            git pull --quiet;
+            python3 ./meta/scripts/{_TOOL}.py \
+                --input {Utils.render_file_list(table_list)} \
+                --axis 0 \
+                --output {sampledata_array.srst2_merged_table};
+            chmod -R 777 {sampledata_array.srst2_merged_table}
+        '
+        """
         self.clean_path(tool_dir)
-        merged_file = os.path.join(tool_dir, "srst2_merged_results.tsv")
-        merged_lines = []
-        # Example SRST2 output file columns:
-        # Sample, ST, gapA, infB, mdh, pgi, phoE, rpoB, tonB, mismatches, uncertainty, depth, maxMAF
-        for sampledata in sampledata_array.lines.values():
-            if Utils.is_file_valid(sampledata.srst2_result):
-                result_lines = Utils.load_list(sampledata.srst2_result)
-                if len(merged_lines) == 0:
-                    merged_lines.extend(result_lines)
-                else:
-                    merged_lines.extend(result_lines[1:])
-            else:
-                logging.warning("Not found the SRST2 processing result file: '{}'".format(sampledata.srst2_result))
-        if len(merged_lines) > 0:
-            Utils.dump_list(merged_lines, merged_file)
-            logging.info("Merged SRST2 result file: '{}'".format(merged_file))
-        else:
-            logging.warning("Cannot merge SRST2 results: nothing to merge")
+        log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+        Utils.append_log(log, _TOOL)
 
     def _download_card_reference(self, reference_dir):
         # The CARD reference updates relatively frequent, so it's better to fetch a fresh copy per launch
