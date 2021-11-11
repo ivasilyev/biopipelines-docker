@@ -123,10 +123,14 @@ class SampleDataLine:
     @staticmethod
     def parse(d: dict):
         """
-        :param d: {sample_name: str, raw_reads: [str, ...], taxa: str}
-        :return: SampleDataLine object
+        :param d: dict
+        {"key_1": "sample_name", "key_2": "raw_reads", "key_1": "taxa", ...}
         """
-        return SampleDataLine(d["name"], d["raw_reads"], d["taxa"])
+        _KEYS = ("sample_name", "sample_reads", "taxa")
+        if all(i in d.keys() for i in _KEYS):
+            return SampleDataLine(d["sample_name"], d["sample_reads"], d["taxa"])
+        keys = list(d.keys())
+        return SampleDataLine(*[d[i] for i in keys[:3]])
 
     @property
     def reads_string(self):
@@ -194,6 +198,12 @@ class SampleDataArray:
 
     @staticmethod
     def parse(d: dict):
+        """
+        :param d: dict
+        {sample_name: , sample_reads: list, taxa)}
+        :return:
+        """
+
         arr = SampleDataArray()
         arr.lines = {k: SampleDataLine.parse(v) for k, v in d.items()}
         arr.validate()
