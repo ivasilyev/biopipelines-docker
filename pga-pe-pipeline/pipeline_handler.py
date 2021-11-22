@@ -654,7 +654,7 @@ class Handler:
                 --outdir {stage_dir} \
                 --force \
                 --prefix {sampledata.name} \
-                --locustag {sampledata.name} {taxa_append} \
+                --rfam \
                 {sampledata.genome_assembly};
             chmod -R 777 {stage_dir}
         '
