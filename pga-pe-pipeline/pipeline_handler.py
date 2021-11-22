@@ -541,18 +541,26 @@ class Handler:
         sampledata.plasmid_assembly = assemblies["plasmid"]
 
     def run_plasmid_merger(self, sampledata: SampleDataLine, skip: bool = False):
+        # One per sample
         _TOOL = "merge_chromosome_and_plasmid_assemblies"
+        """
+        # Sample launch:
+        export IMG=ivasilyev/curated_projects:latest && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+        """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         genome_assembly = os.path.join(stage_dir, "{}_genome.fna".format(sampledata.name))
-        cmd = """
-        bash -c \
-            '
+        cmd = f"""
+        bash -c '
             git pull --quiet;
             python3 ./meta/scripts/merge_chromosome_and_plasmid_assemblies.py \
-                -c {c} -p {p} -o {g};
-            chmod -R 777 {d}
-            '
-        """.format(c=sampledata.chromosome_assembly, p=sampledata.plasmid_assembly, g=genome_assembly, d=stage_dir)
+                --chromosome {sampledata.chromosome_assembly} \
+                --plasmid {sampledata.plasmid_assembly} \
+                --output {genome_assembly};
+            chmod -R 777 {stage_dir}
+        '
+        """
         if not skip:
             self.clean_path(stage_dir)
             log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
