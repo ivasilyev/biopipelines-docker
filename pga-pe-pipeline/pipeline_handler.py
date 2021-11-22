@@ -404,15 +404,28 @@ class Handler:
         # One per sample
         _TOOL = "cutadapt"
         _ADAPTER = "AGATCGGAAGAG"
+        """
+        # Sample launch:
+        export IMG=quay.io/biocontainers/cutadapt:3.5--py37h73a75cf_0 && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+        """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
-        cmd = """
-        bash -c \
-            'cd o;
-             {T} -a {a} -A {a} -m 50 -o {t1} -p {t2} {r1} {r2};
-             chmod -R 777 {o}'
-        """.format(T=_TOOL, a=_ADAPTER, r1=sampledata.reads[0], r2=sampledata.reads[1], t1=trimmed_reads[0],
-                   t2=trimmed_reads[1], o=stage_dir)
+        cmd = f"""
+        bash -c '
+            {_TOOL} --version;
+            cd {stage_dir};
+            {_TOOL} \
+                --adapter {_ADAPTER} \
+                -A {_ADAPTER} \
+                --minimum-length 50 \
+                --output {trimmed_reads[0]} \
+                --paired-output {trimmed_reads[1]} \
+                {sampledata.reads_string};
+            chmod -R 777 {stage_dir}
+        '
+        """
         if not skip:
             self.clean_path(stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
