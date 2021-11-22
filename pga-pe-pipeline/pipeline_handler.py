@@ -248,7 +248,7 @@ class SampleDataArray:
 class Handler:
     def __init__(self, output_dir: str = ""):
         self.sample_methods = [
-            self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
+            self.run_and_parse_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
             self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_quast,
             self.run_prokka, self.run_rgi, self.run_srst2
         ]
@@ -345,37 +345,58 @@ class Handler:
         return processed_reads
 
     # Pipeline steps
-    def run_fastqc(self, sampledata: SampleDataLine, skip: bool = False):
+    def _run_fastqc(self, sampledata_name: str, reads_file, out_dir: str):
+        # One per read file, two per sample
         _TOOL = "fastqc"
-        # One per read sample
-        name = Utils.get_caller_name()
-        stage_dirs = {j: os.path.join(
-            self.output_dirs[name], sampledata.name, "{}_{}".format(
-                sampledata.name, i + 1)) for i, j in enumerate(sampledata.reads)}
-        for reads_file in stage_dirs.keys():
-            stage_dir = stage_dirs[reads_file]
-            cmd = """
-            bash -c \
-                'cd {o};
-                 {T} -o {o} -t {c} {r};
-                 chmod -R 777 {o}'
-            """.format(T=_TOOL, c=argValidator.threads, r=reads_file, o=stage_dir)
+        """
+        # Sample launch:
+        export IMG=quay.io/biocontainers/fastqc:0.11.9--hdfd78af_1 && \
+        docker pull ${IMG} && \
+        docker run --rm -v /data1/data1 --net=host -it ${IMG} bash
+        """
+        cmd = f"""
+        bash -c '
+            {_TOOL} --version;
+            cd "{out_dir}";
+            {_TOOL} \
+                --extract \
+                --outdir "{out_dir}" \
+                --threads {argValidator.threads} \
+                "{reads_file}";
+            rm -f *.zip;
+            chmod -R 777 "{out_dir}";
+        '
+        """
+        self.clean_path(out_dir)
+        log = self.run_quay_image(_TOOL, cmd=cmd)
+        Utils.append_log(log, _TOOL, sampledata_name)
+
+    @staticmethod
+    def _parse_fastqc_result(directory: str):
+        out = []
+        summary_table = Utils.locate_file_by_tail(directory, "summary.txt")
+        if len(summary_table) != 0:
+            out = Utils.load_2d_array(summary_table)
+        return out
+
+    def run_and_parse_fastqc(self, sampledata: SampleDataLine, skip: bool = False):
+        # One per sample
+        stage_name = Utils.get_caller_name()
+        tool_dir = self.output_dirs[stage_name]
+        stage_dir = os.path.join(tool_dir, sampledata.name)
+
+        for index, reads_file in enumerate(sampledata.reads):
+            sub_stage_dir = os.path.join(stage_dir, f"{sampledata.name}_{index + 1}")
             if not skip:
-                self.clean_path(stage_dir)
-                log = self.run_quay_image(_TOOL, cmd=cmd)
-                Utils.append_log(log, _TOOL, sampledata.name)
-            else:
-                logging.info("Skip {}".format(Utils.get_caller_name()))
-        # Reads are unchanged, so there is nothing to return
-        # Parse output
-        self.state[name] = dict()
-        for reads_file in stage_dirs.keys():
-            stage_dir = stage_dirs[reads_file]
-            out_zip = [i for i in Utils.scan_whole_dir(stage_dir) if i.endswith(".zip")][0]
-            archive = zipfile.ZipFile(out_zip, "r")
-            basename = os.path.splitext(os.path.basename(out_zip))[0]
-            summary = archive.read(os.path.join(basename, "summary.txt")).decode("utf-8")
-            self.state[name][os.path.basename(reads_file)]: {i[1]: i[0] for i in Utils.string_to_2d_array(summary)}
+                self._run_fastqc(sampledata_name=sampledata.name,
+                                 reads_file=reads_file,
+                                 out_dir=sub_stage_dir)
+            fastqc_results = self._parse_fastqc_result(sub_stage_dir)
+            if len(fastqc_results) == 0 and not skip:
+                logging.warning("No FastQC results!")
+            if stage_name not in self.state.keys():
+                self.state[stage_name] = dict()
+            self.state[stage_name][reads_file] = fastqc_results
 
     def run_trimmomatic(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -389,6 +410,7 @@ class Handler:
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_trimmed".format(_TOOL))
         untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrimmed".format(_TOOL))
+        # There is no '-version' or '--help' CLI argument
         cmd = f"""
         bash -c '
             cd {stage_dir};
@@ -1249,10 +1271,6 @@ class Utils:
         return " ".join([str(i) for i in x])
 
     @staticmethod
-    def load_2d_array(file: str):
-        return Utils.string_to_2d_array(Utils.load_string(file))
-
-    @staticmethod
     def dump_2d_array(array: list, file: str):
         Utils.dump_list(lst=["\t".join([str(j) for j in i]) for i in array], file=file)
 
@@ -1295,6 +1313,14 @@ class Utils:
         return Utils.remove_empty_values(out)
 
     @staticmethod
+    def load_2d_array(file: str):
+        return Utils.string_to_2d_array(Utils.load_string(file))
+
+    @staticmethod
+    def flatten_2d_array(array: list):
+        return [j for i in array for j in i]
+
+    @staticmethod
     def remove_empty_values(input_list):
         output_list = []
         if input_list is not None:
@@ -1306,10 +1332,6 @@ class Utils:
                     except TypeError:
                         continue
         return output_list
-
-    @staticmethod
-    def flatten_2d_array(array: list):
-        return [j for i in array for j in i]
 
     @staticmethod
     def parse_taxa(taxa):
