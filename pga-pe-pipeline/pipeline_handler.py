@@ -455,6 +455,7 @@ class Handler:
             {_TOOL} \
                 --adapter {_ADAPTER} \
                 -A {_ADAPTER} \
+                --cores {argValidator.threads} \
                 --minimum-length 50 \
                 --output {trimmed_reads[0]} \
                 --paired-output {trimmed_reads[1]} \
