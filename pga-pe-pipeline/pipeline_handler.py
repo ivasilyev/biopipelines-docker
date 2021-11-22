@@ -515,6 +515,7 @@ class Handler:
             bash -c '
                 cd {assembly_dir};
                 export TOOL="$(find /usr/local/share/ -name "spades.py" -type f 2>/dev/null | grep 'spades.py$' | head -n 1)" && \
+                "$TOOL" --version && \
                 "$TOOL" \
                     --careful \
                     -o {assembly_dir} \
@@ -654,6 +655,7 @@ class Handler:
 
         cmd = f"""
         bash -c '
+            {_TOOL} --version;
             cd {stage_dir};
             {_TOOL} \
                 --centre UoN \
@@ -792,17 +794,18 @@ class Handler:
 
         cmd = f"""
         bash -c '
-             cd {stage_dir};
-             ln -s {sampledata.reads[0]} {input_reads[0]};
-             ln -s {sampledata.reads[1]} {input_reads[1]};
-             {_TOOL} --log \
-                --input_pe {" ".join(input_reads)} \
-                --mlst_db {getmlst_state["mlst_db"]} \
-                --mlst_definitions {getmlst_state["mlst_definitions"]} \
-                --mlst_delimiter {getmlst_state["mlst_delimiter"]} \
-                --output {out_mask} \
-                --threads {argValidator.threads};
-             chmod -R 777 {stage_dir}
+            {_TOOL} --version;
+            cd {stage_dir};
+            ln -s {sampledata.reads[0]} {input_reads[0]};
+            ln -s {sampledata.reads[1]} {input_reads[1]};
+            {_TOOL} --log \
+               --input_pe {" ".join(input_reads)} \
+               --mlst_db {getmlst_state["mlst_db"]} \
+               --mlst_definitions {getmlst_state["mlst_definitions"]} \
+               --mlst_delimiter {getmlst_state["mlst_delimiter"]} \
+               --output {out_mask} \
+               --threads {argValidator.threads};
+            chmod -R 777 {stage_dir}
         '
         """
         # Deliberately set the tag with fully supported environment
@@ -882,9 +885,11 @@ class Handler:
         self.clean_path(stage_dir)
         out_mask = os.path.join(stage_dir, sampledata.name)
 
+        # There is no '-v/--version' CLI argument
         # Outputs here are masks only
         cmd = f"""
         bash -c '
+            echo "$({_TOOL} --help | grep '^Resistance')";
             cd "{stage_dir}";
             {_TOOL} load --card_json "{reference_file}";
             {_TOOL} main \
@@ -992,8 +997,10 @@ class Handler:
         log = self._convert_genbank_to_gff3(self.blast_reference_dir, self.roary_reference_dir)
         Utils.append_log(log, _TOOL)
 
+        # There is no version number accessible via special or even help CLI arguments
         # Output here must be created by the program only
         cmd = f"""bash -c '
+            cd {tool_dir};
             {_TOOL} \
                 -f "{os.path.join(tool_dir, "out")}" \
                 -e \
