@@ -90,11 +90,13 @@ class SampleDataLine:
         # E.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], "Escherichia coli O157:H7"]
         self.name = sample_name.strip()
         self.reads = []
+        self.raw_reads = []
         self.set_reads(sample_reads)
         self.is_valid = False
         self._validate()
-        self.extension = Utils.get_file_extension(self.reads[0])
+        self.extension = Utils.get_file_extension(self.reads[0], 2)
         self.taxa_genus, self.taxa_species, self.taxa_strain = ["", ] * 3
+        self.closest_reference_genbank = ""
         self._parse_taxa(taxa)
 
     def __eq__(self, other):
@@ -244,9 +246,8 @@ class Handler:
     def __init__(self, output_dir: str = ""):
         self.sample_methods = [
             self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
-            self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_prokka,
-            self.run_bowtie2, self.run_samtools, self.run_vcftools, self.run_snpeff,
-            self.run_rgi, self.run_srst2
+            self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_quast,
+            self.run_prokka, self.run_rgi, self.run_srst2
         ]
         self.group_methods = [self.merge_srst2_results, self.merge_blast_results, self.run_roary,
                               self.run_orthomcl]
@@ -571,16 +572,6 @@ class Handler:
         if Utils.is_file_valid(genome_assembly):
             sampledata.genome_assembly = genome_assembly
 
-    def run_quast(self, sampledata: SampleDataLine, skip: bool = False):
-        # One per sample
-        _TOOL = "quast"
-        """
-        # Sample launch:
-        export IMG=quay.io/biocontainers/quast:5.0.2--py36pl5262h30a8e3e_4 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
-        """
-
     def run_blast(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "blast_nucleotide_sequence"
         tool_dir = self.output_dirs[Utils.get_caller_name()]
@@ -603,7 +594,7 @@ class Handler:
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip {}".format(Utils.get_caller_name()))
-        sampledata.blast_result_json = Utils.locate_file_by_tail(stage_dir, ".json")
+        sampledata.blast_result_json = Utils.locate_file_by_tail(stage_dir, "_blast_results.json")
         if len(sampledata.blast_result_json) == 0:
             logging.warning("No BLAST JSON result!")
             return
@@ -613,7 +604,63 @@ class Handler:
         genus, species = Utils.safe_findall("^[A-Z][a-z]+ [a-z]+", taxa_part).split(" ")
         logging.info("The best matching organism is {} {}".format(genus, species))
         sampledata.set_taxa(genus=genus, species=species, strain="")
+
         sampledata.blast_result_table = Utils.locate_file_by_tail(stage_dir, "combined_blast_results.tsv")
+
+        blast_report_json = Utils.locate_file_by_tail(stage_dir, "report.json")
+        if len(blast_report_json) == 0:
+            if not skip:
+                logging.warning("No BLAST JSON report!")
+            return
+        blast_report_dict = Utils.load_dict(blast_report_json)
+        genbank_files = blast_report_dict.get("genbank_files")
+        if genbank_files is None or len(genbank_files) == 0:
+            if not skip:
+                logging.warning("Invalid BLAST JSON report!")
+            return
+        sampledata.closest_reference_genbank = genbank_files[0]
+
+    def run_quast(self, sampledata: SampleDataLine, skip: bool = False):
+        # One per sample
+        _TOOL = "quast"
+        """
+        # Sample launch:
+        export IMG=quay.io/biocontainers/quast:5.0.2--py36pl5262h30a8e3e_4 && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+        """
+        stage_name = Utils.get_caller_name()
+        stage_dir = os.path.join(self.output_dirs[stage_name], sampledata.name)
+
+        if skip:
+            logging.info("Skip {}".format(stage_name))
+            return
+        self.clean_path(stage_dir)
+        genome_assembly_extension = Utils.get_file_extension(sampledata.genome_assembly)
+        genome_assembly_symlink = os.path.join(stage_dir, f"{os.path.basename(sampledata.name)}{genome_assembly_extension}")
+
+        cmd = f"""
+        bash -c '
+            {_TOOL} --version;
+            cd "{stage_dir}";
+            ln -s \
+                {sampledata.genome_assembly} \
+                {genome_assembly_symlink};
+            {_TOOL} \
+                --gene-finding \
+                --no-gzip \
+                --output-dir "{stage_dir}" \
+                --pe1 "{sampledata.reads[0]}" \
+                --pe2 "{sampledata.reads[1]}" \
+                --plots-format "png" \
+                --features "{sampledata.closest_reference_genbank}" \
+                --threads {argValidator.threads} \
+                "{genome_assembly_symlink}"
+            chmod -R 777 "{stage_dir}";
+        '
+        """
+        log = self.run_quay_image(_TOOL, cmd=cmd)
+        Utils.append_log(log, _TOOL, sampledata.name)
 
     @staticmethod
     def _locate_annotated_genome(directory: str):
@@ -911,6 +958,8 @@ class Handler:
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
         """
+        Heatmap info:
+        
         Yellow represents a perfect hit, 
         teal represents a strict hit, 
         purple represents no hit. 
@@ -1097,7 +1146,7 @@ class Utils:
         return os.path.splitext(os.path.basename(os.path.normpath(path)))[0]
 
     @staticmethod
-    def get_file_extension(file: str, deep: int = 2):
+    def get_file_extension(file: str, deep: int = 1):
         split = os.path.basename(file.strip()).split(".")[::-1]
         out = []
         for sub in split:
@@ -1145,6 +1194,17 @@ class Utils:
         with open(file=file, mode="w", encoding="utf-8") as f:
             f.write(string)
             f.close()
+
+    @staticmethod
+    def load_dict(file: str):
+        return json.loads(Utils.load_string(file))
+
+    @staticmethod
+    def dump_dict(d: dict, file: str, **kwargs):
+        _kwargs = dict(indent=4, sort_keys=False)
+        if len(kwargs.keys()) > 0:
+            _kwargs.update(kwargs)
+        return Utils.dump_string(json.dumps(d, **_kwargs), file)
 
     @staticmethod
     def load_list(file: str):
