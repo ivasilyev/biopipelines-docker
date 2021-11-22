@@ -89,9 +89,12 @@ class SampleDataLine:
 
         # E.g "ecoli_sample", ["reads.1.fq", "reads.2.fq"], "Escherichia coli O157:H7"]
         self.name = sample_name.strip()
+
         self.reads = []
         self.raw_reads = []
         self.set_reads(sample_reads)
+        self.raw_reads = list(self.reads)
+
         self.is_valid = False
         self._validate()
         self.extension = Utils.get_file_extension(self.reads[0], 2)
@@ -650,8 +653,8 @@ class Handler:
                 --gene-finding \
                 --no-gzip \
                 --output-dir "{stage_dir}" \
-                --pe1 "{sampledata.reads[0]}" \
-                --pe2 "{sampledata.reads[1]}" \
+                --pe1 "{sampledata.raw_reads[0]}" \
+                --pe2 "{sampledata.raw_reads[1]}" \
                 --plots-format "png" \
                 --features "{sampledata.closest_reference_genbank}" \
                 --threads {argValidator.threads} \
