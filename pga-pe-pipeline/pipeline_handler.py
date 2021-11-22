@@ -496,7 +496,7 @@ class Handler:
         _TOOL = "spades"
         """
         # Sample launch:
-        IMG=quay.io/biocontainers/spades:3.13.1--0 && \
+        export IMG=quay.io/biocontainers/spades:3.13.1--0 && \
         docker pull ${IMG} && \
         docker run --rm --net=host -it ${IMG} bash -c \
             'TOOL=$(find /usr/local/share/ -name spades.py | grep spades | head -n 1) && $TOOL -v'
@@ -558,7 +558,7 @@ class Handler:
         _TOOL = "quast"
         """
         # Sample launch:
-        IMG=quay.io/biocontainers/quast:5.0.2--py36pl5262h30a8e3e_4 && \
+        export IMG=quay.io/biocontainers/quast:5.0.2--py36pl5262h30a8e3e_4 && \
         docker pull ${IMG} && \
         docker run --rm --net=host -it ${IMG} bash
         """
@@ -613,7 +613,7 @@ class Handler:
         _TOOL = "prokka"
         """
         # Sample launch:
-        IMG=quay.io/biocontainers/prokka:1.12--pl526_0 && \
+        export IMG=quay.io/biocontainers/prokka:1.12--pl526_0 && \
         docker pull ${IMG} && \
         docker run --rm --net=host -it ${IMG} bash
         """
@@ -678,9 +678,9 @@ class Handler:
         # One per sample, full cleaning is NOT required
         """
         # Sample launch:
-        IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
+        export IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
         docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} getmlst.py -h
+        docker run --rm --net=host -it ${IMG} bash
         """
         """
         # Sample output for `getmlst.py --species 'Klebsiella pneumoniae'`
@@ -743,7 +743,7 @@ class Handler:
         _SRST2_ATTEMPTS = 5
         """
         # Sample launch:
-        IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
+        export IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
         docker pull ${IMG} && \
         docker run --rm --net=host -it ${IMG} bash
         """
