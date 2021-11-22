@@ -553,6 +553,16 @@ class Handler:
         if Utils.is_file_valid(genome_assembly):
             sampledata.genome_assembly = genome_assembly
 
+    def run_quast(self, sampledata: SampleDataLine, skip: bool = False):
+        # One per sample
+        _TOOL = "quast"
+        """
+        # Sample launch:
+        IMG=quay.io/biocontainers/quast:5.0.2--py36pl5262h30a8e3e_4 && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+        """
+
     def run_blast(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "blast_nucleotide_sequence"
         tool_dir = self.output_dirs[Utils.get_caller_name()]
