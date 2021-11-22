@@ -638,7 +638,7 @@ class Handler:
             [sampledata.taxa_genus, sampledata.taxa_species, sampledata.taxa_strain]
         ):
             if taxon_value is not None and len(taxon_value) > 0:
-                taxa_append = "{} --{} {}".format(taxa_append, taxon_name, taxon_value)
+                taxa_append = f"{taxa_append} --{taxon_name} {taxon_value}"
         if len(taxa_append) == 0:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
@@ -648,13 +648,15 @@ class Handler:
         bash -c '
             cd {stage_dir};
             {_TOOL} \
-                --compliant \
                 --centre UoN \
+                --compliant \
                 --cpu {argValidator.threads} \
-                --outdir {stage_dir} \
                 --force \
+                --locustag {sampledata.name} \
+                --outdir {stage_dir} \
                 --prefix {sampledata.name} \
                 --rfam \
+                {taxa_append} \
                 {sampledata.genome_assembly};
             chmod -R 777 {stage_dir}
         '
