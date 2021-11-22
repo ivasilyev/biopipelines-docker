@@ -497,8 +497,8 @@ class Handler:
         """
         # Sample launch:
         IMG=quay.io/biocontainers/spades:3.13.1--0 && \
-        docker pull $IMG && \
-        docker run --rm --net=host -it $IMG bash -c \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash -c \
             'TOOL=$(find /usr/local/share/ -name spades.py | grep spades | head -n 1) && $TOOL -v'
         """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
@@ -614,8 +614,8 @@ class Handler:
         """
         # Sample launch:
         IMG=quay.io/biocontainers/prokka:1.12--pl526_0 && \
-        docker pull $IMG && \
-        docker run --rm --net=host -it $IMG prokka
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
         """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         sampledata.genbank = os.path.join(stage_dir, "{}.gbf".format(sampledata.name))
@@ -679,8 +679,8 @@ class Handler:
         """
         # Sample launch:
         IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
-        docker pull $IMG && \
-        docker run --rm --net=host -it $IMG getmlst.py -h
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} getmlst.py -h
         """
         """
         # Sample output for `getmlst.py --species 'Klebsiella pneumoniae'`
@@ -744,8 +744,8 @@ class Handler:
         """
         # Sample launch:
         IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
-        docker pull $IMG && \
-        docker run --rm --net=host -it $IMG srst2 -h
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         reference_dir = os.path.join(self.srst2_reference_dir, sampledata.prefix)
