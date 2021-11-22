@@ -380,18 +380,32 @@ class Handler:
     def run_trimmomatic(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "trimmomatic"
+        """
+        # Sample launch:
+        export IMG=quay.io/biocontainers/trimmomatic:0.32--hdfd78af_4 && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+        """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_trimmed".format(_TOOL))
         untrimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_untrimmed".format(_TOOL))
-        cmd = """
-        bash -c \
-            'cd {o};
-             {T} PE -threads {t} -phred33 {r1} {r2} {t1} {u1} {t2} {u2} \
+        cmd = f"""
+        bash -c '
+            cd {stage_dir};
+            {_TOOL} \
+                PE \
+                -threads {argValidator.threads} \
+                -phred33 \
+                {sampledata.reads_string} \
+                {trimmed_reads[0]} {untrimmed_reads[0]} {trimmed_reads[1]} {untrimmed_reads[1]} \
                 ILLUMINACLIP:/data2/bio/ecoli_komfi/adapters.fasta:2:30:10 \
-                LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36;
-             chmod -R 777 {o}'
-        """.format(T=_TOOL, t=argValidator.threads, o=stage_dir, r1=sampledata.reads[0], r2=sampledata.reads[1],
-                   t1=trimmed_reads[0], t2=trimmed_reads[1], u1=untrimmed_reads[0], u2=untrimmed_reads[1])
+                LEADING:3 \
+                TRAILING:3 \
+                SLIDINGWINDOW:4:15 \
+                MINLEN:36;
+             chmod -R 777 {stage_dir};
+        '
+        """
         if not skip:
             self.clean_path(stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd)
@@ -423,7 +437,7 @@ class Handler:
                 --output {trimmed_reads[0]} \
                 --paired-output {trimmed_reads[1]} \
                 {sampledata.reads_string};
-            chmod -R 777 {stage_dir}
+            chmod -R 777 {stage_dir};
         '
         """
         if not skip:
@@ -1229,6 +1243,10 @@ class Utils:
     @staticmethod
     def dump_list(lst: list, file: str):
         Utils.dump_string(string="\n".join([str(i) for i in lst]) + "\n", file=file)
+
+    @staticmethod
+    def list_to_spaced_string(x: list):
+        return " ".join([str(i) for i in x])
 
     @staticmethod
     def load_2d_array(file: str):
