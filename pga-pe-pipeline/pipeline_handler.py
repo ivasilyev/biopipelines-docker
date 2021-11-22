@@ -498,8 +498,11 @@ class Handler:
         # Sample launch:
         export IMG=quay.io/biocontainers/spades:3.13.1--0 && \
         docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash -c \
-            'TOOL=$(find /usr/local/share/ -name spades.py | grep spades | head -n 1) && $TOOL -v'
+        docker run --rm --net=host -it ${IMG} bash
+        
+        # Tool executable lookup:
+        export TOOL="$(find /usr/local/share/ -name "spades.py" -type f 2>/dev/null | grep 'spades.py$' | head -n 1)"
+        echo "${TOOL}"
         """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         assemblies = {"chromosome": "", "plasmid": ""}
@@ -507,14 +510,20 @@ class Handler:
             assembly_dir = os.path.join(stage_dir, assembly_type)
             cmd_append = ""
             if assembly_type == "plasmid":
-                cmd_append = " --plasmid"
-            cmd = """
-            bash -c \
-                'cd {o};
-                 TOOL=$(find /usr -name spades.py -type f 2>/dev/null | grep spades | head -n 1) && \
-                 $TOOL --careful -o {o} -1 {r1} -2 {r2}{a};
-                 chmod -R 777 {o}'
-            """.format(o=assembly_dir, t=_TOOL, r1=sampledata.reads[0], r2=sampledata.reads[1], a=cmd_append)
+                cmd_append = "--plasmid"
+            cmd = f"""
+            bash -c '
+                cd {assembly_dir};
+                export TOOL="$(find /usr/local/share/ -name "spades.py" -type f 2>/dev/null | grep 'spades.py$' | head -n 1)" && \
+                "$TOOL" \
+                    --careful \
+                    -o {assembly_dir} \
+                    -1 {sampledata.reads[0]} \
+                    -2 {sampledata.reads[1]} \
+                    {cmd_append};
+                chmod -R 777 {assembly_dir}
+            '
+            """
             if not skip:
                 self.clean_path(assembly_dir)
                 log = self.run_quay_image(_TOOL, cmd=cmd)
