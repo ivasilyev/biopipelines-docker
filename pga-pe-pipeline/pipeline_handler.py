@@ -573,11 +573,12 @@ class Handler:
         docker run --rm --net=host -it ${IMG} bash
         
         # Tool executable lookup:
-        export TOOL="$(find /usr/local/share/ -name "spades.py" -type f 2>/dev/null | grep 'spades.py$' | head -n 1)"
+        export TOOL="$(find /usr/local/ -name "spades.py" -type f 2>/dev/null | grep 'spades.py$' | head -n 1)"
         echo "${TOOL}"
         """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         assemblies = {"chromosome": "", "plasmid": ""}
+        # spades is not defined in $PATH
         for assembly_type in assemblies:
             assembly_dir = os.path.join(stage_dir, assembly_type)
             cmd_append = ""
@@ -586,8 +587,9 @@ class Handler:
             cmd = f"""
             bash -c '
                 cd {assembly_dir};
-                export TOOL="$(find /usr/local/share/ -name "{_TOOL}.py" -type f 2>/dev/null | grep {_TOOL}.py$ | head -n 1)" && \
-                python3 "$TOOL" --version && \
+                export TOOL="$(find /usr/local/ -name "{_TOOL}*" -type f 2>/dev/null | grep '{_TOOL}.py$' | head -n 1)"; \
+                echo "{_TOOL} is found at $TOOL";
+                python3 "$TOOL" --version;
                 python3 "$TOOL" \
                     --careful \
                     -o {assembly_dir} \
