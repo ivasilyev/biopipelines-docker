@@ -568,15 +568,15 @@ class Handler:
             cmd = f"""
             bash -c '
                 cd {assembly_dir};
-                export TOOL="$(find /usr/local/share/ -name "spades.py" -type f 2>/dev/null | grep 'spades.py$' | head -n 1)" && \
-                "$TOOL" --version && \
-                "$TOOL" \
+                export TOOL="$(find /usr/local/share/ -name "{_TOOL}.py" -type f 2>/dev/null | grep {_TOOL}.py$ | head -n 1)" && \
+                python3 "$TOOL" --version && \
+                python3 "$TOOL" \
                     --careful \
                     -o {assembly_dir} \
                     -1 {sampledata.reads[0]} \
                     -2 {sampledata.reads[1]} \
                     {cmd_append};
-                chmod -R 777 {assembly_dir}
+                chmod -R 777 {assembly_dir};
             '
             """
             if not skip:
