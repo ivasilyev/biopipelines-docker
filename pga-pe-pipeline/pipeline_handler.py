@@ -235,20 +235,20 @@ class SampleDataArray:
 
         :return: dict
         """
-        return SampleDataArray.parse(json.loads(Utils.load_string(file)))
+        return SampleDataArray.parse(Utils.load_dict(file))
 
     def export(self):
         return {k: self.lines[k].export() for k in self.lines}
 
     def dump(self, file: str):
-        Utils.dump_string(json.dumps(self.export(), sort_keys=True, indent=4), file)
+        Utils.dump_dict(self.export(), file)
 
 
 class Handler:
     def __init__(self, output_dir: str = ""):
         self.sample_methods = [
             self.run_fastqc_with_parser, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
-            self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_quast,
+            self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_quast_with_parser,
             self.run_prokka, self.run_rgi, self.run_srst2
         ]
         self.group_methods = [self.merge_srst2_results, self.merge_blast_results, self.run_roary,
@@ -671,7 +671,7 @@ class Handler:
         if len(sampledata.blast_result_json) == 0:
             logging.warning("No BLAST JSON result!")
             return
-        blast_result_dict = json.loads(Utils.load_string(sampledata.blast_result_json))
+        blast_result_dict = Utils.load_dict(sampledata.blast_result_json)
         blast_top_result = list(blast_result_dict.keys())[0]
         taxa_part = blast_top_result.split("| ")[-1]
         genus, species = Utils.safe_findall("^[A-Z][a-z]+ [a-z]+", taxa_part).split(" ")
@@ -878,7 +878,7 @@ class Handler:
                 logging.info("Got the SRST2 output: '{}'".format(srst2_cmd))
                 out = {j[0]: " ".join(j[1:]) for j in [i.strip().split(" ") for i in srst2_cmd.split("--")[1:]]}
                 out.update({i: os.path.join(out_dir, out[i]) for i in ["mlst_db", "mlst_definitions"]})
-                Utils.dump_string(json.dumps(out, sort_keys=True, indent=4), out_file)
+                Utils.dump_dict(out, out_file)
                 return out
             if getmlst_attempt == _GETMLST_ATTEMPTS:
                 logging.warning("Exceeded attempts number for `getmlst.py` to finish processing correctly")
@@ -918,7 +918,7 @@ class Handler:
         taxa = " ".join([genus, species])
         getmlst_state_file = os.path.join(reference_dir, "getmlst_state_{}.json".format(taxa))
         if Utils.is_file_valid(getmlst_state_file):
-            getmlst_state = json.loads(Utils.load_string(getmlst_state_file))
+            getmlst_state = Utils.load_dict(getmlst_state_file)
         else:
             getmlst_state = self._run_getmlst(taxa=taxa,
                                               out_dir=reference_dir,
@@ -1184,7 +1184,7 @@ class Handler:
         Utils.append_log(log, _TOOL, "all")
 
     def dump_state(self):
-        Utils.dump_string(json.dumps(self.state), os.path.join(self.output_dir_root, "state.json"))
+        Utils.dump_dict(self.state, os.path.join(self.output_dir_root, "state.json"))
 
     def handle(self, sampledata_array: SampleDataArray):
         if not self.valid:
