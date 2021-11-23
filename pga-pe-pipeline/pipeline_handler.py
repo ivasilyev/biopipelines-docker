@@ -372,11 +372,32 @@ class Handler:
 
     @staticmethod
     def _parse_fastqc_result(directory: str):
-        out = []
+        """
+        :param directory: str
+        :return: dict
+
+        'summary.txt' contains 3 columns: the value column (PASS|WARN|FAIL), the key column.
+        The 3rd column contains only the repeating FastQC input reads file name.
+
+        The key column:
+
+        Basic Statistics
+        Per base sequence quality
+        Per tile sequence quality
+        Per sequence quality scores
+        Per base sequence content
+        Per sequence GC content
+        Per base N content
+        Sequence Length Distribution
+        Sequence Duplication Levels
+        Overrepresented sequences
+        Adapter Content
+        """
         summary_table = Utils.locate_file_by_tail(directory, "summary.txt")
-        if len(summary_table) != 0:
-            out = Utils.load_2d_array(summary_table)
-        return out
+        if len(summary_table) == 0:
+            return dict()
+        arr = Utils.load_2d_array(summary_table)
+        return {i[1]: i[0] for i in arr if len(i) > 1}
 
     def run_fastqc_with_parser(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -391,7 +412,7 @@ class Handler:
                                  reads_file=reads_file,
                                  out_dir=sub_stage_dir)
             fastqc_results = self._parse_fastqc_result(sub_stage_dir)
-            if len(fastqc_results) == 0 and not skip:
+            if len(fastqc_results.keys()) == 0 and not skip:
                 logging.warning("No FastQC results!")
             if stage_name not in self.state.keys():
                 self.state[stage_name] = dict()
@@ -695,17 +716,55 @@ class Handler:
 
     @staticmethod
     def _parse_quast_result(directory: str):
-        out = []
         """
-        There are usually report files with similar names:
+        :param directory: str
+
+        QUAST result directory
+
+        :return: dict
+
+        There are usually multiple report files with similar names:
         './report.tsv', './transposed_report.tsv', './reads_stats/reads_report.tsv'
+        'report.tsv' contains two columns: key column and value column for the each assembly file.
+        The key column:
+        
+        Assembly
+        # contigs (>= 0 bp)
+        # contigs (>= 1000 bp)
+        # contigs (>= 5000 bp)
+        # contigs (>= 10000 bp)
+        # contigs (>= 25000 bp)
+        # contigs (>= 50000 bp)
+        Total length (>= 0 bp)
+        Total length (>= 1000 bp)
+        Total length (>= 5000 bp)
+        Total length (>= 10000 bp)
+        Total length (>= 25000 bp)
+        Total length (>= 50000 bp)
+        # contigs
+        Largest contig
+        Total length
+        GC (%)
+        N50
+        N75
+        L50
+        L75
+        # total reads
+        # left
+        # right
+        Mapped (%)
+        Properly paired (%)
+        Avg. coverage depth
+        Coverage >= 1x (%)
+        # N's per 100 kbp
         """
-        summary_tables = sorted(Utils.locate_file_by_tail(directory, "report.txt", multiple=True),
-                                key=len,
-                                reverse=False)
-        if len(summary_tables) != 0:
-            out = Utils.load_2d_array(summary_tables[0])
-        return out
+        report_tables = sorted(Utils.locate_file_by_tail(directory, "report.txt", multiple=True),
+                               key=len,
+                               reverse=False)
+        if len(report_tables) == 0:
+            return dict()
+        arr = Utils.load_2d_array(report_tables[0])
+        return {i[0]: i[1] for i in arr if len(i) > 1}
 
     def run_quast_with_parser(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -749,7 +808,7 @@ class Handler:
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
         quast_results = self._parse_quast_result(stage_dir)
-        if len(quast_results) == 0 and not skip:
+        if len(quast_results.keys()) == 0 and not skip:
             logging.warning("No QUAST results!")
         self.state[stage_name] = quast_results
 
