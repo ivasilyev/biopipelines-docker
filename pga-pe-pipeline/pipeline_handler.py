@@ -1030,7 +1030,7 @@ class Handler:
             logging.warning("No SRST@ result tables!")
             return
         cmd = f"""
-        bash -c 'join
+        bash -c '
             git pull --quiet;
             python3 ./meta/scripts/{_TOOL}.py \
                 --input {Utils.render_file_list(table_list)} \
