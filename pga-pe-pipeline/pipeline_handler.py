@@ -693,7 +693,21 @@ class Handler:
             return
         sampledata.closest_reference_genbank = genbank_files[0]
 
-    def run_quast(self, sampledata: SampleDataLine, skip: bool = False):
+    @staticmethod
+    def _parse_quast_result(directory: str):
+        out = []
+        """
+        There are usually report files with similar names:
+        './report.tsv', './transposed_report.tsv', './reads_stats/reads_report.tsv'
+        """
+        summary_tables = sorted(Utils.locate_file_by_tail(directory, "report.txt", multiple=True),
+                                key=len,
+                                reverse=False)
+        if len(summary_tables) != 0:
+            out = Utils.load_2d_array(summary_tables[0])
+        return out
+
+    def run_quast_with_parser(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "quast"
         """
@@ -734,6 +748,10 @@ class Handler:
         """
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
+        quast_results = self._parse_quast_result(stage_dir)
+        if len(quast_results) == 0 and not skip:
+            logging.warning("No QUAST results!")
+        self.state[stage_name] = quast_results
 
     @staticmethod
     def _locate_annotated_genome(directory: str):
