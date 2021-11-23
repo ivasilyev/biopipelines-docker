@@ -8,7 +8,6 @@ import os
 import re
 import json
 import logging
-import zipfile
 import subprocess
 import multiprocessing
 from time import sleep
@@ -491,7 +490,14 @@ class Handler:
         return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
 
     def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
+        # One per sample
         _TOOL = "bowtie2"
+        """
+        # Sample launch:
+        export IMG=quay.io/biocontainers/bowtie2:2.4.4--py37h13ad519_0 && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+        """
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
@@ -512,14 +518,26 @@ class Handler:
         # bowtie2 may mess with double extensions, e.g. ".fq.1.gz" instead of ".1.fq.gz"
         unmapped_file_mask = os.path.join(unmapped_reads_dir, sampledata.name)
         os.makedirs(mapped_reads_dir, exist_ok=True)
-        cmd = """
-        bash -c \
-            'cd {o};
-             {T} --local -D 20 -R 3 -L 3 -N 1 --gbar 1 --mp 3 --threads {t} \
-                --un-conc-gz {u} -x {i} -S {s} -1 {r1} -2 {r2}
-             chmod -R 777 {o}'
-        """.strip().format(t=argValidator.threads, u=unmapped_file_mask, i=index_mask, s=mapped_reads_file, o=stage_dir,
-                           r1=sampledata.reads[0], r2=sampledata.reads[1], T=_TOOL)
+        cmd = f"""
+        bash -c '
+            {_TOOL} --version;
+            cd {stage_dir};
+            {_TOOL} \
+                --gbar 1 \
+                --local \
+                --mp 3 \
+                --threads {argValidator.threads} \
+                --un-conc-gz {unmapped_file_mask} \
+                -1 {sampledata.reads[0]} \
+                -2 {sampledata.reads[1]} \
+                -D 20 \
+                -L 3 \
+                -N 1 \
+                -R 3 \
+                -S {mapped_reads_file} \
+                -x {index_mask};
+            chmod -R 777 {stage_dir}'
+        """
         self.clean_path(unmapped_reads_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
         Utils.append_log(log, _TOOL, sampledata.name)
