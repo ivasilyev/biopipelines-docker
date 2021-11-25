@@ -1598,26 +1598,26 @@ class Utils:
 
     @staticmethod
     def parse_taxa(taxa):
-        genus, species, strain = ["", ] * 3
+        out = dict(genus="", species="", strain="")
         if isinstance(taxa, str):
             # E.g. 'Escherichia coli O157:H7'
             taxa = Utils.remove_empty_values(str(taxa).strip().split(" "))
             if len(taxa) == 0:
-                return
-            genus = taxa[0]
+                return out
+            out["genus"] = taxa[0]
             if len(taxa) > 1:
                 if not any(i.isdigit() for i in taxa[1]):
                     sp = taxa[1].replace(".", "").lower()
                     if sp != "sp":
-                        species = sp
+                        out["species"] = sp
                 else:
-                    strain = taxa[1]
+                    out["strain"] = taxa[1]
             if len(taxa) > 2:
-                strain = taxa[2]
+                out["strain"] = taxa[2]
         if isinstance(taxa, dict):
-            genus, species, strain = [j if j is not None else "" for j in
+            out["genus"], out["species"], out["strain"] = [j if j is not None else "" for j in
                                       [taxa.get(i) for i in "genus, species, strain".split(", ")]]
-        return dict(genus=genus, species=species, strain=strain)
+        return out
 
     @staticmethod
     def render_file_list(x):
