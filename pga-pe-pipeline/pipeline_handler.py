@@ -12,6 +12,7 @@ import subprocess
 import multiprocessing
 from time import sleep
 from shutil import copy2
+from itertools import product
 from datetime import datetime
 
 
@@ -526,6 +527,19 @@ class Handler:
         logging.info("Downloaded the reference human genome")
         return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
 
+    @staticmethod
+    def _parse_bowtie2_log(s: str):
+        _KEYS = [
+            " were paired", " aligned concordantly 0 times", " aligned concordantly exactly 1 time",
+            " aligned concordantly >1 times",
+            " pairs aligned concordantly 0 times", " aligned discordantly 1 time",
+            " pairs aligned 0 times concordantly or discordantly", " mates make up the pairs",
+            " aligned 0 times", " aligned exactly 1 time", " aligned >1 times",
+            " overall alignment rate"
+        ]
+        lines = Utils.split_lines(s)
+        return {i.strip(): re.sub(f"{i}.*$", "", j) for i, j in product(_KEYS, lines) if i in j}
+
     def remove_hg(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "bowtie2"
@@ -535,12 +549,14 @@ class Handler:
         docker pull ${IMG} && \
         docker run --rm --net=host -it ${IMG} bash
         """
+        stage_name = Utils.get_caller_name()
+        stage_dir = self.output_dirs[stage_name]
+        state_file = os.path.join(stage_dir, "state.json")
+        if Utils.is_file_valid(state_file):
+            self.state[stage_name] = Utils.load_dict(state_file)
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
-        this_name = Utils.get_caller_name()
-        stage_dir = self.output_dirs[this_name]
-
         os.makedirs(self.human_genome_reference_dir, exist_ok=True)
         index_mask = self._parse_bowtie2_index_mask(self.human_genome_reference_dir)
         if len(index_mask) == 0:
@@ -592,13 +608,9 @@ class Handler:
                 unmapped_reads_files_new.append(unmapped_reads_file_new)
             sampledata.set_reads(unmapped_reads_files_new)
         # Parse log
-        log_lines = Utils.split_lines(log)
-        total_reads_number = int(Utils.safe_findall("[0-9]+", log_lines[0]))
-        hg_reads_number = sum([int(Utils.safe_findall("[0-9]+", j[0])) for j in [i.split("aligned") for i in log_lines if "aligned" in i] if "0" not in j[-1]])
-        self.state.update({this_name: dict(
-            total_reads_number=total_reads_number,
-            hg_reads_number=hg_reads_number,
-            hg_reads_percentage=round(100 * hg_reads_number / total_reads_number, 2))})
+        state_dict = self._parse_bowtie2_log(log)
+        Utils.dump_dict(state_dict, state_file)
+        self.state[stage_name] = state_dict
 
     def run_spades(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -777,10 +789,16 @@ class Handler:
         report_tables = sorted(Utils.locate_file_by_tail(directory, "report.tsv", multiple=True),
                                key=len,
                                reverse=False)
+        out = dict()
         if len(report_tables) == 0:
-            return dict()
+            return out
         arr = Utils.load_2d_array(report_tables[0])
-        return {i[0]: i[1] for i in arr if len(i) > 1}
+        for i in arr:
+            if len(i) > 1:
+                if i[1].isnumeric():
+                    pass
+                out[i[0]] = i[1]
+        return out
 
     def run_quast_with_parser(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -1280,7 +1298,6 @@ class Handler:
         """
         cmd = f"""
         bash -c '
-            git pull --quiet;
             python3 "$HOME/scripts/{_TOOL}.py" \
                 --input "{sampledata_file}" \
                 --refdata "{refdata_file}" \
