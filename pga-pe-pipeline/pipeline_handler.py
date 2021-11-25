@@ -1154,7 +1154,6 @@ class Handler:
         export TOOL="$(find /usr/local/ -name "bp_genbank2gff3" -type f 2>/dev/null | grep 'bp_genbank2gff3$' | head -n 1)"
         echo "${TOOL}"
         """
-        os.makedirs(gff_dir, exist_ok=True)
         cmd_1 = f"""
         export TOOL="$(find /usr/local/ -name "{_TOOL}" -type f 2>/dev/null | grep '{_TOOL}' | head -n 1)";
         export SOURCE_DIR="{gbff_dir}/";
@@ -1175,14 +1174,16 @@ class Handler:
         chmod -R 777 "${TARGET_DIR}";
         """
         # Mock the script, since the `bash -c 'bash -c '...''` hangs
-        exe = os.path.join(gff_dir, f"{_TOOL}.sh")
+        exe = os.path.join(gbff_dir, f"{_TOOL}.sh")
         if not Utils.is_file_valid(exe):
             Utils.dump_string(cmd_2, exe)
+        # Roary fails if found a non-GFF file in its input
         cmd = f"""
         bash -c '{cmd_1}
         bash {exe};
         '
         """
+        os.makedirs(gff_dir, exist_ok=True)
         return Utils.run_image(img_name="bioperl/bioperl:latest", container_cmd=cmd)
 
     @staticmethod
