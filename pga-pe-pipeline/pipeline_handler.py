@@ -791,10 +791,6 @@ class Handler:
         stage_name = Utils.get_caller_name()
         stage_dir = os.path.join(self.output_dirs[stage_name], sampledata.name)
 
-        if skip:
-            logging.info("Skip {}".format(stage_name))
-            return
-        self.clean_path(stage_dir)
         genome_assembly_extension = Utils.get_file_extension(sampledata.genome_assembly)
         genome_assembly_symlink = os.path.join(stage_dir, f"{os.path.basename(sampledata.name)}{genome_assembly_extension}")
 
@@ -818,8 +814,13 @@ class Handler:
             chmod -R 777 "{stage_dir}";
         '
         """
-        log = self.run_quay_image(_TOOL, cmd=cmd)
-        Utils.append_log(log, _TOOL, sampledata.name)
+
+        if skip:
+            logging.info("Skip {}".format(stage_name))
+        else:
+            self.clean_path(stage_dir)
+            log = self.run_quay_image(_TOOL, cmd=cmd)
+            Utils.append_log(log, _TOOL, sampledata.name)
         quast_results = self._parse_quast_result(stage_dir)
         if len(quast_results.keys()) == 0 and not skip:
             logging.warning("No QUAST results!")
@@ -1326,7 +1327,7 @@ class Handler:
 
         # Annotation
         coverage_files = Utils.locate_file_by_tail(out_dir, "_coverage.tsv", multiple=True)
-        annotation_dir = os.path.join(out_dir, "annotated_coverages", refdata_alias)
+        annotation_dir = os.path.join(out_dir, "annotated_coverages")
         os.makedirs(annotation_dir, exist_ok=True)
         for raw_coverage_file in coverage_files:
             annotated_coverage_file = os.path.join(
