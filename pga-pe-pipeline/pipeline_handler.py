@@ -758,7 +758,7 @@ class Handler:
         Coverage >= 1x (%)
         # N's per 100 kbp
         """
-        report_tables = sorted(Utils.locate_file_by_tail(directory, "report.txt", multiple=True),
+        report_tables = sorted(Utils.locate_file_by_tail(directory, "report.tsv", multiple=True),
                                key=len,
                                reverse=False)
         if len(report_tables) == 0:
@@ -1143,19 +1143,44 @@ class Handler:
 
     @staticmethod
     def _convert_genbank_to_gff3(gbff_dir, gff_dir):
-        _ = [os.makedirs(i, exist_ok=True) for i in (gbff_dir, gff_dir)]
-        exe = os.path.join(gbff_dir, "bp_genbank2gff3.pl")
-        Utils.download_file(
-            url="https://raw.githubusercontent.com/appris/appris/master/modules/bin/bp_genbank2gff3.pl",
-            out_file=exe
-        )
+        _TOOL = "bp_genbank2gff3"
+        """
+        # Sample launch:
+        export IMG=bioperl/bioperl:latest && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+
+        # Tool executable lookup:
+        export TOOL="$(find /usr/local/ -name "bp_genbank2gff3" -type f 2>/dev/null | grep 'bp_genbank2gff3$' | head -n 1)"
+        echo "${TOOL}"
+        """
+        os.makedirs(gff_dir, exist_ok=True)
+        cmd_1 = f"""
+        export TOOL="$(find /usr/local/ -name "{_TOOL}" -type f 2>/dev/null | grep '{_TOOL}' | head -n 1)";
+        export SOURCE_DIR="{gbff_dir}/";
+        export TARGET_DIR="{gff_dir}/";
+        """
+        cmd_2 = """
+        cd "${TARGET_DIR}";
+        find "${SOURCE_DIR}" -name '*.gbk' -type f \
+            | xargs --max-procs $(nproc) -I "{}" bash -c '
+                    TARGET_FILE="${TARGET_DIR}$(basename {}).gff";
+                    if [ ! -s "${TARGET_FILE}" ]; 
+                        then
+                            perl "${TOOL}" \
+                                "{}" \
+                                --outdir "${TARGET_DIR}";
+                    fi;
+                ';
+        chmod -R 777 "${TARGET_DIR}";
+        """
+        # Mock the script, since the `bash -c 'bash -c '...''` hangs
+        exe = os.path.join(gff_dir, f"{_TOOL}.sh")
+        if not Utils.is_file_valid(exe):
+            Utils.dump_string(cmd_2, exe)
         cmd = f"""
-        bash -c '
-            cd "{gbff_dir}";
-            perl {exe} \
-                --dir {gbff_dir} \
-                --outdir {gff_dir};
-            chmod -R 777 {gff_dir};
+        bash -c '{cmd_1}
+        bash {exe};
         '
         """
         return Utils.run_image(img_name="bioperl/bioperl:latest", container_cmd=cmd)
