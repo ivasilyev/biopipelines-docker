@@ -1143,6 +1143,7 @@ class Handler:
 
     @staticmethod
     def _convert_genbank_to_gff3(gbff_dir, gff_dir):
+        # One per all samples, force multithread
         _TOOL = "bp_genbank2gff3"
         """
         # Sample launch:
@@ -1205,6 +1206,7 @@ class Handler:
         return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
 
     def run_roary(self, sampledata_array: SampleDataArray, skip: bool = False):
+        # One per all samples
         _TOOL = "roary"
         """
         # Sample launch:
@@ -1245,6 +1247,37 @@ class Handler:
                                    sampledata_array.roary_edited_newick)
         if len(log) > 0:
             Utils.append_log(log, _TOOL)
+
+    @staticmethod
+    def _run_nbee(sampledata_table_file: str, refdata_file: str, out_dir: str):
+        # One per all samples
+        _TOOL = "nBee"
+        cmd = f"""
+        bash -c '
+            python3 "$HOME/scripts/{_TOOL}.py" \
+                --input "{sampledata_table_file}" \
+                --refdata "{refdata_file}" \
+                --output "{out_dir}"
+        '
+        """
+        return Utils.run_image(img_name="ivasilyev/bwt_filtering_pipeline_worker:latest",
+                               container_cmd=cmd)
+
+    @staticmethod
+    def _annotate_nbee_coverage_table(coverage_table: str, annotation_table: str, out_table: str):
+        _TOOL = "concatenate_tables"
+        cmd = f"""
+        bash -c '
+            python3 "$HOME/scripts/curated_projects/meta/scripts/{_TOOL}.py" \
+                --axis 1 \
+                --index "reference_id" \
+                --input "{annotation_table}" "{coverage_table}" \
+                --join inner \
+                --output "{out_table}"
+        '
+        """
+        return Utils.run_image(img_name="ivasilyev/curated_projects:latest",
+                               container_cmd=cmd)
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
