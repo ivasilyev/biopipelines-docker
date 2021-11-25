@@ -27,6 +27,7 @@ class ArgValidator:
         _STEPS = list(range(1, len(_handler_methods) + 1))
         _STAGES = "<{}>".format("|".join([str(i) for i in _STEPS]))
         _STAGES_DESCRIPTION = "\n".join(["{}. {};".format(idx + 1, i) for idx, i in enumerate(_handler_methods)])
+
         parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
                                          description="""
 Run prokaryotic genome analysis pipeline for group of raw read files with given taxa information""".strip(),
@@ -44,20 +45,22 @@ Columns:
 1. Short sample name or strain, e.g. 'sample_01' or 'eco_O157:H7'; 
 2. Paired end reads divided with semicolon, e.g. '/reads/eco_01_R1.fastq.gz;/reads/eco_01_R2.fastq.gz'; 
 3. Taxon information divided with spaces, e.g. 'Escherichia coli O157:H7'""".strip())
-        parser.add_argument("-s", "--start", help="Stage to start the pipeline, inclusive", type=int, default=_STEPS[0],
-                            metavar=_STAGES, choices=_STEPS)
-        parser.add_argument("-f", "--finish", help="Stage to finish the pipeline, inclusive", type=int,
-                            default=_STEPS[-1], metavar=_STAGES, choices=_STEPS)
-        parser.add_argument("--hg_dir", metavar="<dir>", help="Path(s) to RefData JSONS made by the 'cook_the_reference.py'", default="")
-        parser.add_argument("--refdata", metavar="<file>", help="Output directory", default=(), nargs="+")
-        parser.add_argument("-o", "--output_dir", metavar="<dir>", help="Output directory", required=True)
+        parser.add_argument("-s", "--start", type=int, default=_STEPS[0], metavar=_STAGES,
+                            choices=_STEPS, help="Stage to start the pipeline, inclusive")
+        parser.add_argument("-f", "--finish", type=int, default=_STEPS[-1], metavar=_STAGES,
+                            choices=_STEPS, help="Stage to finish the pipeline, inclusive")
+        parser.add_argument("--hg_dir", metavar="<dir>", default="",
+                            help="Directory containing human genome bowtie2 index ('*.bt2')")
+        parser.add_argument("--refdata", metavar="<file>", default=(), nargs="+",
+                            help="Path(s) to RefData JSONS made by the 'cook_the_reference.py'")
+        parser.add_argument("-o", "--output_dir", metavar="<dir>", required=True,
+                            help="Output directory")
 
         self._namespace = parser.parse_args()
         self.sampledata_file = self._namespace.input
         self.threads = multiprocessing.cpu_count()
         self.stages_to_do = []
         self.hg_index_dir = self._namespace.hg_dir
-        self.hg_index_mask = ""
         self.refdata_files = Utils.remove_empty_values(self._namespace.refdata)
         self.output_dir = self._namespace.output_dir
         self.log_dir = os.path.join(self.output_dir, "logs", Utils.get_time())
@@ -822,9 +825,12 @@ class Handler:
             log = self.run_quay_image(_TOOL, cmd=cmd)
             Utils.append_log(log, _TOOL, sampledata.name)
         quast_results = self._parse_quast_result(stage_dir)
-        if len(quast_results.keys()) == 0 and not skip:
-            logging.warning("No QUAST results!")
-        self.state[stage_name] = quast_results
+        quast_result_number = len(quast_results.keys())
+        if quast_result_number > 0:
+            self.state[stage_name] = quast_results
+        else:
+            if not skip:
+                logging.warning("No QUAST results!")
 
     @staticmethod
     def _locate_annotated_genome(directory: str):
