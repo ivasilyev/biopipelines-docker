@@ -48,14 +48,17 @@ Columns:
                             metavar=_STAGES, choices=_STEPS)
         parser.add_argument("-f", "--finish", help="Stage to finish the pipeline, inclusive", type=int,
                             default=_STEPS[-1], metavar=_STAGES, choices=_STEPS)
-        parser.add_argument("--hg_dir", metavar="<dir>", help="A directory with human genome bowtie2 (*.bt2) indexes", default="")
+        parser.add_argument("--hg_dir", metavar="<dir>", help="Path(s) to RefData JSONS made by the 'cook_the_reference.py'", default="")
+        parser.add_argument("--refdata", metavar="<file>", help="Output directory", default=(), nargs="+")
         parser.add_argument("-o", "--output_dir", metavar="<dir>", help="Output directory", required=True)
+
         self._namespace = parser.parse_args()
         self.sampledata_file = self._namespace.input
         self.threads = multiprocessing.cpu_count()
         self.stages_to_do = []
         self.hg_index_dir = self._namespace.hg_dir
         self.hg_index_mask = ""
+        self.refdata_files = Utils.remove_empty_values(self._namespace.refdata)
         self.output_dir = self._namespace.output_dir
         self.log_dir = os.path.join(self.output_dir, "logs", Utils.get_time())
 
@@ -262,7 +265,7 @@ class Handler:
             self.run_prokka, self.run_rgi, self.run_srst2
         ]
         self.group_methods = [self.merge_srst2_results, self.merge_blast_results, self.run_roary,
-                              self.run_orthomcl]
+                              self.run_nbee_with_annotation]
         #
         self.valid = False
         self.output_dir_root = output_dir.strip()
@@ -1270,14 +1273,17 @@ class Handler:
         """
         cmd = f"""
         bash -c '
+            git pull --quiet;
             python3 "$HOME/scripts/{_TOOL}.py" \
                 --input "{sampledata_file}" \
                 --refdata "{refdata_file}" \
                 --output "{out_dir}"
         '
         """
-        return Utils.run_image(img_name="ivasilyev/bwt_filtering_pipeline_worker:latest",
-                               container_cmd=cmd)
+        log = Utils.run_image(img_name="ivasilyev/bwt_filtering_pipeline_worker:latest",
+                              container_cmd=cmd)
+        if len(log) > 0:
+            Utils.append_log(log, _TOOL)
 
     @staticmethod
     def _annotate_nbee_coverage(coverage_file: str, annotation_file: str, out_file: str):
@@ -1291,6 +1297,7 @@ class Handler:
         """
         cmd = f"""
         bash -c '
+            git pull --quiet;
             python3 "$HOME/scripts/curated_projects/meta/scripts/{_TOOL}.py" \
                 --axis 1 \
                 --index "reference_id" \
@@ -1299,50 +1306,60 @@ class Handler:
                 --output "{out_file}"
         '
         """
-        return Utils.run_image(img_name="ivasilyev/curated_projects:latest",
-                               container_cmd=cmd)
+        log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+        if len(log) > 0:
+            Utils.append_log(log, _TOOL)
 
-    def run_nbee_with_annotation(self, sampledata_array: SampleDataArray, refdata_file: str,
-                                 skip: bool = False):
-        _TOOL = "nBee"
-        stage_name = Utils.get_caller_name()
-        tool_dir = self.output_dirs[stage_name]
-        refdata_dict = Utils.load_dict(refdata_file)
-        refdata_first_dict = refdata_dict[list(refdata_dict.keys())[0]]
-        annotation_file = refdata_first_dict["annotation"]
-        refdata_alias = refdata_first_dict["alias"]
-        self.clean_path(tool_dir)
-
-        if skip:
-            logging.info("Skip {}".format(Utils.get_caller_name()))
+    def _run_and_annotate_nbee(self, sampledata_file: str, refdata_file: str, tool_dir: str):
+        try:
+            refdata_dict = Utils.load_dict(refdata_file)
+            refdata_first_dict = refdata_dict[list(refdata_dict.keys())[0]]
+            annotation_file = refdata_first_dict["annotation"]
+            refdata_alias = refdata_first_dict["alias"]
+            out_dir = os.path.join(tool_dir, refdata_alias)
+        except json.JSONDecodeError:
+            logging.warning(f"Invalid RefData format for '{refdata_file}'")
             return
 
         # Mapping
-        sampledata_file = os.path.join(tool_dir, "sampledata.tsv")
-        if not Utils.is_file_valid(sampledata_file):
-            Utils.dump_2d_array(sampledata_array.to_2d_array(), sampledata_file)
-        log = self._run_nbee(sampledata_file=sampledata_file,
-                             refdata_file=refdata_file,
-                             out_dir=tool_dir)
-        if len(log) > 0:
-            Utils.append_log(log, _TOOL)
+        self._run_nbee(sampledata_file=sampledata_file, refdata_file=refdata_file, out_dir=out_dir)
 
         # Annotation
-
-        coverage_files = Utils.locate_file_by_tail(tool_dir, "_coverage.tsv", multiple=True)
-
-        annotation_dir = os.path.join(tool_dir, "annotated_coverages", refdata_alias)
+        coverage_files = Utils.locate_file_by_tail(out_dir, "_coverage.tsv", multiple=True)
+        annotation_dir = os.path.join(out_dir, "annotated_coverages", refdata_alias)
         os.makedirs(annotation_dir, exist_ok=True)
-        for coverage_file in coverage_files:
+        for raw_coverage_file in coverage_files:
             annotated_coverage_file = os.path.join(
-                annotation_dir, "{}{}".format(os.path.basename(os.path.splitext(coverage_file)[0]),
-                                              Utils.get_file_extension(coverage_file)))
-            log = self._annotate_nbee_coverage(coverage_file=coverage_file,
-                                               annotation_file=annotation_file,
-                                               out_file=annotated_coverage_file)
-        if len(log) > 0:
-            Utils.append_log(log, _TOOL)
+                annotation_dir,
+                "{}_annotated{}".format(os.path.basename(os.path.splitext(raw_coverage_file)[0]),
+                                        Utils.get_file_extension(raw_coverage_file))
+            )
+            self._annotate_nbee_coverage(coverage_file=raw_coverage_file,
+                                         annotation_file=annotation_file,
+                                         out_file=annotated_coverage_file)
 
+    def run_nbee_with_annotation(self, sampledata_array: SampleDataArray, skip: bool = False):
+        # One per all samples per all refdata
+        _TOOL = "nBee"
+        stage_name = Utils.get_caller_name()
+        tool_dir = self.output_dirs[stage_name]
+        self.clean_path(tool_dir)
+        if skip:
+            logging.info("Skip {}".format(stage_name))
+            return
+
+        sampledata_file = os.path.join(tool_dir, "sampledata.tsv")
+        Utils.dump_2d_array(sampledata_array.to_2d_array(), sampledata_file)
+
+        refdata_files = [i for i in argValidator.refdata_files if Utils.is_file_valid(i)]
+        if len(refdata_files) == 0:
+            logging.warning("No valid RefData files found, the alignment aborted!")
+            return
+
+        for refdata_file in refdata_files:
+            self._run_and_annotate_nbee(sampledata_file=sampledata_file,
+                                        refdata_file=refdata_file,
+                                        tool_dir=tool_dir)
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
