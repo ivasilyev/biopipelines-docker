@@ -1262,6 +1262,12 @@ class Handler:
     def _run_nbee(sampledata_file: str, refdata_file: str, out_dir: str):
         # One per all samples
         _TOOL = "nBee"
+        """
+        # Sample launch:
+        export IMG=ivasilyev/bwt_filtering_pipeline_worker:latest && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+        """
         cmd = f"""
         bash -c '
             python3 "$HOME/scripts/{_TOOL}.py" \
@@ -1275,7 +1281,14 @@ class Handler:
 
     @staticmethod
     def _annotate_nbee_coverage(coverage_file: str, annotation_file: str, out_file: str):
+        # One per sample
         _TOOL = "concatenate_tables"
+        """
+        # Sample launch:
+        export IMG=ivasilyev/curated_projects:latest && \
+        docker pull ${IMG} && \
+        docker run --rm --net=host -it ${IMG} bash
+        """
         cmd = f"""
         bash -c '
             python3 "$HOME/scripts/curated_projects/meta/scripts/{_TOOL}.py" \
