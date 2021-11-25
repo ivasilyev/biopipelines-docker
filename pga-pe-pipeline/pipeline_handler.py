@@ -238,7 +238,17 @@ class SampleDataArray:
         return SampleDataArray.parse(Utils.load_dict(file))
 
     def export(self):
-        return {k: self.lines[k].export() for k in self.lines}
+        return {k: v.reads for k, v in self.lines.items()}
+
+    def to_2d_array(self):
+        """
+        :return: 2d array
+        [
+            [ "ecoli_sample", "reads.1.fq", "reads.2.fq" ],
+            ...
+        ]
+        """
+        return [[k] + v.reads for k, v in self.lines.items()]
 
     def dump(self, file: str):
         Utils.dump_dict(self.export(), file)
@@ -1249,13 +1259,13 @@ class Handler:
             Utils.append_log(log, _TOOL)
 
     @staticmethod
-    def _run_nbee(sampledata_table_file: str, refdata_file: str, out_dir: str):
+    def _run_nbee(sampledata_file: str, refdata_file: str, out_dir: str):
         # One per all samples
         _TOOL = "nBee"
         cmd = f"""
         bash -c '
             python3 "$HOME/scripts/{_TOOL}.py" \
-                --input "{sampledata_table_file}" \
+                --input "{sampledata_file}" \
                 --refdata "{refdata_file}" \
                 --output "{out_dir}"
         '
@@ -1264,20 +1274,62 @@ class Handler:
                                container_cmd=cmd)
 
     @staticmethod
-    def _annotate_nbee_coverage_table(coverage_table: str, annotation_table: str, out_table: str):
+    def _annotate_nbee_coverage(coverage_file: str, annotation_file: str, out_file: str):
         _TOOL = "concatenate_tables"
         cmd = f"""
         bash -c '
             python3 "$HOME/scripts/curated_projects/meta/scripts/{_TOOL}.py" \
                 --axis 1 \
                 --index "reference_id" \
-                --input "{annotation_table}" "{coverage_table}" \
+                --input "{annotation_file}" "{coverage_file}" \
                 --join inner \
-                --output "{out_table}"
+                --output "{out_file}"
         '
         """
         return Utils.run_image(img_name="ivasilyev/curated_projects:latest",
                                container_cmd=cmd)
+
+    def run_nbee_with_annotation(self, sampledata_array: SampleDataArray, refdata_file: str,
+                                 skip: bool = False):
+        _TOOL = "nBee"
+        stage_name = Utils.get_caller_name()
+        tool_dir = self.output_dirs[stage_name]
+        refdata_dict = Utils.load_dict(refdata_file)
+        refdata_first_dict = refdata_dict[list(refdata_dict.keys())[0]]
+        annotation_file = refdata_first_dict["annotation"]
+        refdata_alias = refdata_first_dict["alias"]
+        self.clean_path(tool_dir)
+
+        if skip:
+            logging.info("Skip {}".format(Utils.get_caller_name()))
+            return
+
+        # Mapping
+        sampledata_file = os.path.join(tool_dir, "sampledata.tsv")
+        if not Utils.is_file_valid(sampledata_file):
+            Utils.dump_2d_array(sampledata_array.to_2d_array(), sampledata_file)
+        log = self._run_nbee(sampledata_file=sampledata_file,
+                             refdata_file=refdata_file,
+                             out_dir=tool_dir)
+        if len(log) > 0:
+            Utils.append_log(log, _TOOL)
+
+        # Annotation
+
+        coverage_files = Utils.locate_file_by_tail(tool_dir, "_coverage.tsv", multiple=True)
+
+        annotation_dir = os.path.join(tool_dir, "annotated_coverages", refdata_alias)
+        os.makedirs(annotation_dir, exist_ok=True)
+        for coverage_file in coverage_files:
+            annotated_coverage_file = os.path.join(
+                annotation_dir, "{}{}".format(os.path.basename(os.path.splitext(coverage_file)[0]),
+                                              Utils.get_file_extension(coverage_file)))
+            log = self._annotate_nbee_coverage(coverage_file=coverage_file,
+                                               annotation_file=annotation_file,
+                                               out_file=annotated_coverage_file)
+        if len(log) > 0:
+            Utils.append_log(log, _TOOL)
+
 
     # Orthologs-based phylogenetic tree construction
     def run_orthomcl(self, sampledata_array: SampleDataArray, skip: bool = False):
