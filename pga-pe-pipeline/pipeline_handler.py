@@ -58,12 +58,20 @@ Columns:
                             help="Output directory")
 
         self._namespace = parser.parse_args()
-        self.sampledata_file = self._namespace.input
+        self.output_dir = os.path.realpath(self._namespace.input)
+
         self.threads = multiprocessing.cpu_count()
         self.stages_to_do = []
+
         self.hg_index_dir = self._namespace.hg_dir
+        if len(self.hg_index_dir) > 0:
+            self.hg_index_dir = os.path.realpath(self.hg_index_dir)
+
         self.refdata_files = Utils.remove_empty_values(self._namespace.refdata)
-        self.output_dir = self._namespace.output_dir
+        if len(self.refdata_files) > 0:
+            self.refdata_files = tuple([os.path.realpath(i) for i in self.refdata_files])
+
+        self.output_dir = os.path.realpath(self._namespace.output_dir)
         self.log_dir = os.path.join(self.output_dir, "logs", Utils.get_time())
 
     def validate(self):
