@@ -280,10 +280,8 @@ class Handler:
         self.card_reference_dir = os.path.join(self._reference_dir, "card")
         self.roary_reference_dir = os.path.join(self._reference_dir, "roary")
         self.srst2_reference_dir = os.path.join(self._reference_dir, "srst2")
-
-        self.human_genome_reference_dir = ""
-        if len(self.human_genome_reference_dir) == 0:
-            self.human_genome_reference_dir = os.path.join(self._reference_dir, "human_genome")
+        #
+        self.human_genome_reference_dir = os.path.join(self._reference_dir, "human_genome")
         #
         self.state = dict()
         #
@@ -557,6 +555,8 @@ class Handler:
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
+        if len(argValidator.hg_index_dir) > 0:
+            self.human_genome_reference_dir = argValidator.hg_index_dir
         os.makedirs(self.human_genome_reference_dir, exist_ok=True)
         index_mask = self._parse_bowtie2_index_mask(self.human_genome_reference_dir)
         if len(index_mask) == 0:
