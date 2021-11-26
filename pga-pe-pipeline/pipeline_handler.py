@@ -58,7 +58,7 @@ Columns:
                             help="Output directory")
 
         self._namespace = parser.parse_args()
-        self.output_dir = os.path.realpath(self._namespace.input)
+        self.sampledata_file = os.path.realpath(self._namespace.input)
 
         self.threads = multiprocessing.cpu_count()
         self.stages_to_do = []
