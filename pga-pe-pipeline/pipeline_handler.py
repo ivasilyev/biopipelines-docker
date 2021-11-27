@@ -18,6 +18,7 @@ from datetime import datetime
 
 BLAST_REFERENCES = 100
 BOWTIE2_HG_IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
+PULL_RETRIES = 5
 
 
 class ArgValidator:
@@ -284,12 +285,14 @@ class Handler:
         self.output_dirs = dict()
         #
         self._reference_dir = os.path.join(self.output_dir_root, "references")
+        self.human_genome_reference_dir = os.path.join(self._reference_dir, "human_genome")
         self.blast_reference_dir = os.path.join(self._reference_dir, "blast")
-        self.card_reference_dir = os.path.join(self._reference_dir, "card")
-        self.roary_reference_dir = os.path.join(self._reference_dir, "roary")
         self.srst2_reference_dir = os.path.join(self._reference_dir, "srst2")
         #
-        self.human_genome_reference_dir = os.path.join(self._reference_dir, "human_genome")
+        self.card_reference_dir = os.path.join(self._reference_dir, "card")
+        self.card_reference_json = ""
+        #
+        self.roary_reference_dir = os.path.join(self._reference_dir, "roary")
         #
         self.state = dict()
         #
@@ -1089,17 +1092,16 @@ class Handler:
         log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL)
 
-    def _download_card_reference(self, reference_dir):
+    def _download_card_reference(self):
         # The CARD reference updates relatively frequent, so it's better to fetch a fresh copy per launch
-        self.clean_path(reference_dir)
+        self.clean_path(self.card_reference_dir)
         cmd = f"""
         bash -c '
-            cd {reference_dir};
+            cd {self.card_reference_dir};
             for i in "https://card.mcmaster.ca/latest/data" "https://card.mcmaster.ca/latest/ontology" "https://card.mcmaster.ca/latest/variants";
                 do \
                     curl -fsSL "$i" | tar jxf -;
                 done;
-            chmod -R 777 {reference_dir};
         '
         """
         logging.info("Download the CARD reference")
@@ -1121,10 +1123,14 @@ class Handler:
             return
 
         os.makedirs(self.card_reference_dir, exist_ok=True)
-        reference_file = Utils.locate_file_by_tail(self.card_reference_dir, "card.json")
-        if len(reference_file) == 0:
-            log = self._download_card_reference(self.card_reference_dir)
+        for _try in range(0, PULL_RETRIES):
+            self.card_reference_json = Utils.locate_file_by_tail(self.card_reference_dir, "card.json")
+            if len(self.card_reference_json) > 0:
+                break
+            logging.info(f"Downloading CARD reference data for attempt {_try} of {PULL_RETRIES}")
+            log = self._download_card_reference()
             Utils.append_log(log, _TOOL, sampledata.name)
+
         self.clean_path(stage_dir)
         out_mask = os.path.join(stage_dir, sampledata.name)
 
@@ -1134,7 +1140,7 @@ class Handler:
         bash -c '
             echo "$({_TOOL} --help | grep '^Resistance')";
             cd "{stage_dir}";
-            {_TOOL} load --card_json "{reference_file}";
+            {_TOOL} load --card_json "{self.card_reference_json}";
             {_TOOL} main \
                 --clean \
                 --input_sequence "{sampledata.genome_assembly}" \
