@@ -328,7 +328,7 @@ class Handler:
         return img_tag
 
     def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo",
-                       bad_phrases: list = (), attempts: int = 5):
+                       sample_name: str = "all", bad_phrases: list = (), attempts: int = 5):
         if not img_tag:
             # Get API response
             attempt = 0
@@ -344,13 +344,17 @@ class Handler:
                 logging.warning("Exceeded attempts number to get API response for the image '{}'".format(img_name))
         # Pull & run image
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
+
         # Update software
-        state_key = "software"
-        if state_key not in self.state.keys():
-            self.state[state_key] = dict()
-        if repo_name not in self.state[state_key].keys():
-            self.state[state_key][repo_name] = dict()
-        self.state[state_key][repo_name][img_name] = img_name_full
+        self.state.update({
+            sample_name: {
+                "software": {
+                    repo_name: {
+                        img_name: img_name_full
+                    }
+                }
+            }
+        })
         return Utils.run_image(img_name=img_name_full, container_cmd=cmd, bad_phrases=bad_phrases, attempts=attempts)
 
     @staticmethod
@@ -440,9 +444,13 @@ class Handler:
             fastqc_results = self._parse_fastqc_result(sub_stage_dir)
             if len(fastqc_results.keys()) == 0 and not skip:
                 logging.warning("No FastQC results!")
-            if stage_name not in self.state.keys():
-                self.state[stage_name] = dict()
-            self.state[stage_name][reads_file] = fastqc_results
+            self.state.update({
+                sampledata.name: {
+                    stage_name: {
+                        os.path.basename(reads_file): fastqc_results
+                    }
+                }
+            })
 
     def run_trimmomatic(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -621,7 +629,11 @@ class Handler:
         # Parse log
         state_dict = self._parse_bowtie2_log(log)
         Utils.dump_dict(state_dict, state_file)
-        self.state[stage_name] = state_dict
+        self.state.update({
+            sampledata.name: {
+                stage_name: state_dict
+            }
+        })
 
     def run_spades(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
@@ -713,7 +725,8 @@ class Handler:
 
     def run_blast(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "blast_nucleotide_sequence"
-        tool_dir = self.output_dirs[Utils.get_caller_name()]
+        stage_name = Utils.get_caller_name()
+        tool_dir = self.output_dirs[stage_name]
         stage_dir = os.path.join(tool_dir, sampledata.name)
         cmd = f"""
         bash -c '
@@ -744,7 +757,7 @@ class Handler:
         sampledata.blast_result_json = blast_result_jsons[0]
         blast_result_dict = Utils.load_dict(sampledata.blast_result_json)
         blast_top_result = list(blast_result_dict.keys())[0]
-        logging.info(f"The blast top result is '{blast_top_result}'")
+        logging.info(f"The best matching organism is '{blast_top_result}'")
 
         genus, species, strain = ["", ] * 3
         for blast_result in blast_result_dict.keys():
@@ -754,6 +767,13 @@ class Handler:
             logging.info(f"Unspecified species, trying another: '{blast_result}'")
 
         logging.info("The matching organism is {} {}".format(genus, species))
+        self.state.update({
+            sampledata.name: {
+                stage_name: dict(
+                    top_result=blast_top_result, genus=genus, species=species, strain=strain
+                )
+            }
+        })
         sampledata.set_taxa(genus=genus, species=species, strain=strain)
 
         sampledata.blast_result_table = Utils.locate_file_by_tail(stage_dir, "combined_blast_results.tsv")
@@ -874,7 +894,11 @@ class Handler:
         quast_results = self._parse_quast_result(stage_dir)
         quast_result_number = len(quast_results.keys())
         if quast_result_number > 0:
-            self.state[stage_name] = quast_results
+            self.state.update({
+                sampledata.name: {
+                    stage_name: quast_results
+                }
+            })
         else:
             if not skip:
                 logging.warning("No QUAST results!")
