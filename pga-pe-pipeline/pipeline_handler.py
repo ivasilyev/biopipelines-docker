@@ -705,6 +705,12 @@ class Handler:
         if Utils.is_file_valid(genome_assembly):
             sampledata.genome_assembly = genome_assembly
 
+    @staticmethod
+    def _parse_taxa_from_blast_result(s: str):
+        taxa_part = s.split("| ")[-1]
+        genus, species = Utils.safe_findall("^[A-Z][a-z]+ [.a-z]+", taxa_part).split(" ")
+        return genus, species
+
     def run_blast(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "blast_nucleotide_sequence"
         tool_dir = self.output_dirs[Utils.get_caller_name()]
@@ -727,16 +733,28 @@ class Handler:
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip {}".format(Utils.get_caller_name()))
-        sampledata.blast_result_json = Utils.locate_file_by_tail(stage_dir, "_blast_results.json")
-        if len(sampledata.blast_result_json) == 0:
+        blast_result_jsons = [
+            i for i in Utils.scan_whole_dir(stage_dir)
+            if os.path.basename(i).startswith(sampledata.name)
+            and os.path.basename(i).endswith("_blast_results.json")
+        ]
+        if len(blast_result_jsons) == 0:
             logging.warning("No BLAST JSON result!")
             return
+        sampledata.blast_result_json = blast_result_jsons[0]
         blast_result_dict = Utils.load_dict(sampledata.blast_result_json)
         blast_top_result = list(blast_result_dict.keys())[0]
-        taxa_part = blast_top_result.split("| ")[-1]
-        genus, species = Utils.safe_findall("^[A-Z][a-z]+ [a-z]+", taxa_part).split(" ")
-        logging.info("The best matching organism is {} {}".format(genus, species))
-        sampledata.set_taxa(genus=genus, species=species, strain="")
+        logging.info(f"The blast top result is '{blast_top_result}'")
+
+        genus, species, strain = ["", ] * 3
+        for blast_result in blast_result_dict.keys():
+            genus, species = self._parse_taxa_from_blast_result(blast_result)
+            if species != "sp.":
+                break
+            logging.info(f"Unspecified species, trying another: '{blast_result}'")
+
+        logging.info("The matching organism is {} {}".format(genus, species))
+        sampledata.set_taxa(genus=genus, species=species, strain=strain)
 
         sampledata.blast_result_table = Utils.locate_file_by_tail(stage_dir, "combined_blast_results.tsv")
 
