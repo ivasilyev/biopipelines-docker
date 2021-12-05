@@ -1,15 +1,23 @@
-# Base image CLI:
-# IMG=ubuntu:18.04 && docker pull ${IMG} && docker run --rm -v /data:/data -v /data1:/data1 -v /data2:/data2 -it ${IMG} bash
-FROM ubuntu:18.04
+FROM ubuntu:20.04
+
+# BASE IMAGE ACCESSING COMMAND:
+# export IMG="ubuntu:20.04" && docker pull "${IMG}" && docker run --rm --net=host -it "${IMG}"
 
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get -y update && \
+RUN echo "Update packages" && \
+    apt-get -y update && \
     apt-get -y upgrade && \
     apt-get -y autoremove && \
+    echo "Install base packages" && \
+    apt-get -y install \
+            apt-utils \
+            ca-certificates \
+            software-properties-common \
+            && \
+    echo "Install main packages" && \
     apt-get -y install \
             # Base packages
-            ca-certificates \
             curl \
             git \
             nano \
@@ -27,62 +35,70 @@ RUN apt-get -y update && \
             python3-tk \
             # NodeJS backend
             nodejs \
-            npm
-
-# Install Tini - A tiny but valid init for containers
-RUN TINI_VERSION=`curl https://github.com/krallin/tini/releases/latest | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
-    curl -L "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" > tini.deb && \
-    dpkg -i tini.deb && \
-    rm tini.deb
-
-# Cleanup
-RUN apt-get -y autoremove && \
+            npm \
+            # ODBC header files
+            unixodbc-dev \
+            && \
+    echo "Cleanup" && \
+    apt-get -y autoremove && \
     apt-get clean && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Install primary Python packages
-RUN pip3 install --upgrade pip
-RUN pip3 install setuptools wheel
-RUN pip3 install \
-    # Base data analysis
-    numpy pandas statsmodels scipy xlrd \
-    # Queueing & pipelining
-    joblib \
-    # Web scraping
-    requests bs4 lxml \
-    # Templating
-    jinja2 pyyaml \
-    # Text processing
-    win-unicode-console unidecode \
-    # Visualization
-    matplotlib seaborn
+RUN echo "Install Tini - A tiny but valid init for containers" && \
+    TINI_VERSION=`curl -s "https://github.com/krallin/tini/releases/latest" | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
+    curl -fsSL "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" -o tini.deb && \
+    dpkg -i tini.deb && \
+    rm tini.deb
 
-# Install secondary Python packages
-RUN pip3 install \
-    # Web interface
-    ipython jupyter jupyterlab \
-    # ML-related
-    scikit-learn tensorflow \
-    # Biological data processing
-    biopython scikit-bio
+RUN echo "Install primary Python packages" && \
+    pip3 install --upgrade --no-cache-dir \
+        pip \
+        setuptools \
+        wheel \
+        && \
+     pip3 install --no-cache-dir \
+        # Base data analysis
+        numpy pandas statsmodels scipy pyodbc \
+        # Queueing & pipelining
+        joblib \
+        # Web scraping
+        requests bs4 lxml \
+        # Templating
+        jinja2 pyyaml \
+        # Text processing
+        win-unicode-console unidecode \
+        # Visualization
+        matplotlib pillow plotly seaborn \
+        && \
+    echo "Install secondary Python packages" && \
+    pip3 install --no-cache-dir \
+        # Web interface
+        ipython jupyter jupyterlab dash \
+        # ML-related
+        scikit-learn keras tensorflow xgboost \
+        # Biological data processing
+        biopython scikit-bio \
+        && \
+    echo "Clean Python package cache" && \
+    pip cache purge
 
 # Web port forwarding
 EXPOSE 80 443 31522
 
-# Create user docker with password docker
-RUN groupadd fuse && \
+RUN echo "Create user docker with password docker" && \
+    groupadd fuse && \
     useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
-    mkdir -p /data /config /home/docker/bin && \
-    chown docker:docker /data /config /home/docker/bin && \
-    chmod -R 755 /data /config /home/docker/bin
+    mkdir -p /config /home/docker/bin && \
+    chown docker:docker /config /home/docker/bin && \
+    chmod -R a+rw /config /home/docker/bin
 
 # Change user (CLI: su - docker)
 USER docker
 
-# Get the automation script for Jupyter Lab instances
-RUN mkdir -p /home/docker/scripts && \
+RUN echo "Get the automation script for Jupyter Lab instances" && \
+    mkdir -p /home/docker/scripts && \
     curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/jupyter-deploy.sh" -o /home/docker/scripts/jupyter-deploy.sh
 
 # Update environment variables
@@ -93,4 +109,4 @@ WORKDIR /home/docker
 CMD ["/bin/bash"]
 
 # MANUAL BUILD COMMAND:
-# export DOCKER_IMAGE_NAME=jupyter-deploy && docker build -t ${DOCKER_IMAGE_NAME} . && docker tag ${DOCKER_IMAGE_NAME} ivasilyev/${DOCKER_IMAGE_NAME}:latest && docker push ivasilyev/${DOCKER_IMAGE_NAME}:latest
+# export REPO="jupyter-deploy" && export TAG="ivasilyev/${REPO}:latest" && docker build --network=host --tag "${REPO}" . && docker tag "${REPO}" "${TAG}" && docker push "${TAG}"
