@@ -666,6 +666,7 @@ class Handler:
                 python3 "$TOOL" \
                     --careful \
                     -o {assembly_dir} \
+                    --threads {argValidator.threads} \
                     -1 {sampledata.reads[0]} \
                     -2 {sampledata.reads[1]} \
                     {cmd_append};
@@ -1258,7 +1259,7 @@ class Handler:
         """
         MGEfinder requires the very strict folder structure pattern, including even file extensions:
         
-        <workdir_name>/
+        <work_directory_name>/
             ├── 00.assembly/
             │   ├── <sample_name>.fna
             │   ...
