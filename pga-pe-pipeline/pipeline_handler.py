@@ -394,7 +394,7 @@ class Handler:
                 --threads {argValidator.threads} \
                 "{reads_file}";
             rm -f *.zip;
-            chmod -R 777 "{out_dir}";
+            chmod -R a+rw "{out_dir}";
         '
         """
         self.clean_path(out_dir)
@@ -480,7 +480,7 @@ class Handler:
                 TRAILING:3 \
                 SLIDINGWINDOW:4:15 \
                 MINLEN:36;
-             chmod -R 777 {stage_dir};
+             chmod -R a+rw {stage_dir};
         '
         """
         if not skip:
@@ -515,7 +515,7 @@ class Handler:
                 --output {trimmed_reads[0]} \
                 --paired-output {trimmed_reads[1]} \
                 {sampledata.reads_string};
-            chmod -R 777 {stage_dir};
+            chmod -R a+rw {stage_dir};
         '
         """
         if not skip:
@@ -539,7 +539,7 @@ class Handler:
         bash -c '
             cd {directory};
             curl -fsSL "{BOWTIE2_HG_IDX_URL}" | tar -xzf -;
-            chmod -R 777 {directory};
+            chmod -R a+rw {directory};
         '
         """
         logging.info("Downloaded the reference human genome")
@@ -609,7 +609,7 @@ class Handler:
                 -R 3 \
                 -S {mapped_reads_file} \
                 -x {index_mask};
-            chmod -R 777 {stage_dir}'
+            chmod -R a+rw {stage_dir}'
         """
         self.clean_path(unmapped_reads_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd)
@@ -670,7 +670,7 @@ class Handler:
                     -1 {sampledata.reads[0]} \
                     -2 {sampledata.reads[1]} \
                     {cmd_append};
-                chmod -R 777 {assembly_dir};
+                chmod -R a+rw {assembly_dir};
             '
             """
             if not skip:
@@ -707,7 +707,7 @@ class Handler:
                 --chromosome {sampledata.chromosome_assembly} \
                 --plasmid {sampledata.plasmid_assembly} \
                 --output {genome_assembly};
-            chmod -R 777 {stage_dir}
+            chmod -R a+rw {stage_dir}
         '
         """
         if not skip:
@@ -739,7 +739,7 @@ class Handler:
                 --results {BLAST_REFERENCES} \
                 --sequence_dir {self.blast_reference_dir} \
                 --output {stage_dir};
-            chmod -R 777 {stage_dir}
+            chmod -R a+rw {stage_dir}
         '
         """
         if not skip:
@@ -883,7 +883,7 @@ class Handler:
                 --features "{sampledata.closest_reference_genbank}" \
                 --threads {argValidator.threads} \
                 "{genome_assembly_symlink}"
-            chmod -R 777 "{stage_dir}";
+            chmod -R a+rw "{stage_dir}";
         '
         """
 
@@ -958,7 +958,7 @@ class Handler:
                 --rfam \
                 {taxa_append} \
                 {sampledata.genome_assembly};
-            chmod -R 777 {stage_dir}
+            chmod -R a+rw {stage_dir}
         '
         """
         log = self.run_quay_image(_TOOL, cmd=cmd)
@@ -1018,7 +1018,7 @@ class Handler:
             bash -c \
                 'cd {o};
                  getmlst.py --species "{t}";
-                 chmod -R 777 {o}'
+                 chmod -R a+rw {o}'
             """.format(t=taxa, o=out_dir)
             getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
             Utils.append_log(getmlst_log, "getmlst", sample_name)
@@ -1095,7 +1095,7 @@ class Handler:
                --mlst_delimiter {getmlst_state["mlst_delimiter"]} \
                --output {out_mask} \
                --threads {argValidator.threads};
-            chmod -R 777 {stage_dir}
+            chmod -R a+rw {stage_dir}
         '
         """
         # Deliberately set the tag with fully supported environment
@@ -1129,7 +1129,7 @@ class Handler:
                 --input {Utils.render_file_list(table_list)} \
                 --axis 0 \
                 --output {sampledata_array.srst2_merged_table};
-            chmod -R 777 {sampledata_array.srst2_merged_table}
+            chmod -R a+rw {sampledata_array.srst2_merged_table}
         '
         """
         self.clean_path(tool_dir)
@@ -1198,7 +1198,7 @@ class Handler:
                         --category "$category" \
                         --output "{out_mask}_heatmap_by_$category";
                 done;
-            chmod -R 777 "{stage_dir}";
+            chmod -R a+rw "{stage_dir}";
         '
         """
         log = self.run_quay_image(_TOOL, cmd=cmd)
@@ -1347,7 +1347,7 @@ class Handler:
                 --input {Utils.render_file_list(table_list)} \
                 --axis 0 \
                 --output {sampledata_array.blast_merged_table};
-            chmod -R 777 {sampledata_array.blast_merged_table}
+            chmod -R a+rw {sampledata_array.blast_merged_table}
         '
         """
         self.clean_path(tool_dir)
@@ -1385,7 +1385,7 @@ class Handler:
                                 --outdir "${TARGET_DIR}";
                     fi;
                 ';
-        chmod -R 777 "${TARGET_DIR}";
+        chmod -R a+rw "${TARGET_DIR}";
         """
         # Mock the script, since the `bash -c 'bash -c '...''` hangs
         exe = os.path.join(gbff_dir, f"{_TOOL}.sh")
@@ -1413,7 +1413,7 @@ class Handler:
                 --input {newick_file} \
                 --table {blast_result_table} \
                 --output {out_file};
-            chmod -R 777 {newick_file}
+            chmod -R a+rw {newick_file}
         '
         """
         return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
@@ -1447,7 +1447,7 @@ class Handler:
                 --mafft \
                 -p {argValidator.threads} \
                 "{self.roary_reference_dir}"/*;
-            chmod -R 777 "{tool_dir}"
+            chmod -R a+rw "{tool_dir}"
         '
         """
         log = Utils.run_image(img_name="sangerpathogens/roary:latest", container_cmd=cmd)
@@ -1578,7 +1578,7 @@ class Handler:
                               bash -c \
                                 'service mysql restart;
                                  python3 /opt/my_tools/pipeline_handler.py -i {s} -o {o};
-                                 chmod -R 777 {o}'
+                                 chmod -R a+rw {o}'
                               """.format(s=sampledata_file, o=tool_dir))
         Utils.append_log(log, _TOOL, "all")
 
@@ -1600,7 +1600,7 @@ class Handler:
                 elif func in self.group_methods:
                     _ = func(sampledata_array, skip=idx not in argValidator.stages_to_do)
             except PermissionError:
-                logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R 777 {}'".format(
+                logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R a+rw {}'".format(
                     idx, self.output_dir_root))
         self.dump_state()
 
