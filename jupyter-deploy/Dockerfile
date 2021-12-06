@@ -110,3 +110,6 @@ CMD ["/bin/bash"]
 
 # MANUAL BUILD COMMAND:
 # export REPO="jupyter-deploy" && export TAG="ivasilyev/${REPO}:latest" && docker build --network=host --tag "${REPO}" . && docker tag "${REPO}" "${TAG}" && docker push "${TAG}"
+
+# PULL COMMAND:
+# export IMG="ivasilyev/jupyter-deploy:latest" && docker pull "${IMG}" && docker run --rm --net=host -it "${IMG}"

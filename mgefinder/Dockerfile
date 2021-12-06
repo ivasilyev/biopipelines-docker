@@ -8,6 +8,7 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo "Install Conda packages" && \
     conda install --quiet --yes --channel bioconda \
     bowtie2=2.3.5.0 \
+    bwa=0.7.17 \
     cd-hit=4.8.1 \
     emboss=6.6.0.0 \
     htslib \
@@ -27,3 +28,6 @@ RUN mgefinder --help
 
 # MANUAL BUILD COMMAND:
 # export REPO="mgefinder" && export TAG="ivasilyev/${REPO}:latest" && docker build --network=host --tag "${REPO}" . && docker tag "${REPO}" "${TAG}" && docker push "${TAG}"
+
+# PULL COMMAND:
+# export IMG="ivasilyev/mgefinder:latest" && docker pull "${IMG}" && docker run --rm --net=host -it "${IMG}"
