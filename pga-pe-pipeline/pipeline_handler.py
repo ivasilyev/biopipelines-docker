@@ -458,8 +458,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/trimmomatic:0.32--hdfd78af_4 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix="{}_trimmed".format(_TOOL))
@@ -497,8 +497,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/cutadapt:3.5--py37h73a75cf_0 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         trimmed_reads = self.process_reads(sampledata, out_dir=stage_dir, suffix=_TOOL)
@@ -563,8 +563,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/bowtie2:2.4.4--py37h13ad519_0 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         stage_name = Utils.get_caller_name()
         stage_dir = self.output_dirs[stage_name]
@@ -641,8 +641,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/spades:3.13.1--0 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         
         # Tool executable lookup:
         export TOOL="$(find /usr/local/ -name "spades.py" -type f 2>/dev/null | grep 'spades.py$' | head -n 1)"
@@ -693,8 +693,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=ivasilyev/curated_projects:latest && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         genome_assembly = os.path.join(stage_dir, "{}_genome.fna".format(sampledata.name))
@@ -855,8 +855,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/quast:5.0.2--py36pl5262h30a8e3e_4 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         stage_name = Utils.get_caller_name()
         stage_dir = os.path.join(self.output_dirs[stage_name], sampledata.name)
@@ -920,8 +920,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/prokka:1.12--pl526_0 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         stage_dir = os.path.join(self.output_dirs[Utils.get_caller_name()], sampledata.name)
         sampledata.genbank = os.path.join(stage_dir, "{}.gbf".format(sampledata.name))
@@ -988,8 +988,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         """
         # Sample output for `getmlst.py --species 'Klebsiella pneumoniae'`
@@ -1053,8 +1053,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         reference_dir = os.path.join(self.srst2_reference_dir, sampledata.prefix)
@@ -1155,8 +1155,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/rgi:5.1.1--py_0 && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         stage_dir = os.path.join(tool_dir, sampledata.name)
@@ -1242,8 +1242,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=bioperl/bioperl:latest && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
 
         # Tool executable lookup:
         export TOOL="$(find /usr/local/ -name "bp_genbank2gff3" -type f 2>/dev/null | grep 'bp_genbank2gff3$' | head -n 1)"
@@ -1305,8 +1305,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=sangerpathogens/roary:latest && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         if skip:
@@ -1349,8 +1349,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=ivasilyev/bwt_filtering_pipeline_worker:latest && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         cmd = f"""
         bash -c '
@@ -1372,8 +1372,8 @@ class Handler:
         """
         # Sample launch:
         export IMG=ivasilyev/curated_projects:latest && \
-        docker pull ${IMG} && \
-        docker run --rm --net=host -it ${IMG} bash
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
         """
         cmd = f"""
         bash -c '
