@@ -1255,6 +1255,23 @@ class Handler:
 
         os.makedirs(self.mgefinder_reference_dir, exist_ok=True)
 
+        """
+        MGEfinder requires the very strict folder structure pattern, including even file extensions:
+        
+        <workdir_name>/
+            ├── 00.assembly/
+            │   ├── <sample_name>.fna
+            │   ...
+            ├── 00.bam/
+            │   ├── <sample_name>.<reference_name>.bam
+            │   ├── <sample_name>.<reference_name>.bam.bai
+            │   ...
+            └── 00.genome/
+                └── <reference_name>.fna
+        
+        More info: https://github.com/bhattlab/MGEfinder/wiki
+        """
+
         assembly_dir = os.path.join(stage_dir, "00.assembly")
         bam_dir = os.path.join(stage_dir, "00.bam")
         genome_dir = os.path.join(stage_dir, "00.genome")
