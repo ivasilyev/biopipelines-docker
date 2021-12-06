@@ -275,7 +275,7 @@ class Handler:
         self.sample_methods = [
             self.run_fastqc_with_parser, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
             self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_quast_with_parser,
-            self.run_prokka, self.run_rgi, self.run_srst2
+            self.run_prokka, self.run_rgi, self.run_srst2, self.run_mgefinder
         ]
         self.group_methods = [self.merge_srst2_results, self.merge_blast_results, self.run_roary,
                               self.run_nbee_with_annotation]
@@ -288,6 +288,7 @@ class Handler:
         self.human_genome_reference_dir = os.path.join(self._reference_dir, "human_genome")
         self.blast_reference_dir = os.path.join(self._reference_dir, "blast")
         self.srst2_reference_dir = os.path.join(self._reference_dir, "srst2")
+        self.mgefinder_reference_dir = os.path.join(self._reference_dir, "mgefinder")
         #
         self.card_reference_dir = os.path.join(self._reference_dir, "card")
         self.card_reference_json = ""
@@ -1210,6 +1211,106 @@ class Handler:
         Genes with asterisks (*) appear multiple times.
         """
 
+    @staticmethod
+    def _index_reference_by_bwa(input_genbank_file: str, output_fna_file: str):
+        # One per sample
+        """
+        # Sample launch:
+        export IMG="ivasilyev/mgefinder:latest" && \
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}"
+        """
+        output_dir = os.path.dirname(output_fna_file)
+        cmd = f"""
+        cd {output_dir} && \
+        curl -fsSL \
+            "https://raw.githubusercontent.com/combogenomics/regtools/master/gbk2fna" \
+            -o "/tmp/gbk2fna.py" && \
+        python3 "/tmp/gbk2fna.py" \
+            "{input_genbank_file}" \
+            "{output_fna_file}";
+        bwa index \
+            -p "{Utils.get_file_name_mask(output_fna_file)}" \
+            "{output_fna_file}";
+        chmod -R a+rw {output_dir};
+        """
+        return Utils.run_image(img_name="ivasilyev/mgefinder:latest", container_cmd=cmd)
+
+    def run_mgefinder(self, sampledata: SampleDataLine, skip: bool = False):
+        # One per sample
+        _TOOL = "mgefinder"
+        """
+        # Sample launch:
+        export IMG="ivasilyev/mgefinder:latest" && \
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}"
+        """
+        stage_name = Utils.get_caller_name()
+        tool_dir = self.output_dirs[stage_name]
+        stage_dir = os.path.join(tool_dir, sampledata.name)
+
+        if skip or not sampledata.is_valid:
+            logging.info("Skip {}".format(stage_name))
+            return
+
+        os.makedirs(self.mgefinder_reference_dir, exist_ok=True)
+
+        assembly_dir = os.path.join(stage_dir, "00.assembly")
+        bam_dir = os.path.join(stage_dir, "00.bam")
+        genome_dir = os.path.join(stage_dir, "00.genome")
+        raw_dir = os.path.join(stage_dir, "00.raw")
+        _ = [self.clean_path(i) for i in (stage_dir, assembly_dir, bam_dir, genome_dir, raw_dir)]
+
+        reads_file_1 = os.path.join(raw_dir, f"{sampledata.name}.1{sampledata.extension}")
+        reads_file_2 = os.path.join(raw_dir, f"{sampledata.name}.2{sampledata.extension}")
+
+        assembly_name = os.path.join(assembly_dir, f"{sampledata.name}.fna")
+
+        reference_name = os.path.splitext(os.path.basename(sampledata.closest_reference_genbank))[0]
+        genome_file = f"{os.path.join(genome_dir, reference_name)}.fna"
+        genome_mask = Utils.get_file_name_mask(genome_file)
+
+        if not Utils.is_file_valid(genome_file):
+            logging.info("Create BWA index")
+            log = self._index_reference_by_bwa(sampledata.closest_reference_genbank, genome_file)
+            Utils.append_log(log, "bwa index")
+
+        alignment_mask = os.path.join(bam_dir, f"{sampledata.name}.{reference_name}")
+
+        cmd = f"""
+        bash -c '
+        cd "{raw_dir}";
+        ln -s \
+            "{sampledata.reads[0]}" \
+            "{reads_file_1}";
+        ln -s \
+            "{sampledata.reads[1]}" \
+            "{reads_file_2}";
+        cd "{assembly_dir}";
+        ln -s \
+            "{sampledata.genome_assembly}" \
+            "{assembly_name}";                
+        cd "{bam_dir}";        
+        bwa mem \
+            -t {argValidator.threads} \
+            -v 0 \
+            "{genome_mask}" \
+            "{reads_file_1}" \
+            "{reads_file_2}" \
+            > "{alignment_mask}.sam";        
+        mgefinder formatbam \
+            "{alignment_mask}.sam" \
+            "{alignment_mask}.bam";   
+        cd "{stage_dir}";
+        mgefinder workflow denovo \
+            --cores {argValidator.threads} \
+            "{stage_dir}";
+        chmod -R a+rw "{stage_dir}";
+        '
+        """
+        log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+        Utils.append_log(log, _TOOL)
+
     def merge_blast_results(self, sampledata_array: SampleDataArray, skip: bool = False):
         _TOOL = "concatenate_tables"
         tool_dir = self.output_dirs[Utils.get_caller_name()]
@@ -1678,6 +1779,10 @@ class Utils:
     @staticmethod
     def render_file_list(x):
         return '"{}"'.format('", "'.join(Utils.remove_empty_values(x)))
+
+    @staticmethod
+    def get_file_name_mask(s: str):
+        return os.path.splitext(s)[0]
 
     # Function handling methods
 
