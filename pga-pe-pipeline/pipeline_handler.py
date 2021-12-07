@@ -273,8 +273,8 @@ class SampleDataArray:
 class Handler:
     def __init__(self, output_dir: str = ""):
         self.sample_methods = [
-            self.run_fastqc_with_parser, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
-            self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_quast_with_parser,
+            self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
+            self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_quast,
             self.run_prokka, self.run_rgi, self.run_srst2, self.run_mgefinder
         ]
         self.group_methods = [self.merge_srst2_results, self.merge_blast_results, self.run_roary,
@@ -430,7 +430,7 @@ class Handler:
         arr = Utils.load_2d_array(summary_table)
         return {i[1]: i[0] for i in arr if len(i) > 1}
 
-    def run_fastqc_with_parser(self, sampledata: SampleDataLine, skip: bool = False):
+    def run_fastqc(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         stage_name = Utils.get_caller_name()
         tool_dir = self.output_dirs[stage_name]
@@ -851,7 +851,7 @@ class Handler:
                 out[i[0]] = i[1]
         return out
 
-    def run_quast_with_parser(self, sampledata: SampleDataLine, skip: bool = False):
+    def run_quast(self, sampledata: SampleDataLine, skip: bool = False):
         # One per sample
         _TOOL = "quast"
         """
