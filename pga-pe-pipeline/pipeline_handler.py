@@ -539,7 +539,6 @@ class Handler:
         bash -c '
             cd {directory};
             curl -fsSL "{BOWTIE2_HG_IDX_URL}" | tar -xzf -;
-            chmod -R a+rw {directory};
         '
         """
         logging.info("Downloaded the reference human genome")
@@ -707,7 +706,6 @@ class Handler:
                 --chromosome {sampledata.chromosome_assembly} \
                 --plasmid {sampledata.plasmid_assembly} \
                 --output {genome_assembly};
-            chmod -R a+rw {stage_dir}
         '
         """
         if not skip:
@@ -739,7 +737,6 @@ class Handler:
                 --results {BLAST_REFERENCES} \
                 --sequence_dir {self.blast_reference_dir} \
                 --output {stage_dir};
-            chmod -R a+rw {stage_dir}
         '
         """
         if not skip:
@@ -1130,7 +1127,6 @@ class Handler:
                 --input {Utils.render_file_list(table_list)} \
                 --axis 0 \
                 --output {sampledata_array.srst2_merged_table};
-            chmod -R a+rw {sampledata_array.srst2_merged_table}
         '
         """
         self.clean_path(tool_dir)
@@ -1349,7 +1345,6 @@ class Handler:
                 --input {Utils.render_file_list(table_list)} \
                 --axis 0 \
                 --output {sampledata_array.blast_merged_table};
-            chmod -R a+rw {sampledata_array.blast_merged_table}
         '
         """
         self.clean_path(tool_dir)
@@ -1415,7 +1410,6 @@ class Handler:
                 --input {newick_file} \
                 --table {blast_result_table} \
                 --output {out_file};
-            chmod -R a+rw {newick_file}
         '
         """
         return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
