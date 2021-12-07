@@ -721,6 +721,8 @@ class Handler:
     def _parse_taxa_from_blast_result(s: str):
         taxa_part = s.split("| ")[-1]
         d = Utils.parse_taxa(taxa_part)
+        if len(d.keys()) < 0:
+            logging.warning(f"Cannot parse taxa string: '{s}' -> '{d}'")
         return d
 
     def run_blast(self, sampledata: SampleDataLine, skip: bool = False):
@@ -1220,17 +1222,19 @@ class Handler:
         """
         output_dir = os.path.dirname(output_fna_file)
         cmd = f"""
-        cd {output_dir} && \
-        curl -fsSL \
-            "https://raw.githubusercontent.com/combogenomics/regtools/master/gbk2fna" \
-            -o "/tmp/gbk2fna.py" && \
-        python3 "/tmp/gbk2fna.py" \
-            "{input_genbank_file}" \
-            "{output_fna_file}";
-        bwa index \
-            -p "{Utils.get_file_name_mask(output_fna_file)}" \
-            "{output_fna_file}";
-        chmod -R a+rw {output_dir};
+        bash -c '
+            cd {output_dir} && \
+            curl -fsSL \
+                "https://raw.githubusercontent.com/combogenomics/regtools/master/gbk2fna" \
+                -o "/tmp/gbk2fna.py" && \
+            python3 "/tmp/gbk2fna.py" \
+                "{input_genbank_file}" \
+                "{output_fna_file}";
+            bwa index \
+                -p "{Utils.get_file_name_mask(output_fna_file)}" \
+                "{output_fna_file}";
+            chmod -R a+rw {output_dir};
+        '
         """
         return Utils.run_image(img_name="ivasilyev/mgefinder:latest", container_cmd=cmd)
 
@@ -1254,9 +1258,10 @@ class Handler:
         os.makedirs(self.mgefinder_reference_dir, exist_ok=True)
 
         """
-        MGEfinder requires the very strict folder structure pattern, including even file extensions:
+        MGEfinder requires the very strict file system structure pattern. 
+        File extensions are affected as well: 
         
-        <work_directory_name>/
+        <work_directory>/
             ├── 00.assembly/
             │   ├── <sample_name>.fna
             │   ...
@@ -1294,34 +1299,34 @@ class Handler:
 
         cmd = f"""
         bash -c '
-        mgefinder --version;
-        cd "{raw_dir}";
-        ln -s \
-            "{sampledata.reads[0]}" \
-            "{reads_file_1}";
-        ln -s \
-            "{sampledata.reads[1]}" \
-            "{reads_file_2}";
-        cd "{assembly_dir}";
-        ln -s \
-            "{sampledata.genome_assembly}" \
-            "{assembly_name}";                
-        cd "{bam_dir}";        
-        bwa mem \
-            -t {argValidator.threads} \
-            -v 0 \
-            "{genome_mask}" \
-            "{reads_file_1}" \
-            "{reads_file_2}" \
-            > "{alignment_mask}.sam";        
-        mgefinder formatbam \
-            "{alignment_mask}.sam" \
-            "{alignment_mask}.bam";   
-        cd "{stage_dir}";
-        mgefinder workflow denovo \
-            --cores {argValidator.threads} \
-            "{stage_dir}";
-        chmod -R a+rw "{stage_dir}";
+            mgefinder --version;
+            cd "{raw_dir}";
+            ln -s \
+                "{sampledata.reads[0]}" \
+                "{reads_file_1}";
+            ln -s \
+                "{sampledata.reads[1]}" \
+                "{reads_file_2}";
+            cd "{assembly_dir}";
+            ln -s \
+                "{sampledata.genome_assembly}" \
+                "{assembly_name}";                
+            cd "{bam_dir}";        
+            bwa mem \
+                -t {argValidator.threads} \
+                -v 0 \
+                "{genome_mask}" \
+                "{reads_file_1}" \
+                "{reads_file_2}" \
+                > "{alignment_mask}.sam";        
+            mgefinder formatbam \
+                "{alignment_mask}.sam" \
+                "{alignment_mask}.bam";   
+            cd "{stage_dir}";
+            mgefinder workflow denovo \
+                --cores {argValidator.threads} \
+                "{stage_dir}";
+            chmod -R a+rw "{stage_dir}";
         '
         """
         log = Utils.run_image(img_name="ivasilyev/mgefinder:latest", container_cmd=cmd)
@@ -1802,7 +1807,7 @@ class Utils:
                     taxa.get(i) for i in out.keys()
                 ]
             ]
-            return out
+        return out
 
     @staticmethod
     def render_file_list(x):
