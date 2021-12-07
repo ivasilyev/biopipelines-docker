@@ -1298,6 +1298,7 @@ class Handler:
 
         cmd = f"""
         bash -c '
+        mgefinder --version;
         cd "{raw_dir}";
         ln -s \
             "{sampledata.reads[0]}" \
@@ -1327,7 +1328,7 @@ class Handler:
         chmod -R a+rw "{stage_dir}";
         '
         """
-        log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
+        log = Utils.run_image(img_name="ivasilyev/mgefinder:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL)
 
     def merge_blast_results(self, sampledata_array: SampleDataArray, skip: bool = False):
