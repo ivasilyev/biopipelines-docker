@@ -1775,24 +1775,29 @@ class Utils:
     def parse_taxa(taxa):
         out = dict(genus="", species="", strain="")
         if isinstance(taxa, str):
-            # E.g. 'Escherichia coli O157:H7'
-            taxa = Utils.remove_empty_values(str(taxa).strip().split(" "))
-            if len(taxa) == 0:
+            taxa_list = Utils.remove_empty_values(re.split("[. ]+", taxa.strip()))
+            if len(taxa_list) == 0:
                 return out
-            out["genus"] = taxa[0]
-            if len(taxa) > 1:
-                if not any(i.isdigit() for i in taxa[1]):
-                    sp = taxa[1].replace(".", "").lower()
-                    if sp != "sp":
+            out["genus"] = taxa_list[0]
+            if len(taxa_list) > 1:
+                if any(i.isdigit() for i in taxa_list[1]):  # Case 'Escherichia O157:H7'
+                    out["strain"] = taxa_list[1]
+                else:  # Case 'Escherichia coli'
+                    sp = taxa_list[1]
+                    if sp in "spp":  # Case 'Escherichia sp.'
+                        out["species"] = "sp."
+                    else:
                         out["species"] = sp
-                else:
-                    out["strain"] = taxa[1]
-            if len(taxa) > 2:
-                out["strain"] = taxa[2]
+            if len(taxa_list) > 2:  # Case 'Escherichia coli O157:H7'
+                out["strain"] = taxa_list[2]
         if isinstance(taxa, dict):
-            out["genus"], out["species"], out["strain"] = [j if j is not None else "" for j in
-                                      [taxa.get(i) for i in "genus, species, strain".split(", ")]]
-        return out
+            out["genus"], out["species"], out["strain"] = [
+                j if j is not None else ""
+                for j in [
+                    taxa.get(i) for i in out.keys()
+                ]
+            ]
+            return out
 
     @staticmethod
     def render_file_list(x):
