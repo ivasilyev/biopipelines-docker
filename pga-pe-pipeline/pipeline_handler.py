@@ -295,7 +295,7 @@ class Handler:
         #
         self.roary_reference_dir = os.path.join(self._reference_dir, "roary")
         #
-        self.state = dict()
+        self._state = dict()
         #
         self.prepare_environment()
 
@@ -347,7 +347,7 @@ class Handler:
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
 
         # Update software
-        self.state.update({
+        self.update_state({
             sample_name: {
                 "software": {
                     repo_name: {
@@ -445,7 +445,7 @@ class Handler:
             fastqc_results = self._parse_fastqc_result(sub_stage_dir)
             if len(fastqc_results.keys()) == 0 and not skip:
                 logging.warning("No FastQC results!")
-            self.state.update({
+            self.update_state({
                 sampledata.name: {
                     stage_name: {
                         os.path.basename(reads_file): fastqc_results
@@ -571,7 +571,7 @@ class Handler:
         stage_dir = self.output_dirs[stage_name]
         state_file = os.path.join(stage_dir, "state.json")
         if Utils.is_file_valid(state_file):
-            self.state[stage_name] = Utils.load_dict(state_file)
+            self.update_state({stage_name: Utils.load_dict(state_file)})
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
@@ -630,7 +630,7 @@ class Handler:
         # Parse log
         state_dict = self._parse_bowtie2_log(log)
         Utils.dump_dict(state_dict, state_file)
-        self.state.update({
+        self.update_state({
             sampledata.name: {
                 stage_name: state_dict
             }
@@ -722,8 +722,8 @@ class Handler:
     @staticmethod
     def _parse_taxa_from_blast_result(s: str):
         taxa_part = s.split("| ")[-1]
-        genus, species = Utils.safe_findall("^[A-Z][a-z]+ [.a-z]+", taxa_part).split(" ")
-        return genus, species
+        d = Utils.parse_taxa(taxa_part)
+        return d
 
     def run_blast(self, sampledata: SampleDataLine, skip: bool = False):
         _TOOL = "blast_nucleotide_sequence"
@@ -761,22 +761,14 @@ class Handler:
         blast_top_result = list(blast_result_dict.keys())[0]
         logging.info(f"The best matching organism is '{blast_top_result}'")
 
-        genus, species, strain = ["", ] * 3
+        taxa_dict = {i: "" for i in ["genus", "species", "strain"]}
         for blast_result in blast_result_dict.keys():
-            genus, species = self._parse_taxa_from_blast_result(blast_result)
-            if species != "sp.":
+            taxa_dict.update(self._parse_taxa_from_blast_result(blast_result))
+            if taxa_dict["species"] != "sp.":
                 break
             logging.info(f"Unspecified species, trying another: '{blast_result}'")
-
-        logging.info("The matching organism is {} {}".format(genus, species))
-        self.state.update({
-            sampledata.name: {
-                stage_name: dict(
-                    top_result=blast_top_result, genus=genus, species=species, strain=strain
-                )
-            }
-        })
-        sampledata.set_taxa(genus=genus, species=species, strain=strain)
+        logging.info("The matching organism is {} {}".format(taxa_dict["genus"], taxa_dict["species"]))
+        sampledata.set_taxa(**taxa_dict)
 
         sampledata.blast_result_table = Utils.locate_file_by_tail(stage_dir, "combined_blast_results.tsv")
 
@@ -789,9 +781,18 @@ class Handler:
         genbank_files = blast_report_dict.get("genbank_files")
         if genbank_files is None or len(genbank_files) == 0:
             if not skip:
-                logging.warning("Invalid BLAST JSON report!")
+                logging.warning(f"Invalid BLAST JSON report: '{blast_report_json}'")
             return
         sampledata.closest_reference_genbank = genbank_files[0]
+        self.update_state({
+            sampledata.name: {
+                stage_name: dict(
+                    top_result_name=blast_top_result,
+                    top_result_genbank=sampledata.closest_reference_genbank,
+                    taxa=taxa_dict,
+                )
+            }
+        })
 
     @staticmethod
     def _parse_quast_result(directory: str):
@@ -896,7 +897,7 @@ class Handler:
         quast_results = self._parse_quast_result(stage_dir)
         quast_result_number = len(quast_results.keys())
         if quast_result_number > 0:
-            self.state.update({
+            self.update_state({
                 sampledata.name: {
                     stage_name: quast_results
                 }
@@ -1284,7 +1285,7 @@ class Handler:
 
         assembly_name = os.path.join(assembly_dir, f"{sampledata.name}.fna")
 
-        reference_name = os.path.splitext(os.path.basename(sampledata.closest_reference_genbank))[0]
+        reference_name = Utils.filename_only(sampledata.closest_reference_genbank)
         genome_file = f"{os.path.join(genome_dir, reference_name)}.fna"
         genome_mask = Utils.get_file_name_mask(genome_file)
 
@@ -1583,7 +1584,11 @@ class Handler:
         Utils.append_log(log, _TOOL, "all")
 
     def dump_state(self):
-        Utils.dump_dict(self.state, os.path.join(self.output_dir_root, "state.json"))
+        Utils.dump_dict(self._state, os.path.join(self.output_dir_root, "state.json"))
+
+    def update_state(self, d: dict):
+        self._state.update(d)
+        self.dump_state()
 
     def handle(self, sampledata_array: SampleDataArray):
         if not self.valid:
@@ -1632,7 +1637,11 @@ class Utils:
         return sorted(out)
 
     @staticmethod
-    def filename_only(path):
+    def get_file_name_mask(path: str):
+        return os.path.splitext(os.path.normpath(path))[0]
+
+    @staticmethod
+    def filename_only(path: str):
         return os.path.splitext(os.path.basename(os.path.normpath(path)))[0]
 
     @staticmethod
@@ -1733,11 +1742,12 @@ class Utils:
     # Primitive processing methods
 
     @staticmethod
-    def safe_findall(pattern, string, idx: int = 0):
+    def safe_findall(pattern, string, idx: int = 0, verbose: bool = False):
         try:
             return re.findall(pattern, string)[idx]
         except IndexError:
-            print("Warning! Can't find the regex pattern '{}' within the string: '{}'".format(pattern, string))
+            if verbose:
+                print(f"Warning! Can't find the regex pattern '{pattern}' within the string: '{string}'")
             return ""
 
     @staticmethod
@@ -1802,10 +1812,6 @@ class Utils:
     @staticmethod
     def render_file_list(x):
         return '"{}"'.format('", "'.join(Utils.remove_empty_values(x)))
-
-    @staticmethod
-    def get_file_name_mask(s: str):
-        return os.path.splitext(s)[0]
 
     # Function handling methods
 
