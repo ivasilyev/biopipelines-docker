@@ -24,6 +24,15 @@ RUN echo "Install Python packages" && \
     pip install mgefinder && \
     pip cache purge
 
+ENV CONVERTER="${HOME}/scripts/convert_sequence_files.py"
+
+RUN echo "Get the sequence conversion script" && \
+    mkdir -p "$(dirname "${CONVERTER}")" && \
+    curl -fsSL \
+        "https://raw.githubusercontent.com/ivasilyev/curated_projects/master/meta/scripts/convert_sequence_files.py" \
+        -o "${CONVERTER}" && \
+    chmod a+x "${CONVERTER}"
+
 RUN mgefinder --help
 
 # MANUAL BUILD COMMAND:

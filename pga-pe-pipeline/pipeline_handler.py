@@ -1227,9 +1227,11 @@ class Handler:
             curl -fsSL \
                 "https://raw.githubusercontent.com/combogenomics/regtools/master/gbk2fna" \
                 -o "/tmp/gbk2fna.py" && \
-            python3 "/tmp/gbk2fna.py" \
-                "{input_genbank_file}" \
-                "{output_fna_file}";
+            python3 "$CONVERTER" \
+                --input "{input_genbank_file}" \
+                --input_format genbank \
+                --output "{output_fna_file}" \
+                --output_format fasta;
             bwa index \
                 -p "{Utils.get_file_name_mask(output_fna_file)}" \
                 "{output_fna_file}";
