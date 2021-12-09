@@ -47,9 +47,11 @@ RUN echo "Update packages" && \
 
 RUN echo "Install Tini - A tiny but valid init for containers" && \
     TINI_VERSION=`curl -s "https://github.com/krallin/tini/releases/latest" | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
-    curl -fsSL "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" -o tini.deb && \
-    dpkg -i tini.deb && \
-    rm tini.deb
+    DL_FILE="/tmp/tini.deb" && \
+    mkdir -p "(basename "${DL_FILE}")" && \
+    curl -fsSL "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" -o "${DL_FILE}" && \
+    dpkg -i "${DL_FILE}" && \
+    rm -f "${DL_FILE}"
 
 RUN echo "Install primary Python packages" && \
     pip3 install --upgrade --no-cache-dir \
@@ -59,11 +61,15 @@ RUN echo "Install primary Python packages" && \
         && \
      pip3 install --no-cache-dir \
         # Base data analysis
-        numpy pandas statsmodels scipy pyodbc \
-        # Queueing & pipelining
-        joblib \
+        numpy pandas statsmodels scipy  \
         # Web scraping
         requests bs4 lxml \
+        # SQL queries
+        pyodbc sqlalchemy \
+        # Excel file handling
+        xlrd openpyxl odfpy pyxlsb \
+        # Queueing & pipelining
+        joblib \
         # Templating
         jinja2 pyyaml \
         # Text processing
@@ -74,7 +80,7 @@ RUN echo "Install primary Python packages" && \
     echo "Install secondary Python packages" && \
     pip3 install --no-cache-dir \
         # Web interface
-        ipython jupyter jupyterlab dash \
+        jupyterlab-requirements jupyterlab dash \
         # ML-related
         scikit-learn keras tensorflow xgboost \
         # Biological data processing
@@ -109,7 +115,7 @@ WORKDIR /home/docker
 CMD ["/bin/bash"]
 
 # MANUAL BUILD COMMAND:
-# export REPO="jupyter-deploy" && export TAG="ivasilyev/${REPO}:latest" && docker build --network=host --tag "${REPO}" . && docker tag "${REPO}" "${TAG}" && docker push "${TAG}"
+# export REPO="jupyter-deploy" && export TAG="ivasilyev/${REPO}:latest" && docker build --network=host --tag "${REPO}" . && docker tag "${REPO}" "${TAG}" && docker push "${TAG}" && rm -f Dockerfile
 
 # PULL COMMAND:
 # export IMG="ivasilyev/jupyter-deploy:latest" && docker pull "${IMG}" && docker run --rm --net=host -it "${IMG}"
