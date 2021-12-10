@@ -1224,9 +1224,6 @@ class Handler:
         cmd = f"""
         bash -c '
             cd {output_dir} && \
-            curl -fsSL \
-                "https://raw.githubusercontent.com/combogenomics/regtools/master/gbk2fna" \
-                -o "/tmp/gbk2fna.py" && \
             python3 "$CONVERTER" \
                 --input "{input_genbank_file}" \
                 --input_format genbank \
@@ -1589,7 +1586,7 @@ class Handler:
         Utils.dump_dict(self._state, os.path.join(self.output_dir_root, "state.json"))
 
     def update_state(self, d: dict):
-        self._state.update(d)
+        self._state = dict(list(self._state.items()) + list(d.items()))
         self.dump_state()
 
     def handle(self, sampledata_array: SampleDataArray):
