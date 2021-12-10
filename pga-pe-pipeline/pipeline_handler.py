@@ -1587,7 +1587,7 @@ class Handler:
         Utils.dump_dict(self._state, os.path.join(self.output_dir_root, "state.json"))
 
     def update_state(self, d: dict):
-        Utils.merge_dicts(self._state, d)
+        Utils.merge_dicts(source=d, target=self._state)
         self.dump_state()
 
     def handle(self, sampledata_array: SampleDataArray):
@@ -1824,8 +1824,7 @@ class Utils:
         :return: None
         """
         for k, v in source.items():
-            if (k in target and isinstance(target[k], dict)
-                    and isinstance(source[k], Mapping)):
+            if k in target and isinstance(target[k], dict) and isinstance(source[k], Mapping):
                 Utils.merge_dicts(target[k], source[k])
             else:
                 target[k] = source[k]
