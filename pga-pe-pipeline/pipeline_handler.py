@@ -14,6 +14,7 @@ from time import sleep
 from shutil import copy2
 from itertools import product
 from datetime import datetime
+from collections.abc import Mapping
 
 
 BLAST_REFERENCES = 100
@@ -1586,7 +1587,7 @@ class Handler:
         Utils.dump_dict(self._state, os.path.join(self.output_dir_root, "state.json"))
 
     def update_state(self, d: dict):
-        self._state = dict(list(self._state.items()) + list(d.items()))
+        Utils.merge_dicts(self._state, d)
         self.dump_state()
 
     def handle(self, sampledata_array: SampleDataArray):
@@ -1811,6 +1812,23 @@ class Utils:
     @staticmethod
     def render_file_list(x):
         return '"{}"'.format('", "'.join(Utils.remove_empty_values(x)))
+
+    @staticmethod
+    def merge_dicts(source: dict, target: dict):
+        """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
+        updating only top-level keys, dict_merge recurses down into dicts nested
+        to an arbitrary depth, updating keys. The ``source`` is merged into
+        ``target``.
+        :param target: dict onto which the merge is executed
+        :param source: target merged into target
+        :return: None
+        """
+        for k, v in source.items():
+            if (k in target and isinstance(target[k], dict)
+                    and isinstance(source[k], Mapping)):
+                Utils.merge_dicts(target[k], source[k])
+            else:
+                target[k] = source[k]
 
     # Function handling methods
 
