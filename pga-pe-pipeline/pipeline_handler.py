@@ -1391,16 +1391,23 @@ class Handler:
         """
         cmd_2 = """
         cd "${TARGET_DIR}";
-        find "${SOURCE_DIR}" -name '*.gbk' -type f \
-            | xargs --max-procs $(nproc) -I "{}" bash -c '
-                    TARGET_FILE="${TARGET_DIR}$(basename {}).gff";
-                    if [ ! -s "${TARGET_FILE}" ]; 
-                        then
-                            perl "${TOOL}" \
-                                "{}" \
-                                --outdir "${TARGET_DIR}";
-                    fi;
-                ';
+        find "${SOURCE_DIR}" \
+            -name '*.gbk' \
+            -type f \
+            -print0 \
+        | xargs \
+            -0 \
+            --max-procs "$(nproc)" \
+            -I "{}" \
+            bash -c '
+                TARGET_FILE="${TARGET_DIR}$(basename "{}").gff";
+                if [ ! -s "${TARGET_FILE}" ]; 
+                    then
+                        perl "${TOOL}" \
+                            "{}" \
+                            --outdir "${TARGET_DIR}";
+                fi;
+            ';
         chmod -R a+rw "${TARGET_DIR}";
         """
         # Mock the script, since the `bash -c 'bash -c '...''` hangs
