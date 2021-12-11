@@ -329,8 +329,10 @@ class Handler:
         img_tag = sorted(tool_tags, key=lambda x: x["datetime"], reverse=True)[0]["name"]
         return img_tag
 
-    def run_quay_image(self, img_name, img_tag: str = None, repo_name: str = "biocontainers", cmd: str = "echo",
-                       sample_name: str = "all", bad_phrases: list = (), attempts: int = 5):
+    def run_quay_image(
+            self, img_name, img_tag: str = None, repo_name: str = "biocontainers",
+            cmd: str = "echo", sample_name: str = "all", bad_phrases: list = (), attempts: int = 5
+    ):
         if not img_tag:
             # Get API response
             attempt = 0
@@ -340,10 +342,13 @@ class Handler:
                     img_tag = self.get_latest_quay_tag(repo_name, img_name)
                     break
                 except json.decoder.JSONDecodeError:
-                    logging.warning("Cannot get API response for the image the URL '{}' for attempt {} of {}".format(
-                        img_name, attempt, attempts))
+                    logging.warning(
+                        f"Cannot get API response for the image the URL '{img_name}' for attempt {attempt} of {attempts}"
+                    )
             if attempt > attempts:
-                logging.warning("Exceeded attempts number to get API response for the image '{}'".format(img_name))
+                logging.warning(
+                    f"Exceeded attempts number to get API response for the image '{img_name}'"
+                )
         # Pull & run image
         img_name_full = "quay.io/{}/{}:{}".format(repo_name, img_name, img_tag)
 
@@ -357,7 +362,9 @@ class Handler:
                 }
             }
         })
-        return Utils.run_image(img_name=img_name_full, container_cmd=cmd, bad_phrases=bad_phrases, attempts=attempts)
+        return Utils.run_image(
+            img_name=img_name_full, container_cmd=cmd, bad_phrases=bad_phrases, attempts=attempts
+        )
 
     @staticmethod
     def clean_path(path):
@@ -375,7 +382,8 @@ class Handler:
             idx, i in enumerate(sampledata.reads)]
         return processed_reads
 
-    # Pipeline steps
+    # Single processing pipeline steps
+
     def _run_fastqc(self, sampledata_name: str, reads_file, out_dir: str):
         # One per read file, two per sample
         _TOOL = "fastqc"
@@ -399,7 +407,7 @@ class Handler:
         '
         """
         self.clean_path(out_dir)
-        log = self.run_quay_image(_TOOL, cmd=cmd)
+        log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata_name)
         Utils.append_log(log, _TOOL, sampledata_name)
 
     @staticmethod
@@ -440,9 +448,9 @@ class Handler:
         for index, reads_file in enumerate(sampledata.reads):
             sub_stage_dir = os.path.join(stage_dir, f"{sampledata.name}_{index + 1}")
             if not skip:
-                self._run_fastqc(sampledata_name=sampledata.name,
-                                 reads_file=reads_file,
-                                 out_dir=sub_stage_dir)
+                self._run_fastqc(
+                    sampledata_name=sampledata.name, reads_file=reads_file, out_dir=sub_stage_dir
+                )
             fastqc_results = self._parse_fastqc_result(sub_stage_dir)
             if len(fastqc_results.keys()) == 0 and not skip:
                 logging.warning("No FastQC results!")
@@ -486,7 +494,7 @@ class Handler:
         """
         if not skip:
             self.clean_path(stage_dir)
-            log = self.run_quay_image(_TOOL, cmd=cmd)
+            log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip {}".format(Utils.get_caller_name()))
@@ -521,7 +529,7 @@ class Handler:
         """
         if not skip:
             self.clean_path(stage_dir)
-            log = self.run_quay_image(_TOOL, cmd=cmd)
+            log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip {}".format(Utils.get_caller_name()))
@@ -612,7 +620,7 @@ class Handler:
             chmod -R a+rw {stage_dir}'
         """
         self.clean_path(unmapped_reads_dir)
-        log = self.run_quay_image(_TOOL, cmd=cmd)
+        log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
         Utils.append_log(log, _TOOL, sampledata.name)
         unmapped_reads_files = [i for i in Utils.scan_whole_dir(unmapped_reads_dir) if unmapped_file_mask in i]
         if len(unmapped_reads_files) != 2:
@@ -675,7 +683,7 @@ class Handler:
             """
             if not skip:
                 self.clean_path(assembly_dir)
-                log = self.run_quay_image(_TOOL, cmd=cmd)
+                log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
                 Utils.append_log(log, _TOOL, sampledata.name)
             else:
                 logging.info("Skip {} for {}".format(Utils.get_caller_name(), assembly_type))
@@ -892,7 +900,7 @@ class Handler:
             logging.info("Skip {}".format(stage_name))
         else:
             self.clean_path(stage_dir)
-            log = self.run_quay_image(_TOOL, cmd=cmd)
+            log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
             Utils.append_log(log, _TOOL, sampledata.name)
         quast_results = self._parse_quast_result(stage_dir)
         quast_result_number = len(quast_results.keys())
@@ -962,7 +970,7 @@ class Handler:
             chmod -R a+rw {stage_dir}
         '
         """
-        log = self.run_quay_image(_TOOL, cmd=cmd)
+        log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
         Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.genomes.update(self._locate_annotated_genome(stage_dir))
 
@@ -1053,6 +1061,9 @@ class Handler:
         # One per sample, full cleaning is NOT required
         _TOOL = "srst2"
         _SRST2_ATTEMPTS = 5
+        _ERROR_PHRASES = [
+            "Encountered internal Bowtie 2 exception",  "[main_samview] truncated file."
+        ]
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
@@ -1101,9 +1112,10 @@ class Handler:
         """
         # Deliberately set the tag with fully supported environment
         # https://quay.io/repository/biocontainers/srst2?tab=tags
-        log = self.run_quay_image(_TOOL, img_tag="0.2.0--py27_2", cmd=cmd, attempts=_SRST2_ATTEMPTS,
-                                  bad_phrases=["Encountered internal Bowtie 2 exception",
-                                               "[main_samview] truncated file."])
+        log = self.run_quay_image(
+            _TOOL, img_tag="0.2.0--py27_2", cmd=cmd, attempts=_SRST2_ATTEMPTS,
+            bad_phrases=_ERROR_PHRASES, sample_name=sampledata.name
+        )
         Utils.append_log(log, _TOOL, sampledata.name)
 
         sampledata.srst2_result_table = self._parse_srst2_result_log(out_mask)
@@ -1201,7 +1213,7 @@ class Handler:
             chmod -R a+rw "{stage_dir}";
         '
         """
-        log = self.run_quay_image(_TOOL, cmd=cmd)
+        log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
         Utils.append_log(log, _TOOL, sampledata.name)
         """
         Heatmap info:
@@ -1331,6 +1343,8 @@ class Handler:
         """
         log = Utils.run_image(img_name="ivasilyev/mgefinder:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL)
+
+    # Group processing pipeline steps
 
     def merge_blast_results(self, sampledata_array: SampleDataArray, skip: bool = False):
         _TOOL = "concatenate_tables"
@@ -1859,7 +1873,9 @@ class Utils:
         return all([i not in j for i in bad_phrases for j in log_lines])
 
     @staticmethod
-    def run_until_valid_output(cmd: str, bad_phrases: list, attempts: int = 5, ping_required: bool = False):
+    def run_until_valid_output(
+            cmd: str, bad_phrases: list, attempts: int = 5, ping_required: bool = False
+    ):
         start = perf_counter()
         attempt = 0
         log = ""
@@ -1869,7 +1885,9 @@ class Utils:
             logging.debug("Executing the command: `{}`".format(log_cmd))
             log = subprocess.getoutput(cmd)
             if not Utils.is_log_valid(log, bad_phrases):
-                logging.warning("An error phrase was found in log for attempt {} of {}.".format(attempt, attempts))
+                logging.warning(
+                    f"An error phrase was found in log for attempt {attempt} of {attempts}."
+                )
                 sleep(5)
                 if ping_required:
                     # Ping Google just to keep the node DNS working
@@ -1877,21 +1895,28 @@ class Utils:
             else:
                 break
             if attempt == attempts:
-                logging.warning("Exceeded attempts number to get execution output without failure messages. "
-                                "The command seems to be not finished correctly: `{}`".format(log_cmd))
-        logging.info(f"Completed after {attempt} attempts and {Utils.count_elapsed_seconds(start)}")
+                logging.warning(
+                    f"Exceeded attempts number to get execution output without failure messages. The command seems to be not finished correctly: `{log_cmd}`"
+                )
+        logging.debug(
+            f"Completed after {attempt} attempt(s) and {Utils.count_elapsed_seconds(start)}"
+        )
         return log
 
     @staticmethod
-    def run_image(img_name: str, container_cmd: str, bad_phrases: list = (), attempts: int = 5):
+    def run_image(
+            img_name: str, container_cmd: str, bad_phrases: list = (), attempts: int = 5
+    ):
         _DOCKER_RUN_CMD = "docker run --rm -v /data:/data -v /data1:/data1 -v /data2:/data2 --net=host -it"
         _COMMON_PHRASES = ["Error response from daemon", ]
         logging.info("Using image: '{}'".format(img_name))
         bad_phrases = list(bad_phrases) + _COMMON_PHRASES
-        docker_cmd = "docker pull {a} && {b} {a}".format(a=img_name, b=_DOCKER_RUN_CMD)
+        docker_cmd = f'docker pull "{img_name}" && {_DOCKER_RUN_CMD} "{img_name}"'
         # cmd may contain curly braces, so str.format() is not usable
         out_cmd = docker_cmd.strip() + " " + container_cmd.strip()
-        return Utils.run_until_valid_output(cmd=out_cmd, bad_phrases=bad_phrases, attempts=attempts, ping_required=True)
+        return Utils.run_until_valid_output(
+            cmd=out_cmd, bad_phrases=bad_phrases, attempts=attempts, ping_required=True
+        )
 
     @staticmethod
     def wrap_func(args: list):
