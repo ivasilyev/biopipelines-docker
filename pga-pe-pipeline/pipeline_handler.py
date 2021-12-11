@@ -113,7 +113,7 @@ class SampleDataLine:
 
         self.is_valid = False
         self._validate()
-        self.extension = Utils.get_file_extension(self.reads[0], 2)
+        self.extension = ".fastq"
         self.taxa_genus, self.taxa_species, self.taxa_strain = ["", ] * 3
         self.closest_reference_genbank = ""
         self._parse_taxa(taxa)
@@ -608,7 +608,7 @@ class Handler:
                 --local \
                 --mp 3 \
                 --threads {argValidator.threads} \
-                --un-conc-gz {unmapped_file_mask} \
+                --un-conc {unmapped_file_mask} \
                 -1 {sampledata.reads[0]} \
                 -2 {sampledata.reads[1]} \
                 -D 20 \
