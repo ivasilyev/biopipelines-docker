@@ -10,11 +10,11 @@ import json
 import logging
 import subprocess
 import multiprocessing
-from time import sleep
 from shutil import copy2
-from itertools import product
 from datetime import datetime
+from itertools import product
 from collections.abc import Mapping
+from time import sleep, perf_counter
 
 
 BLAST_REFERENCES = 100
@@ -1664,11 +1664,10 @@ class Utils:
             return files
         return files[0]
 
-    # System methods
+    # Date / time methods
 
     @staticmethod
     def get_time():
-        from datetime import datetime
         now = datetime.now()
         output_list = []
         for time_unit in [now.year, now.month, now.day, now.hour, now.minute, now.second]:
@@ -1677,6 +1676,10 @@ class Utils:
                 time_unit = '0' + time_unit
             output_list.append(time_unit)
         return '-'.join(output_list)
+
+    @staticmethod
+    def count_elapsed_seconds(t):
+        return f"{perf_counter() - t :.3f} s."
 
     # I/O methods
 
@@ -1825,7 +1828,7 @@ class Utils:
         """
         for k, v in source.items():
             if k in target and isinstance(target[k], dict) and isinstance(source[k], Mapping):
-                Utils.merge_dicts(target[k], source[k])
+                Utils.merge_dicts(source=source[k], target=target[k])
             else:
                 target[k] = source[k]
 
@@ -1857,6 +1860,7 @@ class Utils:
 
     @staticmethod
     def run_until_valid_output(cmd: str, bad_phrases: list, attempts: int = 5, ping_required: bool = False):
+        start = perf_counter()
         attempt = 0
         log = ""
         while attempt < attempts:
@@ -1875,6 +1879,7 @@ class Utils:
             if attempt == attempts:
                 logging.warning("Exceeded attempts number to get execution output without failure messages. "
                                 "The command seems to be not finished correctly: `{}`".format(log_cmd))
+        logging.info(f"Completed after {attempt} attempts and {Utils.count_elapsed_seconds(start)}")
         return log
 
     @staticmethod
@@ -1949,6 +1954,7 @@ class Utils:
 
 
 if __name__ == '__main__':
+    mainStart = perf_counter()
     argValidator = ArgValidator()
     mainLogFile = os.path.join(argValidator.log_dir, "main.log")
     os.makedirs(argValidator.log_dir, exist_ok=True)
@@ -1958,6 +1964,6 @@ if __name__ == '__main__':
     argValidator.validate()
     sampleDataArray = SampleDataArray.load(argValidator.sampledata_file)
     handler = Handler(argValidator.output_dir)
-    logging.info("The pipeline processing has been started")
+    logging.info("The pipeline processing started")
     handler.handle(sampleDataArray)
-    logging.info("The pipeline processing has been completed")
+    logging.info(f"The pipeline processing completed after {Utils.count_elapsed_seconds(mainStart)}")
