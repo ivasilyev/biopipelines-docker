@@ -1322,7 +1322,7 @@ class Handler:
             cd "{assembly_dir}";
             ln -s \
                 "{sampledata.genome_assembly}" \
-                "{assembly_name}";                
+                "{assembly_name}";
             cd "{bam_dir}";        
             bwa mem \
                 -t {argValidator.threads} \
@@ -1333,7 +1333,7 @@ class Handler:
                 > "{alignment_mask}.sam";        
             mgefinder formatbam \
                 "{alignment_mask}.sam" \
-                "{alignment_mask}.bam";   
+                "{alignment_mask}.bam";
             cd "{stage_dir}";
             mgefinder workflow denovo \
                 --cores {argValidator.threads} \
@@ -1424,11 +1424,7 @@ class Handler:
         return Utils.run_image(img_name="bioperl/bioperl:latest", container_cmd=cmd)
 
     @staticmethod
-    def _process_newick(input_dir, blast_result_table, out_file):
-        newick_file = Utils.locate_file_by_tail(input_dir, ".newick")
-        if len(newick_file) == 0:
-            logging.warning("No Newick file found!")
-            return ""
+    def _process_newick(newick_file: str, blast_result_table: str, out_file: str):
         cmd = f"""
         bash -c '
             git pull --quiet;
@@ -1450,38 +1446,43 @@ class Handler:
         docker run --rm --net=host -it "${IMG}" bash
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
+        stage_dir = os.path.join(tool_dir, "out")
+        # Stage dir here must be created by the program only
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         self.clean_path(tool_dir)
-
         os.makedirs(self.roary_reference_dir, exist_ok=True)
         log = self._convert_genbank_to_gff3(self.blast_reference_dir, self.roary_reference_dir)
         Utils.append_log(log, _TOOL)
 
         # There is no version number accessible via special or even help CLI arguments
-        # Output here must be created by the program only
         cmd = f"""bash -c '
             cd {tool_dir};
             {_TOOL} \
-                -f "{os.path.join(tool_dir, "out")}" \
+                -f "{stage_dir}" \
                 -e \
                 --mafft \
                 -p {argValidator.threads} \
                 "{self.roary_reference_dir}"/*;
-            chmod -R a+rw "{tool_dir}"
+            chmod -R a+rw "{tool_dir}";
         '
         """
         log = Utils.run_image(img_name="sangerpathogens/roary:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL)
 
         sampledata_array.roary_edited_newick = os.path.join(tool_dir, "roary_edited_results.newick")
-
-        log = self._process_newick(os.path.join(tool_dir, "out"),
-                                   sampledata_array.blast_merged_table,
-                                   sampledata_array.roary_edited_newick)
-        if len(log) > 0:
+        newick_file = Utils.locate_file_by_tail(stage_dir, ".newick")
+        if len(newick_file) > 0:
+            logging.info(f"Found Newick file: '{newick_file}'")
+            log = self._process_newick(
+                newick_file,
+                sampledata_array.blast_merged_table,
+                sampledata_array.roary_edited_newick
+            )
             Utils.append_log(log, _TOOL)
+        else:
+            logging.warning("No Newick file found!")
 
     @staticmethod
     def _run_nbee(sampledata_file: str, refdata_file: str, out_dir: str):
