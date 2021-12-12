@@ -113,7 +113,7 @@ class SampleDataLine:
 
         self.is_valid = False
         self._validate()
-        self.extension = ".fastq"
+        self.extension = Utils.get_reads_file_extension(self.raw_reads[0])
         self.taxa_genus, self.taxa_species, self.taxa_strain = ["", ] * 3
         self.closest_reference_genbank = ""
         self._parse_taxa(taxa)
@@ -1090,7 +1090,7 @@ class Handler:
                                               sample_name=sampledata.name)
         # The input read files must be named by a strict pattern:
         # https://github.com/katholt/srst2#input-read-formats-and-options
-        input_reads = [os.path.join(stage_dir, "{}_{}.fastq.gz".format(sampledata.name, idx + 1))
+        input_reads = [os.path.join(stage_dir, f"{sampledata.name}_{idx + 1}{sampledata.extension}")
                        for idx, i in enumerate(sampledata.reads)]
         out_mask = os.path.join(stage_dir, sampledata.prefix)
 
@@ -1675,6 +1675,18 @@ class Utils:
             else:
                 break
         return ".{}".format(".".join(out[:deep][::-1]))
+
+    @staticmethod
+    def get_reads_file_extension(file: str):
+        out = Utils.get_file_extension(file)
+        _EXTENSIONS = {
+            "fastq.gz": ("fastq.gz", "fq.gz"),
+            "fastq": ("fastq", "fq")
+        }
+        for replacement, keywords in _EXTENSIONS.items():
+            if any(file.endswith(f".{i}") for i in keywords):
+                out = f".{replacement}"
+        return out
 
     @staticmethod
     def locate_file_by_tail(dir_name: str, tail: str, multiple: bool = False):
