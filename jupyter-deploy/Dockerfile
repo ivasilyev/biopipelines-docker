@@ -54,40 +54,14 @@ RUN echo "Install Tini - A tiny but valid init for containers" && \
     rm -f "${DL_FILE}"
 
 RUN echo "Install primary Python packages" && \
-    pip3 install --upgrade --no-cache-dir \
-        pip \
-        setuptools \
-        wheel \
-        && \
-     pip3 install --no-cache-dir \
-        # Base data analysis
-        numpy pandas statsmodels scipy  \
-        # Web scraping
-        requests bs4 lxml \
-        # SQL queries
-        pyodbc sqlalchemy \
-        # Excel file handling
-        xlrd openpyxl odfpy pyxlsb \
-        # Queueing & pipelining
-        joblib \
-        # Templating
-        jinja2 pyyaml \
-        # Text processing
-        win-unicode-console unidecode \
-        # Visualization
-        matplotlib pillow plotly seaborn \
-        && \
-    echo "Install secondary Python packages" && \
-    pip3 install --no-cache-dir \
-        # Web interface
-        jupyterlab-requirements jupyterlab dash \
-        # ML-related
-        scikit-learn keras tensorflow xgboost \
-        # Biological data processing
-        biopython scikit-bio \
-        && \
+    cd /tmp/ && \
+    pip3 install --upgrade --no-cache-dir pip setuptools wheel && \
+    curl -fsSLO "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/requirements.txt" && \
+    curl -fsSLO "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/requirements-linux.txt" && \
+    pip3 install --no-cache-dir --requirement "requirements.txt" --requirement "requirements-linux.txt" && \
     echo "Clean Python package cache" && \
-    pip cache purge
+    pip cache purge && \
+    rm -rf /tmp/*
 
 # Web port forwarding
 EXPOSE 80 443 31522

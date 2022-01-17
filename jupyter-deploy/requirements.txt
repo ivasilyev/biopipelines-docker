@@ -4,26 +4,53 @@
 setuptools
 wheel
 
+# Base data analysis
 numpy
 pandas
 statsmodels
 scipy
-urllib3
+
+# Web scraping
+requests
 bs4
 lxml
-requests
+
+# SQL queries
+pyodbc
+sqlalchemy
+
+# Excel file handling
 xlrd
-biopython
-scikit-bio  # Buggy at all!
+openpyxl
+odfpy
+pyxlsb
+
+# Queueing & pipelining
+joblib
+
+# Templating
 jinja2
 pyyaml
+
+# Text processing
+unidecode
+win-unicode-console
+
+# Visualization
 matplotlib
+pillow
+plotly
 seaborn
-ipython
-jupyter
+
+# Web interface
+jupyterlab-requirements
 jupyterlab
-joblib
+dash
+
+# ML-related
+keras
 scikit-learn
-# tensorflow  # Weird dependencies sometimes
-# tf-nightly  # Same
-# torch  # Same
+xgboost
+
+# Biological data processing
+biopython
