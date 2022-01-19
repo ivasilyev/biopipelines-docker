@@ -710,7 +710,7 @@ class Handler:
         genome_assembly = os.path.join(stage_dir, "{}_genome.fna".format(sampledata.name))
         cmd = f"""
         bash -c '
-            git pull --quiet;
+            git pull --quiet && \
             python3 ./meta/scripts/merge_chromosome_and_plasmid_assemblies.py \
                 --chromosome {sampledata.chromosome_assembly} \
                 --plasmid {sampledata.plasmid_assembly} \
@@ -741,7 +741,7 @@ class Handler:
         stage_dir = os.path.join(tool_dir, sampledata.name)
         cmd = f"""
         bash -c '
-            git pull --quiet;
+            git pull --quiet && \
             python3 ./meta/scripts/blast_nucleotide_sequence.py \
                 --input {sampledata.genome_assembly} \
                 --chromosomes_only \
@@ -1142,7 +1142,7 @@ class Handler:
             return
         cmd = f"""
         bash -c '
-            git pull --quiet;
+            git pull --quiet && \
             python3 ./meta/scripts/{_TOOL}.py \
                 --input {Utils.render_file_list(table_list)} \
                 --axis 0 \
@@ -1369,7 +1369,7 @@ class Handler:
             return
         cmd = f"""
         bash -c '
-            git pull --quiet;
+            git pull --quiet && \
             python3 ./meta/scripts/{_TOOL}.py \
                 --input {Utils.render_file_list(table_list)} \
                 --axis 0 \
@@ -1437,7 +1437,7 @@ class Handler:
     def _process_newick(newick_file: str, blast_result_table: str, out_file: str):
         cmd = f"""
         bash -c '
-            git pull --quiet;
+            git pull --quiet && \
             python3 ./meta/scripts/replace_ids_with_strains_from_blast_result_table.py \
                 --input {newick_file} \
                 --table {blast_result_table} \
@@ -1529,7 +1529,7 @@ class Handler:
         """
         cmd = f"""
         bash -c '
-            git pull --quiet;
+            git pull --quiet && \
             python3 "$HOME/scripts/curated_projects/meta/scripts/{_TOOL}.py" \
                 --axis 1 \
                 --index "reference_id" \
