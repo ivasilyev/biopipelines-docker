@@ -17,7 +17,6 @@ from collections.abc import Mapping
 from time import sleep, perf_counter
 
 
-BLAST_REFERENCES = 100
 BOWTIE2_HG_IDX_URL = "ftp://ftp.ncbi.nlm.nih.gov/genomes/archive/old_genbank/Eukaryotes/vertebrates_mammals/Homo_sapiens/GRCh38/seqs_for_alignment_pipelines/GCA_000001405.15_GRCh38_no_alt_analysis_set.fna.bowtie_index.tar.gz"
 PULL_RETRIES = 5
 
@@ -54,6 +53,8 @@ Columns:
                             choices=_STEPS, help="Stage to finish the pipeline, inclusive")
         parser.add_argument("--hg_dir", metavar="<dir>", default="",
                             help="Directory containing human genome bowtie2 index ('*.bt2')")
+        parser.add_argument("--blast_references", type=int, default=100,
+                            help="Number of BLAST references to fetch")
         parser.add_argument("--refdata", metavar="<file>", default=(), nargs="+",
                             help="Path(s) to RefData JSONS made by the 'cook_the_reference.py'")
         parser.add_argument("-o", "--output_dir", metavar="<dir>", required=True,
@@ -68,6 +69,8 @@ Columns:
         self.hg_index_dir = self._namespace.hg_dir
         if len(self.hg_index_dir) > 0:
             self.hg_index_dir = os.path.realpath(self.hg_index_dir)
+
+        self.blast_reference_number = self._namespace.blast_references
 
         self.refdata_files = Utils.remove_empty_values(self._namespace.refdata)
         if len(self.refdata_files) > 0:
@@ -745,7 +748,7 @@ class Handler:
             python3 ./meta/scripts/blast_nucleotide_sequence.py \
                 --input {sampledata.genome_assembly} \
                 --chromosomes_only \
-                --results {BLAST_REFERENCES} \
+                --results {argValidator.blast_reference_number} \
                 --sequence_dir {self.blast_reference_dir} \
                 --output {stage_dir};
         '
