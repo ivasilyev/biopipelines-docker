@@ -792,6 +792,8 @@ class Handler:
                 logging.warning(f"Invalid BLAST JSON report: '{blast_report_json}'")
             return
         sampledata.closest_reference_genbank = genbank_files[0]
+        if len(sampledata.closest_reference_genbank) == 0:
+            logging.warning("No valid closest reference GenBank file is found!")
         self.update_state({
             sampledata.name: {
                 stage_name: dict(
@@ -899,6 +901,9 @@ class Handler:
         if skip:
             logging.info("Skip {}".format(stage_name))
         else:
+            if len(sampledata.closest_reference_genbank) == 0:
+                logging.warning("No valid closest reference GenBank file is found, aborting")
+                return
             self.clean_path(stage_dir)
             log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
             Utils.append_log(log, _TOOL, sampledata.name)
@@ -1225,7 +1230,7 @@ class Handler:
         """
 
     @staticmethod
-    def _index_reference_by_bwa(input_genbank_file: str, output_fna_file: str):
+    def _convert_and_index_reference_by_bwa(input_genbank_file: str, output_fna_file: str):
         # One per sample
         """
         # Sample launch:
@@ -1298,13 +1303,18 @@ class Handler:
 
         assembly_name = os.path.join(assembly_dir, f"{sampledata.name}.fna")
 
+        if len(sampledata.closest_reference_genbank) == 0:
+            logging.warning("No valid closest reference GenBank file is found, aborting")
+            return
         reference_name = Utils.filename_only(sampledata.closest_reference_genbank)
         genome_file = f"{os.path.join(genome_dir, reference_name)}.fna"
         genome_mask = Utils.get_file_name_mask(genome_file)
 
         if not Utils.is_file_valid(genome_file):
             logging.info("Create BWA index")
-            log = self._index_reference_by_bwa(sampledata.closest_reference_genbank, genome_file)
+            log = self._convert_and_index_reference_by_bwa(
+                sampledata.closest_reference_genbank, genome_file
+            )
             Utils.append_log(log, "bwa index")
 
         alignment_mask = os.path.join(bam_dir, f"{sampledata.name}.{reference_name}")
