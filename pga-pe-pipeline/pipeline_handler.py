@@ -1325,6 +1325,7 @@ class Handler:
         cmd = f"""
         bash -c '
             mgefinder --version;
+            echo "Deploy raw reads symlinks";
             cd "{raw_dir}";
             ln -s \
                 "{sampledata.reads[0]}" \
@@ -1333,21 +1334,25 @@ class Handler:
                 "{sampledata.reads[1]}" \
                 "{reads_file_2}";
             cd "{assembly_dir}";
+            echo "Deploy reference symlink";
             ln -s \
                 "{sampledata.genome_assembly}" \
                 "{assembly_name}";
-            cd "{bam_dir}";        
+            cd "{bam_dir}";
+            echo "Align sequences";
             bwa mem \
                 -t {argValidator.threads} \
                 -v 0 \
                 "{genome_mask}" \
                 "{reads_file_1}" \
                 "{reads_file_2}" \
-                > "{alignment_mask}.sam";        
+                > "{alignment_mask}.sam";
+            echo "Convert SAM to BAM";
             mgefinder formatbam \
                 "{alignment_mask}.sam" \
                 "{alignment_mask}.bam";
             cd "{stage_dir}";
+            echo "Start MGEfinder";
             mgefinder workflow denovo \
                 --cores {argValidator.threads} \
                 "{stage_dir}";
