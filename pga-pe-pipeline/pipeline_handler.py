@@ -277,12 +277,25 @@ class SampleDataArray:
 class Handler:
     def __init__(self, output_dir: str = ""):
         self.sample_methods = [
-            self.run_fastqc, self.run_trimmomatic, self.run_cutadapt, self.remove_hg,
-            self.run_spades, self.run_plasmid_merger, self.run_blast, self.run_quast,
-            self.run_prokka, self.run_rgi, self.run_srst2, self.run_mgefinder
+            self.run_fastqc,
+            self.run_trimmomatic,
+            self.run_cutadapt,
+            self.remove_hg,
+            self.run_spades,
+            self.run_plasmid_merger,
+            self.run_blast,
+            self.run_quast,
+            self.run_prokka,
+            self.run_mgefinder,
+            self.run_rgi,
+            self.run_srst2,
         ]
-        self.group_methods = [self.merge_srst2_results, self.merge_blast_results, self.run_roary,
-                              self.run_nbee_with_annotation]
+        self.group_methods = [
+            self.merge_srst2_results,
+            self.merge_blast_results,
+            self.run_roary,
+            self.run_nbee_with_annotation,
+        ]
         #
         self.valid = False
         self.output_dir_root = output_dir.strip()
