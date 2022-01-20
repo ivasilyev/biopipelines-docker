@@ -1364,6 +1364,13 @@ class Handler:
             mgefinder formatbam \
                 "{alignment_mask}.sam" \
                 "{alignment_mask}.bam";
+        '
+        """
+        log = Utils.run_image(img_name="ivasilyev/mgefinder:latest", container_cmd=cmd)
+        Utils.append_log(log, _TOOL)
+
+        cmd = f"""
+        bash -c '
             cd "{stage_dir}";
             echo "Start MGEfinder";
             mgefinder workflow denovo \
