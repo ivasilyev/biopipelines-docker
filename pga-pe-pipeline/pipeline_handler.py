@@ -48,15 +48,17 @@ Columns:
 2. Paired end reads divided with semicolon, e.g. '/reads/eco_01_R1.fastq.gz;/reads/eco_01_R2.fastq.gz'; 
 3. Taxon information divided with spaces, e.g. 'Escherichia coli O157:H7'""".strip())
         parser.add_argument("-s", "--start", type=int, default=_STEPS[0], metavar=_STAGES,
-                            choices=_STEPS, help="Stage to start the pipeline, inclusive")
+                            choices=_STEPS, help="(Optional) Stage to start the pipeline, inclusive")
         parser.add_argument("-f", "--finish", type=int, default=_STEPS[-1], metavar=_STAGES,
-                            choices=_STEPS, help="Stage to finish the pipeline, inclusive")
+                            choices=_STEPS, help="(Optional) Stage to finish the pipeline, inclusive")
         parser.add_argument("--hg_dir", metavar="<dir>", default="",
-                            help="Directory containing human genome bowtie2 index ('*.bt2')")
-        parser.add_argument("--blast_references", type=int, default=100,
-                            help="Number of BLAST references to fetch")
+                            help="(Optional) Directory containing human genome bowtie2 index ('*.bt2') required for human genome decontamination")
+        parser.add_argument("--blast_references", metavar="<int>", type=int, default=100,
+                            help="(Optional) Number of BLAST references to fetch")
+        parser.add_argument("--card_json", metavar="<card.json>", default="",
+                            help="(Optional) CARD reference JSON required by the RGI")
         parser.add_argument("--refdata", metavar="<file>", default=(), nargs="+",
-                            help="Path(s) to RefData JSONS made by the 'cook_the_reference.py'")
+                            help="(Optional) Path(s) to RefData JSONs made by the 'cook_the_reference.py' required for alignment and coverage extrction")
         parser.add_argument("-o", "--output_dir", metavar="<dir>", required=True,
                             help="Output directory")
 
@@ -71,6 +73,7 @@ Columns:
             self.hg_index_dir = os.path.realpath(self.hg_index_dir)
 
         self.blast_reference_number = self._namespace.blast_references
+        self.card_json = self._namespace.card_json
 
         self.refdata_files = Utils.remove_empty_values(self._namespace.refdata)
         if len(self.refdata_files) > 0:
@@ -1199,14 +1202,16 @@ class Handler:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
 
-        os.makedirs(self.card_reference_dir, exist_ok=True)
-        for _try in range(0, PULL_RETRIES):
-            self.card_reference_json = Utils.locate_file_by_tail(self.card_reference_dir, "card.json")
-            if len(self.card_reference_json) > 0:
-                break
-            logging.info(f"Downloading CARD reference data for attempt {_try} of {PULL_RETRIES}")
-            log = self._download_card_reference()
-            Utils.append_log(log, _TOOL, sampledata.name)
+        self.card_reference_json = argValidator.card_json
+        if not Utils.is_file_valid(self.card_reference_json, report=True):
+            os.makedirs(self.card_reference_dir, exist_ok=True)
+            for _try in range(0, PULL_RETRIES):
+                self.card_reference_json = Utils.locate_file_by_tail(self.card_reference_dir, "card.json")
+                if len(self.card_reference_json) > 0:
+                    break
+                logging.info(f"Downloading CARD reference data for attempt {_try} of {PULL_RETRIES}")
+                log = self._download_card_reference()
+                Utils.append_log(log, _TOOL, sampledata.name)
 
         self.clean_path(stage_dir)
         out_mask = os.path.join(stage_dir, sampledata.name)
@@ -1674,6 +1679,8 @@ class Utils:
     # File system based methods
     @staticmethod
     def is_file_valid(file: str, report: bool = False):
+        if len(file) == 0:  # Do not log this
+            return False
         if not os.path.exists(file):
             if report:
                 logging.warning("Not found: '{}'".format(file))
@@ -2041,9 +2048,12 @@ if __name__ == '__main__':
     argValidator = ArgValidator()
     mainLogFile = os.path.join(argValidator.log_dir, "main.log")
     os.makedirs(argValidator.log_dir, exist_ok=True)
-    logging.basicConfig(level=logging.DEBUG, handlers=[logging.FileHandler(mainLogFile), logging.StreamHandler()],
-                        format="asctime=%(asctime)s levelname=%(levelname)s process=%(process)d name=%(name)s "
-                               "funcName=%(funcName)s lineno=%(lineno)s message=\"\"\"%(message)s\"\"\"")
+    logging.basicConfig(
+        level=logging.DEBUG,
+        handlers=[logging.FileHandler(mainLogFile), logging.StreamHandler()],
+        format="asctime=%(asctime)s levelname=%(levelname)s process=%(process)d name=%(name)s "
+               "funcName=%(funcName)s lineno=%(lineno)s message=\"\"\"%(message)s\"\"\""
+    )
     argValidator.validate()
     sampleDataArray = SampleDataArray.load(argValidator.sampledata_file)
     handler = Handler(argValidator.output_dir)
