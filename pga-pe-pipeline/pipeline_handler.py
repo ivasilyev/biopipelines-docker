@@ -896,13 +896,12 @@ class Handler:
         genome_assembly_extension = Utils.get_file_extension(sampledata.genome_assembly)
         genome_assembly_symlink = os.path.join(stage_dir, f"{os.path.basename(sampledata.name)}{genome_assembly_extension}")
 
+        os.symlink(sampledata.genome_assembly, genome_assembly_symlink)
+
         cmd = f"""
         bash -c '
             {_TOOL} --version;
             cd "{stage_dir}";
-            ln -s \
-                {sampledata.genome_assembly} \
-                {genome_assembly_symlink};
             {_TOOL} \
                 --gene-finding \
                 --no-gzip \
@@ -1118,21 +1117,8 @@ class Handler:
                        for idx, i in enumerate(sampledata.reads)]
         out_mask = os.path.join(stage_dir, sampledata.prefix)
 
-        # Deliberately set the tag with fully supported environment
-        # https://quay.io/repository/biocontainers/srst2?tab=tags
-        img_tag = "0.2.0--py27_2"
-        cmd = f"""
-        bash -c '
-            cd {stage_dir};
-            ln -s {sampledata.reads[0]} {input_reads[0]};
-            ln -s {sampledata.reads[1]} {input_reads[1]};
-        '
-        """
-        log = self.run_quay_image(
-            _TOOL, img_tag=img_tag, cmd=cmd, attempts=_SRST2_ATTEMPTS,
-            bad_phrases=_ERROR_PHRASES, sample_name=sampledata.name
-        )
-        Utils.append_log(log, _TOOL, sampledata.name)
+        for file, link in zip(sampledata.reads, input_reads):
+            os.symlink(file, link)
 
         cmd = f"""
         bash -c '
@@ -1148,8 +1134,10 @@ class Handler:
             chmod -R a+rw {stage_dir}
         '
         """
+        # Deliberately set the tag with fully supported environment
+        # https://quay.io/repository/biocontainers/srst2?tab=tags
         log = self.run_quay_image(
-            _TOOL, img_tag=img_tag, cmd=cmd, attempts=_SRST2_ATTEMPTS,
+            _TOOL, img_tag="0.2.0--py27_2", cmd=cmd, attempts=_SRST2_ATTEMPTS,
             bad_phrases=_ERROR_PHRASES, sample_name=sampledata.name
         )
         Utils.append_log(log, _TOOL, sampledata.name)
@@ -1352,23 +1340,16 @@ class Handler:
 
         alignment_mask = os.path.join(bam_dir, f"{sampledata.name}.{reference_name}")
 
+        for file, link in (
+            [sampledata.reads[0], reads_file_1],
+            [sampledata.reads[1], reads_file_2],
+            [sampledata.genome_assembly, assembly_name]
+        ):
+            os.symlink(file, link)
+
         cmd = f"""
         bash -c '
             mgefinder --version;
-            echo "Deploy raw reads symlinks";
-            cd "{raw_dir}";
-            ln -s \
-                "{sampledata.reads[0]}" \
-                "{reads_file_1}";
-            ln -s \
-                "{sampledata.reads[1]}" \
-                "{reads_file_2}";
-            cd "{assembly_dir}";
-            echo "Deploy reference symlink";
-            ln -s \
-                "{sampledata.genome_assembly}" \
-                "{assembly_name}";
-            cd "{bam_dir}";
             echo "Align sequences";
             bwa mem \
                 -t {argValidator.threads} \
