@@ -1111,8 +1111,29 @@ class Handler:
                                               out_dir=reference_dir,
                                               out_file=getmlst_state_file,
                                               sample_name=sampledata.name)
-        # The input read files must be named by a strict pattern:
-        # https://github.com/katholt/srst2#input-read-formats-and-options
+        """
+        SRST2 requires the strict file system structure pattern:
+
+        <work_directory>/
+            ├── <sample_name>_1.<reads_extension>
+            ├── <sample_name>_2.<reads_extension>
+            ├── <taxonomy_prefix>.log
+            ├── <taxonomy_prefix>__<sample_name>.<Genera>_<species>.pileup
+            ├── <taxonomy_prefix>__<sample_name>.<Genera>_<species>.sorted.bam
+            └── <taxonomy_prefix>__mlst__<Genera>_<strain>__results.txt
+         <reference_directory>/
+            ├── alleles_fasta
+            ├── getmlst_state_<Genera>_<species>_<strain>.json
+            ├── profiles_csv
+            ├── <Genera>_<strain>.fasta
+            ├── <Genera>_<strain>.fasta.<bowtie_2_index_number>.bt2
+            ├── <Genera>_<strain>.fasta.<bowtie_2_index_number>.bt2
+            ├── <Genera>_<strain>.fasta.fai
+            └── <Genera>_<strain>.fasta.rev.<bowtie_2_rev_index_number>.bt2
+
+        More info: https://github.com/katholt/srst2#input-read-formats-and-options
+        """
+
         input_reads = [os.path.join(stage_dir, f"{sampledata.name}_{idx + 1}{sampledata.extension}")
                        for idx, i in enumerate(sampledata.reads)]
         out_mask = os.path.join(stage_dir, sampledata.prefix)
