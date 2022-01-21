@@ -896,8 +896,6 @@ class Handler:
         genome_assembly_extension = Utils.get_file_extension(sampledata.genome_assembly)
         genome_assembly_symlink = os.path.join(stage_dir, f"{os.path.basename(sampledata.name)}{genome_assembly_extension}")
 
-        os.symlink(sampledata.genome_assembly, genome_assembly_symlink)
-
         cmd = f"""
         bash -c '
             {_TOOL} --version;
@@ -923,6 +921,7 @@ class Handler:
                 logging.warning("No valid closest reference GenBank file is found, aborting")
                 return
             self.clean_path(stage_dir)
+            os.symlink(sampledata.genome_assembly, genome_assembly_symlink)
             log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
             Utils.append_log(log, _TOOL, sampledata.name)
         quast_results = self._parse_quast_result(stage_dir)
@@ -1096,10 +1095,10 @@ class Handler:
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         reference_dir = os.path.join(self.srst2_reference_dir, sampledata.prefix)
         stage_dir = os.path.join(tool_dir, sampledata.name)
-        self.clean_path(stage_dir)
         if skip or sampledata.is_taxa_valid is None:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
+        self.clean_path(stage_dir)
         os.makedirs(stage_dir, exist_ok=True)
         genus, species = sampledata.taxa_genus, sampledata.taxa_species
         taxa = " ".join([genus, species])
