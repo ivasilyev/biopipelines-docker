@@ -1564,9 +1564,10 @@ class Handler:
             Utils.append_log(log, _TOOL)
 
     @staticmethod
-    def _annotate_nbee_coverage(coverage_file: str, annotation_file: str, out_file: str):
+    def _annotate_and_filter_nbee_coverage(coverage_table: str, annotation_table: str,
+                                           annotated_table: str, filtered_table):
         # One per sample
-        _TOOL = "concatenate_tables"
+        _TOOL = "concatenate_tables+filter_only_not_null_values"
         """
         # Sample launch:
         export IMG=ivasilyev/curated_projects:latest && \
@@ -1576,12 +1577,16 @@ class Handler:
         cmd = f"""
         bash -c '
             git pull --quiet && \
-            python3 "$HOME/scripts/curated_projects/meta/scripts/{_TOOL}.py" \
+            python3 "$HOME/scripts/curated_projects/meta/scripts/concatenate_tables.py" \
                 --axis 1 \
                 --index "reference_id" \
-                --input "{annotation_file}" "{coverage_file}" \
+                --input "{annotation_table}" "{coverage_table}" \
                 --join inner \
-                --output "{out_file}"
+                --output "{annotated_table}" && \
+            python3 "$HOME/scripts/curated_projects/meta/scripts/filter_only_not_null_values.py" \
+                --input "{annotated_table}" \
+                --filter "id_mapped_relative_abundance" \
+                --output "{filtered_table}"
         '
         """
         log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
@@ -1607,14 +1612,24 @@ class Handler:
         annotation_dir = os.path.join(out_dir, "annotated_coverages")
         os.makedirs(annotation_dir, exist_ok=True)
         for raw_coverage_file in coverage_files:
+            coverage_file_extension = Utils.get_file_extension(raw_coverage_file)
             annotated_coverage_file = os.path.join(
                 annotation_dir,
-                "{}_annotated{}".format(os.path.basename(os.path.splitext(raw_coverage_file)[0]),
-                                        Utils.get_file_extension(raw_coverage_file))
+                "{}_annotated{}".format(
+                    os.path.basename(os.path.splitext(raw_coverage_file)[0]),
+                    coverage_file_extension
+                )
             )
-            self._annotate_nbee_coverage(coverage_file=raw_coverage_file,
-                                         annotation_file=annotation_file,
-                                         out_file=annotated_coverage_file)
+            filtered_coverage_file = "{}_filtered{}".format(
+                os.path.splitext(annotated_coverage_file)[0],
+                coverage_file_extension
+            )
+            self._annotate_and_filter_nbee_coverage(
+                coverage_table=raw_coverage_file,
+                annotation_table=annotation_file,
+                annotated_table=annotated_coverage_file,
+                filtered_table=filtered_coverage_file,
+            )
 
     def run_nbee_with_annotation(self, sampledata_array: SampleDataArray, skip: bool = False):
         # One per all samples per all refdata
