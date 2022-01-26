@@ -287,6 +287,7 @@ class Handler:
             self.run_spades,
             self.run_plasmid_merger,
             self.run_blast,
+            self.count_total_wgs_assembly_statistics,
             self.run_quast,
             self.run_prokka,
             self.run_mgefinder,
@@ -822,6 +823,49 @@ class Handler:
                 )
             }
         })
+
+    def count_total_wgs_assembly_statistics(self, sampledata: SampleDataLine, skip: bool = False):
+        # One per sample
+        _TOOL = "count_total_wgs_assembly_statistics"
+        """
+        # Sample launch:
+        export IMG=ivasilyev/curated_projects:latest && \
+        docker pull "${IMG}" && \
+        docker run --rm --net=host -it "${IMG}" bash
+        git pull
+        """
+        stage_name = Utils.get_caller_name()
+        stage_dir = os.path.join(self.output_dirs[stage_name], sampledata.name)
+        stats_json = os.path.join(stage_dir, "wgs_assembly_statistics.json")
+        raw_reads_format = sampledata.extension.strip(".")
+        if raw_reads_format == "fastq.gz":
+            raw_reads_format = "fastq_gz"
+        cmd = f"""
+        bash -c '
+            git pull --quiet && \
+            cd {stage_dir};
+            python3 "$HOME/scripts/curated_projects/meta/scripts/{_TOOL}.py" \
+                --raw_reads {Utils.list_to_quoted_string(sampledata.raw_reads)} \
+                --raw_reads_format "{raw_reads_format}" \
+                --assembly "{sampledata.genome_assembly}" \
+                --assembly_format genbank \
+                --reference "{sampledata.closest_reference_genbank}" \
+                --output "{stats_json}" 
+        """
+        if not skip:
+            self.clean_path(stage_dir)
+            log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
+            Utils.append_log(log, _TOOL, sampledata.name)
+        else:
+            logging.info("Skip {}".format(Utils.get_caller_name()))
+        if Utils.is_file_valid(stats_json, report=True):
+            stats_dict = Utils.load_dict(stats_json)
+            if len(stats_dict.keys() > 0):
+                self.update_state({
+                    sampledata.name: {
+                        stage_name: stats_dict
+                    }
+                })
 
     @staticmethod
     def _parse_quast_result(directory: str):
@@ -1527,7 +1571,7 @@ class Handler:
         log = Utils.run_image(img_name="sangerpathogens/roary:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL)
 
-        sampledata_array.roary_edited_newick = os.path.join(tool_dir, "roary_edited_results.newick")
+        sampledata_array.roary_edited_newick = os.path.join(tool_dir, "roary_results_annotated.newick")
         newick_file = Utils.locate_file_by_tail(stage_dir, ".newick")
         if len(newick_file) > 0:
             logging.info(f"Found Newick file: '{newick_file}'")
@@ -1824,8 +1868,8 @@ class Utils:
         Utils.dump_string(string="\n".join([str(i) for i in lst]) + "\n", file=file)
 
     @staticmethod
-    def list_to_spaced_string(x: list):
-        return " ".join([str(i) for i in x])
+    def list_to_quoted_string(x: list):
+        return '"{}"'.format('", "'.join([str(i) for i in x]))
 
     @staticmethod
     def dump_2d_array(array: list, file: str):
