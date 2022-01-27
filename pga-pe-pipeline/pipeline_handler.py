@@ -1443,6 +1443,26 @@ class Handler:
         """
         log = Utils.run_image(img_name="ivasilyev/mgefinder:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL)
+        """
+        Result table columns:
+        
+        “cluster”: identifier of the specific sequence cluster when all identified insertions are clustered using CD-HIT-EST at 90% sequence identity across 85% of their sequence; 
+        “group”: group of occasionally indistinguishable clusters to which the sequence belongs; 
+        “num_unique_sites_all”: number of unique sites containing the cluster, including sites with ambiguous cluster assignments; 
+        “num_unique_sites_unambig”: number of unique sites where the cluster was unambiguously predicted as inserted; 
+        “num_unique_seqs”: number of unique sequences into the cluster; 
+        “num_samples”: number of samples with the cluster inserted; 
+        “IAwFC”: number of cluster insertions identified by “Inferred from assembly with full context” approach; 
+        “IAwHC”: number of cluster insertions identified by “Inferred from assembly with half context” approach; 
+        “IO”: number of cluster insertions identified by “Inferred from overlap” approach; 
+        “IAwoC”: number of cluster insertions identified by “Inferred from assembly without context” approach; 
+        “IDB”: number of cluster insertions identified by “Inferred dynamically constructed database” approach; 
+        “ArSC”: number of ambiguous cluster insertions resolved by comparison with all other insertions found at that site across all samples; 
+        “ArMS”: number of ambiguous cluster insertions resolved by prioritizing high-confidence mobile clusters; 
+        “ArML”: number of ambiguous cluster insertions resolved by prioritizing medium-confidence mobile clusters; 
+        “A”: the proportion of all cluster insertions ambiguous across clusters and could not be resolved; 
+        “repr_seqid”: identifier of full inferred sequence of the representative for the cluster;
+        """
 
     # Group processing pipeline steps
 
