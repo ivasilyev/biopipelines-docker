@@ -53,7 +53,9 @@ Columns:
                             choices=_STEPS, help="(Optional) Stage to finish the pipeline, inclusive")
         parser.add_argument("--hg_dir", metavar="<dir>", default="",
                             help="(Optional) Directory containing human genome bowtie2 index ('*.bt2') required for human genome decontamination")
-        parser.add_argument("--blast_references", metavar="<int>", type=int, default=100,
+        parser.add_argument("--blast_dir", metavar="<dir>", default="",
+                            help="(Optional) Directory to download BLAST references")
+        parser.add_argument("--blast_number", metavar="<int>", type=int, default=100,
                             help="(Optional) Number of BLAST references to fetch")
         parser.add_argument("--card_json", metavar="<card.json>", default="",
                             help="(Optional) CARD reference JSON required by the RGI")
@@ -72,7 +74,8 @@ Columns:
         if len(self.hg_index_dir) > 0:
             self.hg_index_dir = os.path.realpath(self.hg_index_dir)
 
-        self.blast_reference_number = self._namespace.blast_references
+        self.blast_reference_directory = self._namespace.blast_dir
+        self.blast_reference_number = self._namespace.blast_number
         self.card_json = self._namespace.card_json
 
         self.refdata_files = Utils.remove_empty_values(self._namespace.refdata)
@@ -103,7 +106,8 @@ class SampleDataLine:
         self.genomes = dict()
         self.faa = ""
         self.chromosome_annotation = ""
-        self.blast_result_json = ""
+        self.blast_result_dict = dict()
+        self.blast_report_dict = dict()
         self.blast_result_table = ""
 
         self.reference_fna = ""
@@ -199,6 +203,14 @@ class SampleDataArray:
         self.srst2_merged_table = ""
         self.blast_merged_table = ""
         self.roary_edited_newick = ""
+
+    @property
+    def blast_genbank_files(self):
+        return sorted(set(Utils.flatten_2d_array([
+            j for j in
+            [i.blast_report_dict.get("genbank_files") for i in self.lines.values()]
+            if j is not None and len(j) > 0
+        ])))
 
     @property
     def blast_result_tables(self):
@@ -759,6 +771,8 @@ class Handler:
         stage_name = Utils.get_caller_name()
         tool_dir = self.output_dirs[stage_name]
         stage_dir = os.path.join(tool_dir, sampledata.name)
+        if len(argValidator.blast_reference_directory) > 0:
+            self.blast_reference_dir = argValidator.blast_reference_directory
         cmd = f"""
         bash -c '
             git pull --quiet && \
@@ -777,20 +791,21 @@ class Handler:
         else:
             logging.info("Skip {}".format(Utils.get_caller_name()))
         blast_result_jsons = [
-            i for i in Utils.scan_whole_dir(stage_dir)
+            i for i in
+            Utils.locate_file_by_tail(stage_dir, "_blast_results.json", True)
             if os.path.basename(i).startswith(sampledata.name)
-            and os.path.basename(i).endswith("_blast_results.json")
         ]
         if len(blast_result_jsons) == 0:
-            logging.warning("No BLAST JSON result!")
+            if not skip:
+                logging.warning("No BLAST JSON result!")
             return
-        sampledata.blast_result_json = blast_result_jsons[0]
-        blast_result_dict = Utils.load_dict(sampledata.blast_result_json)
-        blast_top_result = list(blast_result_dict.keys())[0]
+        blast_result_json = blast_result_jsons[0]
+        sampledata.blast_result_dict = Utils.load_dict(blast_result_json)
+        blast_top_result = list(sampledata.blast_result_dict.keys())[0]
         logging.info(f"The best matching organism is '{blast_top_result}'")
 
         taxa_dict = {i: "" for i in ["genus", "species", "strain"]}
-        for blast_result in blast_result_dict.keys():
+        for blast_result in sampledata.blast_result_dict.keys():
             taxa_dict.update(self._parse_taxa_from_blast_result(blast_result))
             if taxa_dict["species"] != "sp.":
                 break
@@ -805,8 +820,8 @@ class Handler:
             if not skip:
                 logging.warning("No BLAST JSON report!")
             return
-        blast_report_dict = Utils.load_dict(blast_report_json)
-        genbank_files = blast_report_dict.get("genbank_files")
+        sampledata.blast_report_dict = Utils.load_dict(blast_report_json)
+        genbank_files = sampledata.blast_report_dict.get("genbank_files")
         if genbank_files is None or len(genbank_files) == 0:
             if not skip:
                 logging.warning(f"Invalid BLAST JSON report: '{blast_report_json}'")
@@ -984,11 +999,7 @@ class Handler:
     def _locate_annotated_genome(directory: str):
         d = {i: "" for i in ["gbk", "gff"]}
         for extension in d.keys():
-            files = [i for i in Utils.scan_whole_dir(directory) if i.endswith(".{}".format(extension))]
-            if len(files) > 0:
-                d[extension] = files[0]
-            else:
-                logging.warning("No annotated genome of type '{}'".format(extension))
+            d[extension] = Utils.locate_file_by_tail(directory, ".{}".format(extension))
         return d
 
     def run_prokka(self, sampledata: SampleDataLine, skip: bool = False):
@@ -1039,12 +1050,6 @@ class Handler:
         log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
         Utils.append_log(log, _TOOL, sampledata.name)
         sampledata.genomes.update(self._locate_annotated_genome(stage_dir))
-
-        gff_file = Utils.locate_file_by_tail(stage_dir, ".gff")
-        if len(gff_file) == 0:
-            return
-        os.makedirs(self.roary_reference_dir, exist_ok=True)
-        copy2(gff_file, os.path.join(self.roary_reference_dir, os.path.basename(gff_file)))
 
     # SNP calling
     def run_bowtie2(self, sampledata: SampleDataLine, skip: bool = False):
@@ -1491,7 +1496,7 @@ class Handler:
         Utils.append_log(log, _TOOL)
 
     @staticmethod
-    def _convert_genbank_to_gff3(gbff_dir, gff_dir):
+    def _convert_genbank_to_gff3(converter_sampledata, gff_dir):
         # One per all samples, force multithread
         _TOOL = "bp_genbank2gff3"
         """
@@ -1506,17 +1511,13 @@ class Handler:
         """
         cmd_1 = f"""
         export TOOL="$(find /usr/local/ -name "{_TOOL}" -type f 2>/dev/null | grep '{_TOOL}' | head -n 1)";
-        export SOURCE_DIR="{gbff_dir}/";
+        export SOURCE_SAMPLEDATA="{converter_sampledata}/";
         export TARGET_DIR="{gff_dir}/";
         """
         cmd_2 = """
         cd "${TARGET_DIR}";
-        find "${SOURCE_DIR}" \
-            -name '*.gbk' \
-            -type f \
-            -print0 \
+        cat "${SOURCE_SAMPLEDATA}" \
         | xargs \
-            -0 \
             --max-procs "$(nproc)" \
             -I "{}" \
             bash -c '
@@ -1531,7 +1532,7 @@ class Handler:
         chmod -R a+rw "${TARGET_DIR}";
         """
         # Mock the script, since the `bash -c 'bash -c '...''` hangs
-        exe = os.path.join(gbff_dir, f"{_TOOL}.sh")
+        exe = os.path.join(os.path.dirname(converter_sampledata), f"{_TOOL}.sh")
         if not Utils.is_file_valid(exe):
             Utils.dump_string(cmd_2, exe)
         # Roary fails if found a non-GFF file in its input
@@ -1540,7 +1541,6 @@ class Handler:
         bash {exe};
         '
         """
-        os.makedirs(gff_dir, exist_ok=True)
         return Utils.run_image(img_name="bioperl/bioperl:latest", container_cmd=cmd)
 
     @staticmethod
@@ -1573,8 +1573,15 @@ class Handler:
             return
         self.clean_path(tool_dir)
         os.makedirs(self.roary_reference_dir, exist_ok=True)
-        log = self._convert_genbank_to_gff3(self.blast_reference_dir, self.roary_reference_dir)
+        converter_sampledata = os.path.join(tool_dir, "convert_genbank_to_gff3.sampledata")
+        Utils.dump_list(sampledata_array.blast_genbank_files, converter_sampledata)
+        log = self._convert_genbank_to_gff3(converter_sampledata, self.roary_reference_dir)
         Utils.append_log(log, _TOOL)
+        for sampledata in sampledata_array.lines.values():
+            gff_file = sampledata.genomes.get("gff")
+            if Utils.is_file_valid(gff_file, True):
+                gff_link = os.path.join(self.roary_reference_dir, os.path.basename(gff_file))
+                os.symlink(gff_file, gff_link)
 
         # There is no version number accessible via special or even help CLI arguments
         cmd = f"""bash -c '
