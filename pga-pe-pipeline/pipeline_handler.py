@@ -1511,10 +1511,11 @@ class Handler:
         """
         cmd_1 = f"""
         export TOOL="$(find /usr/local/ -name "{_TOOL}" -type f 2>/dev/null | grep '{_TOOL}' | head -n 1)";
-        export SOURCE_SAMPLEDATA="{converter_sampledata}/";
+        export SOURCE_SAMPLEDATA="{converter_sampledata}";
         export TARGET_DIR="{gff_dir}/";
         """
         cmd_2 = """
+        mkdir -p "${TARGET_DIR}";
         cd "${TARGET_DIR}";
         cat "${SOURCE_SAMPLEDATA}" \
         | xargs \
