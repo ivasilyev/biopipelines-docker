@@ -2072,7 +2072,9 @@ class Utils:
     def run_image(
             img_name: str, container_cmd: str, bad_phrases: list = (), attempts: int = 5
     ):
-        _DOCKER_RUN_CMD = "docker run --rm -v /data:/data -v /data1:/data1 -v /data2:/data2 --net=host -it"
+        _PERSISTENT_STORAGE_POINTS = ("/data", "/data1", "/data2", "/data03", "/data04")
+        persistent_storage_line = " ".join([f"-v {i}:{i}" for i in _PERSISTENT_STORAGE_POINTS])
+        _DOCKER_RUN_CMD = f"docker run --rm {persistent_storage_line} --net=host -it"
         _COMMON_PHRASES = ["Error response from daemon", ]
         logging.info("Using image: '{}'".format(img_name))
         bad_phrases = list(bad_phrases) + _COMMON_PHRASES
