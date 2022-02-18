@@ -1159,6 +1159,10 @@ class Handler:
                                               out_dir=reference_dir,
                                               out_file=getmlst_state_file,
                                               sample_name=sampledata.name)
+        if any(i not in getmlst_state.keys() for i in
+               ["mlst_db", "mlst_definitions", "mlst_delimiter"]):
+            logging.warning(f"Invalid getmlst output: '{getmlst_state}'")
+            return
         """
         SRST2 requires the strict file system structure pattern:
 
