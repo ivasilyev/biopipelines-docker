@@ -870,7 +870,7 @@ class Handler:
         """
         if not skip:
             self.clean_path(stage_dir)
-            log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
+            log = Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
             Utils.append_log(log, _TOOL, sampledata.name)
         else:
             logging.info("Skip {}".format(Utils.get_caller_name()))
