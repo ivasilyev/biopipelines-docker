@@ -863,8 +863,9 @@ class Handler:
                 --raw_reads {Utils.list_to_quoted_string(sampledata.raw_reads)} \
                 --raw_reads_format "{raw_reads_format}" \
                 --assembly "{sampledata.genome_assembly}" \
-                --assembly_format genbank \
+                --assembly_format fasta \
                 --reference "{sampledata.closest_reference_genbank}" \
+                --reference_format genbank \
                 --output "{stats_json}"
         '
         """
