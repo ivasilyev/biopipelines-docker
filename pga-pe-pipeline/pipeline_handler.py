@@ -1101,7 +1101,7 @@ class Handler:
         for getmlst_attempt in range(1, _GETMLST_ATTEMPTS + 1):
             getmlst_cmd = f"""
             bash -c '
-                cd {out_dir};
+                cd "{out_dir}";
                 {_TOOL}.py --species "{taxa}";
                 chmod -R a+rw {out_dir}
             '
@@ -1153,23 +1153,24 @@ class Handler:
         docker run --rm --net=host -it "${IMG}" bash
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
-        reference_dir = os.path.join(self.srst2_reference_dir, sampledata.prefix)
+        taxa = " ".join([sampledata.taxa_genus, sampledata.taxa_species])
+        reference_dir = os.path.join(self.srst2_reference_dir, taxa)
         stage_dir = os.path.join(tool_dir, sampledata.name)
         if skip or sampledata.is_taxa_valid is None:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
         self.clean_path(stage_dir)
         os.makedirs(stage_dir, exist_ok=True)
-        genus, species = sampledata.taxa_genus, sampledata.taxa_species
-        taxa = " ".join([genus, species])
         getmlst_state_file = os.path.join(reference_dir, "getmlst_state_{}.json".format(taxa))
         if Utils.is_file_valid(getmlst_state_file):
             getmlst_state = Utils.load_dict(getmlst_state_file)
         else:
-            getmlst_state = self._run_getmlst(taxa=taxa,
-                                              out_dir=reference_dir,
-                                              out_file=getmlst_state_file,
-                                              sample_name=sampledata.name)
+            getmlst_state = self._run_getmlst(
+                out_dir=reference_dir,
+                out_file=getmlst_state_file,
+                sample_name=sampledata.name,
+                taxa=taxa,
+            )
         if getmlst_state is None or any(
             i not in getmlst_state.keys() for i in
             ["mlst_db", "mlst_definitions", "mlst_delimiter"]
