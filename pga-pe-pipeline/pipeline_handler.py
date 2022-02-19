@@ -59,6 +59,8 @@ Columns:
                             help="(Optional) Number of BLAST references to fetch")
         parser.add_argument("--card_json", metavar="<card.json>", default="",
                             help="(Optional) CARD reference JSON required by the RGI")
+        parser.add_argument("--srst2_dir", metavar="<dir>", default="",
+                            help="(Optional) Directory to download SRST2 references")
         parser.add_argument("--refdata", metavar="<file>", default=(), nargs="+",
                             help="(Optional) Path(s) to RefData JSONs made by the 'cook_the_reference.py' required for alignment and coverage extrction")
         parser.add_argument("-o", "--output_dir", metavar="<dir>", required=True,
@@ -77,6 +79,7 @@ Columns:
         self.blast_reference_directory = self._namespace.blast_dir
         self.blast_reference_number = self._namespace.blast_number
         self.card_json = self._namespace.card_json
+        self.srst2_reference_directory = self._namespace.srst2_dir
 
         self.refdata_files = Utils.remove_empty_values(self._namespace.refdata)
         if len(self.refdata_files) > 0:
@@ -1154,7 +1157,11 @@ class Handler:
         """
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         taxa = " ".join([sampledata.taxa_genus, sampledata.taxa_species])
+
         reference_dir = os.path.join(self.srst2_reference_dir, taxa)
+        if len(argValidator.srst2_reference_directory) > 0:
+            reference_dir = os.path.join(argValidator.srst2_reference_directory, taxa)
+
         stage_dir = os.path.join(tool_dir, sampledata.name)
         if skip or sampledata.is_taxa_valid is None:
             logging.info("Skip {}".format(Utils.get_caller_name()))
