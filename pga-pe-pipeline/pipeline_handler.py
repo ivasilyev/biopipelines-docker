@@ -165,7 +165,7 @@ class SampleDataLine:
 
     @property
     def reads_string(self):
-        return " ".join(self.reads)
+        return Utils.list_to_quoted_string(self.reads)
 
     @property
     def taxa_string(self):
@@ -375,7 +375,7 @@ class Handler:
                     break
                 except json.decoder.JSONDecodeError:
                     logging.warning(
-                        f"Cannot get API response for the image the URL '{img_name}' for attempt {attempt} of {attempts}"
+                        f"Cannot get API response for the image URL '{img_name}' for attempt {attempt} of {attempts}"
                     )
             if attempt > attempts:
                 logging.warning(
@@ -1906,7 +1906,7 @@ class Utils:
 
     @staticmethod
     def list_to_quoted_string(x: list):
-        return '"{}"'.format('", "'.join([str(i) for i in x]))
+        return '"{}"'.format('" "'.join([str(i) for i in x]))
 
     @staticmethod
     def dump_2d_array(array: list, file: str):
