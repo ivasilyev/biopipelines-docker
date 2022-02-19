@@ -1069,6 +1069,7 @@ class Handler:
 
     def _run_getmlst(self, taxa: str, out_dir: str, out_file: str, sample_name: str):
         # One per sample, full cleaning is NOT required
+        _TOOL = "getmlst"
         """
         # Sample launch:
         export IMG=quay.io/biocontainers/srst2:0.2.0--py27_2 && \
@@ -1097,20 +1098,25 @@ class Handler:
         os.makedirs(out_dir, exist_ok=True)
         out = dict()
         for getmlst_attempt in range(1, _GETMLST_ATTEMPTS + 1):
-            getmlst_cmd = """
-            bash -c \
-                'cd {o};
-                 getmlst.py --species "{t}";
-                 chmod -R a+rw {o}'
-            """.format(t=taxa, o=out_dir)
+            getmlst_cmd = f"""
+            bash -c '
+                cd {out_dir};
+                {_TOOL}.py --species "{taxa}";
+                chmod -R a+rw {out_dir}
+            '
+            """
             getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
-            Utils.append_log(getmlst_log, "getmlst", sample_name)
+            Utils.append_log(getmlst_log, _TOOL, sample_name)
+            if "No species matched your query." in getmlst_log:
+                logging.warning(f"`{_TOOL}` unable to process '{sample_name}' as '{taxa}'")
+                break
             srst2_cmd = getmlst_log.split("Suggested srst2 command for use with this MLST database:")[-1].strip()
             if not srst2_cmd.startswith("srst2"):
-                logging.warning("`getmlst.py` did not finish correctly for attempt {} of {}".format(
-                    getmlst_attempt, _GETMLST_ATTEMPTS))
+                logging.warning("`{}` did not finish correctly for attempt {} of {}".format(
+                    _TOOL, getmlst_attempt, _GETMLST_ATTEMPTS)
+                )
             else:
-                logging.info("Got the SRST2 output: '{}'".format(srst2_cmd))
+                logging.info("Got the {} output: '{}'".format(_TOOL, srst2_cmd))
                 out = {j[0]: " ".join(j[1:]) for j in [i.strip().split(" ") for i in srst2_cmd.split("--")[1:]]}
                 out.update({i: os.path.join(out_dir, out[i]) for i in ["mlst_db", "mlst_definitions"]})
                 Utils.dump_dict(out, out_file)
