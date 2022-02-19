@@ -865,7 +865,8 @@ class Handler:
                 --assembly "{sampledata.genome_assembly}" \
                 --assembly_format genbank \
                 --reference "{sampledata.closest_reference_genbank}" \
-                --output "{stats_json}" 
+                --output "{stats_json}"
+        '
         """
         if not skip:
             self.clean_path(stage_dir)
@@ -1165,7 +1166,7 @@ class Handler:
             i not in getmlst_state.keys() for i in
             ["mlst_db", "mlst_definitions", "mlst_delimiter"]
         ):
-            logging.warning(f"Invalid getmlst output for '{sampledata.name}': '{getmlst_state}'")
+            logging.warning(f"Invalid 'getmlst' output for '{sampledata.name}': '{getmlst_state}'")
             return
         """
         SRST2 requires the strict file system structure pattern:
