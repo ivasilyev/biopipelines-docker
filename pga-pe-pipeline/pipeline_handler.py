@@ -877,7 +877,7 @@ class Handler:
             logging.info("Skip {}".format(Utils.get_caller_name()))
         if Utils.is_file_valid(stats_json, report=True):
             stats_dict = Utils.load_dict(stats_json)
-            if len(stats_dict.keys() > 0):
+            if len(stats_dict.keys()) > 0:
                 self.update_state({
                     sampledata.name: {
                         stage_name: stats_dict
