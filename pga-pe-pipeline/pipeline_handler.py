@@ -1018,6 +1018,7 @@ class Handler:
         sampledata.faa = os.path.join(stage_dir, "{}.faa".format(sampledata.name))
         if skip or not sampledata.is_valid:
             logging.info("Skip {}".format(Utils.get_caller_name()))
+            sampledata.genomes.update(self._locate_annotated_genome(stage_dir))
             return
         taxa_append = ""
         for taxon_name, taxon_value in zip(
@@ -1596,7 +1597,7 @@ class Handler:
         Utils.append_log(log, _TOOL)
         for sampledata in sampledata_array.lines.values():
             gff_file = sampledata.genomes.get("gff")
-            if Utils.is_file_valid(gff_file, True):
+            if gff_file is not None and Utils.is_file_valid(gff_file, True):
                 gff_link = os.path.join(self.roary_reference_dir, os.path.basename(gff_file))
                 os.symlink(gff_file, gff_link)
 
