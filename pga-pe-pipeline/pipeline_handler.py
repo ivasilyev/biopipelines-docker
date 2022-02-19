@@ -1093,6 +1093,7 @@ class Handler:
         """
         _GETMLST_ATTEMPTS = 5
         os.makedirs(out_dir, exist_ok=True)
+        out = dict()
         for getmlst_attempt in range(1, _GETMLST_ATTEMPTS + 1):
             getmlst_cmd = """
             bash -c \
@@ -1111,9 +1112,10 @@ class Handler:
                 out = {j[0]: " ".join(j[1:]) for j in [i.strip().split(" ") for i in srst2_cmd.split("--")[1:]]}
                 out.update({i: os.path.join(out_dir, out[i]) for i in ["mlst_db", "mlst_definitions"]})
                 Utils.dump_dict(out, out_file)
-                return out
+                break
             if getmlst_attempt == _GETMLST_ATTEMPTS:
                 logging.warning("Exceeded attempts number for `getmlst.py` to finish processing correctly")
+        return out
 
     @staticmethod
     def _parse_srst2_result_log(srst2_out_mask: str):
@@ -1159,9 +1161,11 @@ class Handler:
                                               out_dir=reference_dir,
                                               out_file=getmlst_state_file,
                                               sample_name=sampledata.name)
-        if any(i not in getmlst_state.keys() for i in
-               ["mlst_db", "mlst_definitions", "mlst_delimiter"]):
-            logging.warning(f"Invalid getmlst output: '{getmlst_state}'")
+        if getmlst_state is None or any(
+            i not in getmlst_state.keys() for i in
+            ["mlst_db", "mlst_definitions", "mlst_delimiter"]
+        ):
+            logging.warning(f"Invalid getmlst output for '{sampledata.name}': '{getmlst_state}'")
             return
         """
         SRST2 requires the strict file system structure pattern:
