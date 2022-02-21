@@ -1262,7 +1262,7 @@ class Handler:
         bash -c '
             git pull --quiet && \
             python3 ./meta/scripts/{_TOOL}.py \
-                --input {Utils.render_file_list(table_list)} \
+                --input {Utils.list_to_quoted_string(table_list)} \
                 --axis 0 \
                 --output {sampledata_array.srst2_merged_table};
         '
@@ -1516,7 +1516,7 @@ class Handler:
         bash -c '
             git pull --quiet && \
             python3 ./meta/scripts/{_TOOL}.py \
-                --input {Utils.render_file_list(table_list)} \
+                --input {Utils.list_to_quoted_string(table_list)} \
                 --axis 0 \
                 --output {sampledata_array.blast_merged_table};
         '
@@ -2025,10 +2025,6 @@ class Utils:
                 ]
             ]
         return out
-
-    @staticmethod
-    def render_file_list(x):
-        return '"{}"'.format('", "'.join(Utils.remove_empty_values(x)))
 
     @staticmethod
     def merge_dicts(source: dict, target: dict):
