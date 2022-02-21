@@ -331,7 +331,9 @@ class Handler:
         #
         self.roary_reference_dir = os.path.join(self._reference_dir, "roary")
         #
-        self._state = dict()
+        self._state_file = os.path.join(self.output_dir_root, "state.json")
+        self._state_dict = dict()
+        self.load_state()
         #
         self.prepare_environment()
 
@@ -1776,11 +1778,16 @@ class Handler:
                               """.format(s=sampledata_file, o=tool_dir))
         Utils.append_log(log, _TOOL, "all")
 
+    def load_state(self):
+        if Utils.is_file_valid(self._state_file):
+            logging.info("Previous state file loaded")
+            self._state_dict = Utils.load_dict(self._state_file)
+
     def dump_state(self):
-        Utils.dump_dict(self._state, os.path.join(self.output_dir_root, "state.json"))
+        Utils.dump_dict(self._state_dict, self._state_file)
 
     def update_state(self, d: dict):
-        Utils.merge_dicts(source=d, target=self._state)
+        Utils.merge_dicts(source=d, target=self._state_dict)
         self.dump_state()
 
     def handle(self, sampledata_array: SampleDataArray):
