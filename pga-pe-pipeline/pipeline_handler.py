@@ -965,19 +965,21 @@ class Handler:
             {_TOOL} --version;
             cd "{stage_dir}";
             {_TOOL} \
+                --features "{sampledata.closest_reference_genbank}" \
                 --gene-finding \
+                --min-alignment 200 \
                 --no-gzip \
                 --output-dir "{stage_dir}" \
                 --pe1 "{sampledata.raw_reads[0]}" \
                 --pe2 "{sampledata.raw_reads[1]}" \
                 --plots-format "png" \
-                --features "{sampledata.closest_reference_genbank}" \
                 --threads {argValidator.threads} \
-                "{genome_assembly_symlink}"
+                "{genome_assembly_symlink}";
             chmod -R a+rw "{stage_dir}";
         '
         """
 
+        # Run
         if skip:
             logging.info("Skip {}".format(stage_name))
         else:
@@ -988,6 +990,7 @@ class Handler:
             os.symlink(sampledata.genome_assembly, genome_assembly_symlink)
             log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
             Utils.append_log(log, _TOOL, sampledata.name)
+        # Parse results
         quast_results = self._parse_quast_result(stage_dir)
         quast_result_number = len(quast_results.keys())
         if quast_result_number > 0:
