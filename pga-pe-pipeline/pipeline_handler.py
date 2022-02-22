@@ -440,7 +440,7 @@ class Handler:
                 --threads {argValidator.threads} \
                 "{reads_file}";
             rm -f *.zip;
-            chmod -R a+rw "{out_dir}";
+            chmod -fR a+rw "{out_dir}";
         '
         """
         self.clean_path(out_dir)
@@ -526,7 +526,7 @@ class Handler:
                 TRAILING:3 \
                 SLIDINGWINDOW:4:15 \
                 MINLEN:36;
-             chmod -R a+rw {stage_dir};
+             chmod -fR a+rw {stage_dir};
         '
         """
         if not skip:
@@ -561,7 +561,7 @@ class Handler:
                 --output {trimmed_reads[0]} \
                 --paired-output {trimmed_reads[1]} \
                 {sampledata.reads_string};
-            chmod -R a+rw {stage_dir};
+            chmod -fR a+rw {stage_dir};
         '
         """
         if not skip:
@@ -654,7 +654,7 @@ class Handler:
                 -R 3 \
                 -S {mapped_reads_file} \
                 -x {index_mask};
-            chmod -R a+rw {stage_dir}'
+            chmod -fR a+rw {stage_dir}'
         """
         self.clean_path(unmapped_reads_dir)
         log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
@@ -715,7 +715,7 @@ class Handler:
                     -1 {sampledata.reads[0]} \
                     -2 {sampledata.reads[1]} \
                     {cmd_append};
-                chmod -R a+rw {assembly_dir};
+                chmod -fR a+rw {assembly_dir};
             '
             """
             if not skip:
@@ -977,7 +977,7 @@ class Handler:
                 --plots-format "png" \
                 --threads {argValidator.threads} \
                 "{genome_assembly_symlink}";
-            chmod -R a+rw "{stage_dir}";
+            chmod -fR a+rw "{stage_dir}";
         '
         """
 
@@ -1055,7 +1055,7 @@ class Handler:
                 --rfam \
                 {taxa_append} \
                 {sampledata.genome_assembly};
-            chmod -R a+rw {stage_dir}
+            chmod -fR a+rw {stage_dir}
         '
         """
         log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
@@ -1111,7 +1111,7 @@ class Handler:
             bash -c '
                 cd "{out_dir}";
                 {_TOOL}.py --species "{taxa}";
-                chmod -R a+rw "{out_dir}";
+                chmod -fR a+rw "{out_dir}";
             '
             """
             getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
@@ -1235,7 +1235,7 @@ class Handler:
                --mlst_delimiter "{getmlst_state["mlst_delimiter"]}" \
                --output "{out_mask}" \
                --threads {argValidator.threads};
-            chmod -R a+rw "{stage_dir}";
+            chmod -fR a+rw "{stage_dir}";
         '
         """
         # Deliberately set the tag with fully supported environment
@@ -1341,7 +1341,7 @@ class Handler:
                         --category "$category" \
                         --output "{out_mask}_heatmap_by_$category";
                 done;
-            chmod -R a+rw "{stage_dir}";
+            chmod -fR a+rw "{stage_dir}";
         '
         """
         log = self.run_quay_image(_TOOL, cmd=cmd, sample_name=sampledata.name)
@@ -1376,7 +1376,7 @@ class Handler:
             bwa index \
                 -p "{Utils.get_file_name_mask(output_fna_file)}" \
                 "{output_fna_file}";
-            chmod -R a+rw {output_dir};
+            chmod -fR a+rw {output_dir};
         '
         """
         return Utils.run_image(img_name="ivasilyev/mgefinder:latest", container_cmd=cmd)
@@ -1479,7 +1479,7 @@ class Handler:
             mgefinder workflow denovo \
                 --cores {argValidator.threads} \
                 "{stage_dir}";
-            chmod -R a+rw "{stage_dir}";
+            chmod -fR a+rw "{stage_dir}";
         '
         """
         log = Utils.run_image(img_name="ivasilyev/mgefinder:latest", container_cmd=cmd)
@@ -1566,7 +1566,7 @@ class Handler:
                             --outdir "${TARGET_DIR}";
                 fi;
             ';
-        chmod -R a+rw "${TARGET_DIR}";
+        chmod -fR a+rw "${TARGET_DIR}";
         """
         # Mock the script, since the `bash -c 'bash -c '...''` hangs
         exe = os.path.join(os.path.dirname(converter_sampledata), f"{_TOOL}.sh")
@@ -1629,7 +1629,7 @@ class Handler:
                 --mafft \
                 -p {argValidator.threads} \
                 "{self.roary_reference_dir}"/*;
-            chmod -R a+rw "{tool_dir}";
+            chmod -fR a+rw "{tool_dir}";
         '
         """
         log = Utils.run_image(img_name="sangerpathogens/roary:latest", container_cmd=cmd)
@@ -1780,7 +1780,7 @@ class Handler:
                               bash -c \
                                 'service mysql restart;
                                  python3 /opt/my_tools/pipeline_handler.py -i {s} -o {o};
-                                 chmod -R a+rw {o}'
+                                 chmod -fR a+rw {o}'
                               """.format(s=sampledata_file, o=tool_dir))
         Utils.append_log(log, _TOOL, "all")
 
@@ -1811,7 +1811,7 @@ class Handler:
                 elif func in self.group_methods:
                     _ = func(sampledata_array, skip=idx not in argValidator.stages_to_do)
             except PermissionError:
-                logging.critical("Cannot process the step {}, please run the command 'sudo chmod -R a+rw {}'".format(
+                logging.critical("Cannot process the step {}, please run the command 'sudo chmod -fR a+rw {}'".format(
                     idx, self.output_dir_root))
         self.dump_state()
 
