@@ -1111,7 +1111,7 @@ class Handler:
             bash -c '
                 cd "{out_dir}";
                 {_TOOL}.py --species "{taxa}";
-                chmod -R a+rw {out_dir}
+                chmod -R a+rw "{out_dir}";
             '
             """
             getmlst_log = self.run_quay_image("srst2", cmd=getmlst_cmd)
@@ -1139,12 +1139,17 @@ class Handler:
         # Extract information from the internal SRST2 log
         _PHRASE = " MLST output printed to "
         log_file = "{}.log".format(srst2_out_mask)
+        out = ""
         if Utils.is_file_valid(log_file):
             log_lines = [j for j in Utils.remove_empty_values(
-                [i.strip() for i in Utils.load_list(log_file)]) if _PHRASE in j]
+                [i.strip() for i in Utils.load_list(log_file)]
+            ) if _PHRASE in j]
             if len(log_lines) > 0:
                 srst2_result_file = log_lines[0].split(_PHRASE)[-1].strip()
-                return srst2_result_file
+                out = srst2_result_file
+        if len(out) == 0:
+            logging.warning("Empty SRST2 result log!")
+        return out
 
     # MLST typing
     def run_srst2(self, sampledata: SampleDataLine, skip: bool = False):
@@ -1224,13 +1229,13 @@ class Handler:
             {_TOOL} --version;
             cd {stage_dir};
             {_TOOL} --log \
-               --input_pe {" ".join(input_reads)} \
-               --mlst_db {getmlst_state["mlst_db"]} \
-               --mlst_definitions {getmlst_state["mlst_definitions"]} \
-               --mlst_delimiter {getmlst_state["mlst_delimiter"]} \
-               --output {out_mask} \
+               --input_pe {Utils.list_to_quoted_string(input_reads)} \
+               --mlst_db "{getmlst_state["mlst_db"]}" \
+               --mlst_definitions "{getmlst_state["mlst_definitions"]}" \
+               --mlst_delimiter "{getmlst_state["mlst_delimiter"]}" \
+               --output "{out_mask}" \
                --threads {argValidator.threads};
-            chmod -R a+rw {stage_dir}
+            chmod -R a+rw "{stage_dir}";
         '
         """
         # Deliberately set the tag with fully supported environment
@@ -1243,8 +1248,9 @@ class Handler:
 
         sampledata.srst2_result_table = self._parse_srst2_result_log(out_mask)
         if not os.path.isfile(sampledata.srst2_result_table):
-            logging.warning("Not found the SRST2 processing result file: '{}', trying to locate it".format(
-                sampledata.srst2_result_table))
+            logging.warning(
+                f"Not found the SRST2 processing result file: '{sampledata.srst2_result_table}', trying to locate it"
+            )
             sampledata.srst2_result_table = Utils.locate_file_by_tail(stage_dir, "__results.txt")
 
     def merge_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
