@@ -58,7 +58,8 @@ RUN echo "Install primary Python packages" && \
     pip3 install --upgrade --no-cache-dir pip setuptools wheel && \
     curl -fsSLO "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/requirements.txt" && \
     curl -fsSLO "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/requirements-linux.txt" && \
-    pip3 install --no-cache-dir --requirement "requirements.txt" --requirement "requirements-linux.txt" && \
+    pip3 install --no-cache-dir --requirement "requirements.txt" && \
+    pip3 install --no-cache-dir --requirement "requirements-linux.txt" && \
     echo "Clean Python package cache" && \
     pip cache purge && \
     rm -rf /tmp/*
