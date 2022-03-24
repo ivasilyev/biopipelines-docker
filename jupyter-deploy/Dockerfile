@@ -90,6 +90,7 @@ WORKDIR /home/docker
 CMD ["/bin/bash"]
 
 # MANUAL BUILD COMMAND:
+# mkdir -p ".docker/pushing_images" && cd ".docker/pushing_images" && curl -fsSLO "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/Dockerfile"
 # export REPO="jupyter-deploy" && export TAG="ivasilyev/${REPO}:latest" && docker build --network=host --tag "${REPO}" . && docker tag "${REPO}" "${TAG}" && docker push "${TAG}" && rm -f Dockerfile
 
 # PULL COMMAND:
