@@ -24,6 +24,7 @@ xlrd
 openpyxl
 odfpy
 pyxlsb
+xlsxwriter
 
 # Queueing & pipelining
 joblib
@@ -44,6 +45,7 @@ seaborn
 
 # Web interface
 jupyterlab-requirements
+jupyter
 jupyterlab
 dash
 
