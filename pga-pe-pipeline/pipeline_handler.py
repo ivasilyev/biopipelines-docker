@@ -205,7 +205,7 @@ class SampleDataArray:
         self.lines = dict()
         self.srst2_merged_table = ""
         self.blast_merged_table = ""
-        self.roary_edited_newick = ""
+        self.roary_edited_newicks = dict()
 
     @property
     def blast_genbank_files(self):
@@ -807,7 +807,7 @@ class Handler:
         blast_result_json = blast_result_jsons[0]
         sampledata.blast_result_dict = Utils.load_dict(blast_result_json)
         blast_top_result = list(sampledata.blast_result_dict.keys())[0]
-        logging.info(f"The best matching organism is '{blast_top_result}'")
+        logging.info(f"The best matching reference is '{blast_top_result}'")
 
         taxa_dict = {i: "" for i in ["genus", "species", "strain"]}
         for blast_result in sampledata.blast_result_dict.keys():
@@ -1581,14 +1581,17 @@ class Handler:
         return Utils.run_image(img_name="bioperl/bioperl:latest", container_cmd=cmd)
 
     @staticmethod
-    def _process_newick(newick_file: str, blast_result_table: str, out_file: str):
+    def _process_newick(newick_file: str, blast_result_table: str, source_columns: list,
+                        out_file: str):
         cmd = f"""
         bash -c '
             git pull --quiet && \
-            python3 ./meta/scripts/replace_ids_with_strains_from_blast_result_table.py \
-                --input {newick_file} \
-                --table {blast_result_table} \
-                --output {out_file};
+            python3 ./meta/scripts/replace_text_based_on_table.py \
+                --target_file {newick_file} \
+                --target_column "geninfo_id" \
+                --source_table {blast_result_table} \
+                --source_columns {Utils.list_to_quoted_string(source_columns)} \
+                --output_file {out_file};
         '
         """
         return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
@@ -1635,16 +1638,28 @@ class Handler:
         log = Utils.run_image(img_name="sangerpathogens/roary:latest", container_cmd=cmd)
         Utils.append_log(log, _TOOL)
 
-        sampledata_array.roary_edited_newick = os.path.join(tool_dir, "roary_results_annotated.newick")
         newick_file = Utils.locate_file_by_tail(stage_dir, ".newick")
         if len(newick_file) > 0:
             logging.info(f"Found Newick file: '{newick_file}'")
-            log = self._process_newick(
-                newick_file,
-                sampledata_array.blast_merged_table,
-                sampledata_array.roary_edited_newick
-            )
-            Utils.append_log(log, _TOOL)
+            newick_content = Utils.load_string(newick_file)
+            newick_content_replaced = re.sub("\.(gbk|gff)", "", newick_content)
+
+            newicks = os.path.splitext(newick_file)
+            stripped_newick_file = f"{newicks[0]}_stripped{newicks[-1]}"
+            Utils.dump_string(newick_content_replaced, stripped_newick_file)
+            logging.info(f"Stripped Newick file: '{newick_content_replaced}'")
+
+            for suffix, source_columns in zip(["strains", "taxa"],
+                                              [["strain", ], ["organism", "strain"]]):
+                out_tree_file = os.path.join(tool_dir, f"roary_tree_with_{suffix}.newick")
+                log = self._process_newick(
+                    newick_file=stripped_newick_file,
+                    blast_result_table=sampledata_array.blast_merged_table,
+                    source_columns=source_columns,
+                    out_file=out_tree_file,
+                )
+                Utils.append_log(log, _TOOL)
+                sampledata_array.roary_edited_newicks[suffix] = out_tree_file
         else:
             logging.warning("No Newick file found!")
 
