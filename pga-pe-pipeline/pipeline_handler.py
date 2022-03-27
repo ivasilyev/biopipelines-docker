@@ -1574,8 +1574,10 @@ class Handler:
             Utils.dump_string(cmd_2, exe)
         # Roary fails if found a non-GFF file in its input
         cmd = f"""
-        bash -c '{cmd_1}
-        bash {exe};
+        bash -c '
+            {cmd_1}
+            bash "{exe}";
+            rm -f "{exe}" "{converter_sampledata}";
         '
         """
         return Utils.run_image(img_name="bioperl/bioperl:latest", container_cmd=cmd)
