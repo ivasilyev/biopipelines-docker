@@ -6,8 +6,8 @@
 * Mobile elements: `mgefinder/*/03.results/*/*.tsv`
 * Drug resistance: `rgi/*/*.txt`
 * Concatenated datasets:
-  * `SRST2`: `merge_srst2_results/srst2_merged_results.tsv`
-  * Reference: `merge_blast_results/blast_merged_results.tsv`
+  * `SRST2`: `merge_srst2_results/srst2_concatenated_results.tsv`
+  * Reference: `merge_blast_results/blast_concatenated_results.tsv`
 * Roary 
   * Raw tree: `roary/out/accessory_binary_genes.fa.newick`
   * Tree with strains only (more compact): `roary/roary_tree_with_strains.newick`

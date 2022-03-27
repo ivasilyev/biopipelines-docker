@@ -203,8 +203,8 @@ class SampleDataLine:
 class SampleDataArray:
     def __init__(self):
         self.lines = dict()
-        self.srst2_merged_table = ""
-        self.blast_merged_table = ""
+        self.srst2_concatenated_table = ""
+        self.blast_concatenated_table = ""
         self.roary_edited_newicks = dict()
 
     @property
@@ -310,8 +310,8 @@ class Handler:
             self.run_srst2,
         ]
         self.group_methods = [
-            self.merge_srst2_results,
-            self.merge_blast_results,
+            self.concatenate_srst2_results,
+            self.concatenate_blast_results,
             self.run_roary,
             self.run_nbee_with_annotation,
         ]
@@ -1253,13 +1253,13 @@ class Handler:
             )
             sampledata.srst2_result_table = Utils.locate_file_by_tail(stage_dir, "__results.txt")
 
-    def merge_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
+    def concatenate_srst2_results(self, sampledata_array: SampleDataArray, skip: bool = False):
         _TOOL = "concatenate_tables"
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
-        sampledata_array.srst2_merged_table = os.path.join(tool_dir, "srst2_merged_results.tsv")
+        sampledata_array.srst2_concatenated_table = os.path.join(tool_dir, "srst2_concatenated_results.tsv")
         table_list = sampledata_array.srst2_result_tables
         if len(table_list) == 0:
             logging.warning("No SRST@ result tables!")
@@ -1270,7 +1270,7 @@ class Handler:
             python3 ./meta/scripts/{_TOOL}.py \
                 --input {Utils.list_to_quoted_string(table_list)} \
                 --axis 0 \
-                --output {sampledata_array.srst2_merged_table};
+                --output {sampledata_array.srst2_concatenated_table};
         '
         """
         self.clean_path(tool_dir)
@@ -1507,13 +1507,13 @@ class Handler:
 
     # Group processing pipeline steps
 
-    def merge_blast_results(self, sampledata_array: SampleDataArray, skip: bool = False):
+    def concatenate_blast_results(self, sampledata_array: SampleDataArray, skip: bool = False):
         _TOOL = "concatenate_tables"
         tool_dir = self.output_dirs[Utils.get_caller_name()]
         if skip:
             logging.info("Skip {}".format(Utils.get_caller_name()))
             return
-        sampledata_array.blast_merged_table = os.path.join(tool_dir, "blast_merged_results.tsv")
+        sampledata_array.blast_concatenated_table = os.path.join(tool_dir, "blast_concatenated_results.tsv")
         table_list = sampledata_array.blast_result_tables
         if len(table_list) == 0:
             logging.warning("No BLAST result tables!")
@@ -1524,7 +1524,7 @@ class Handler:
             python3 ./meta/scripts/{_TOOL}.py \
                 --input {Utils.list_to_quoted_string(table_list)} \
                 --axis 0 \
-                --output {sampledata_array.blast_merged_table};
+                --output {sampledata_array.blast_concatenated_table};
         '
         """
         self.clean_path(tool_dir)
@@ -1656,7 +1656,7 @@ class Handler:
                 out_tree_file = os.path.join(tool_dir, f"roary_tree_with_{suffix}.newick")
                 log = self._process_newick(
                     newick_file=stripped_newick_file,
-                    blast_result_table=sampledata_array.blast_merged_table,
+                    blast_result_table=sampledata_array.blast_concatenated_table,
                     source_columns=source_columns,
                     out_file=out_tree_file,
                 )
