@@ -1589,11 +1589,11 @@ class Handler:
         bash -c '
             git pull --quiet && \
             python3 ./meta/scripts/replace_text_based_on_table.py \
-                --target_file {newick_file} \
+                --target_file "{newick_file}" \
                 --target_column "geninfo_id" \
-                --source_table {blast_result_table} \
+                --source_table "{blast_result_table}" \
                 --source_columns {Utils.list_to_quoted_string(source_columns)} \
-                --output_file {out_file};
+                --output_file "{out_file}";
         '
         """
         return Utils.run_image(img_name="ivasilyev/curated_projects:latest", container_cmd=cmd)
