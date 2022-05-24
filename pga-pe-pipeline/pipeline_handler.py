@@ -149,7 +149,7 @@ class SampleDataLine:
         if len(self.reads) < 2:  # PE are the only library strategy supported
             logging.warning("Not enough of reads are given (the minimum is 2)!")
             c += 1
-        if not all([Utils.is_file_valid(i) for i in self.reads]):
+        if not all([Utils.is_file_valid(i, report=True) for i in self.reads]):
             logging.warning("Some read files are missing!")
             c += 1
         self.is_valid = c == 0
@@ -633,8 +633,9 @@ class Handler:
         mapped_reads_dir = os.path.join(stage_dir, "mapped")
         mapped_reads_file = os.path.join(mapped_reads_dir, "{}.sam".format(sampledata.name))
         unmapped_reads_dir = os.path.join(stage_dir, "unmapped", sampledata.name)
-        # bowtie2 may mess with double extensions, e.g. ".fq.1.gz" instead of ".1.fq.gz"
-        unmapped_file_mask = os.path.join(unmapped_reads_dir, sampledata.name)
+        # `bowtie2` may mess with double extensions, e.g.:
+        # ".fq.1.gz" instead of ".1.fq.gz" or "190CD.1.004" instead of "190CD.004.1"
+        unmapped_file_mask = os.path.join(unmapped_reads_dir, sampledata.name.replace(".", "_"))
         os.makedirs(mapped_reads_dir, exist_ok=True)
         cmd = f"""
         bash -c '
@@ -1882,6 +1883,7 @@ class Utils:
 
     @staticmethod
     def get_reads_file_extension(file: str):
+        file = file.strip()
         out = Utils.get_file_extension(file)
         _EXTENSIONS = {
             "fastq.gz": ("fastq.gz", "fq.gz"),
