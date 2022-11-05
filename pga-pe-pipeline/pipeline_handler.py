@@ -1360,12 +1360,13 @@ class Handler:
                     2>&1;
                 {_TOOL} load --card_json "{self.card_reference_json}" --local;
                 ln -s \
-                    "$( find \
-                        "{stage_dir}" \
-                        -maxdepth 1 \
-                        -type f \
-                        -name 'card_database_v*.fasta' \
-                        -print0 \
+                    "$( 
+                        find \
+                            "{stage_dir}" \
+                            -maxdepth 1 \
+                            -type f \
+                            -name \'card_database_v*.fasta\' \
+                            -print0 \
                         | xargs -0 realpath \
                         | sort \
                         | head -n 1 \
