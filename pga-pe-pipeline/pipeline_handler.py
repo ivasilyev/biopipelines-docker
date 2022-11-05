@@ -1331,7 +1331,7 @@ class Handler:
         """
 
         if Utils.is_file_valid(sampledata.genome_assembly, report=True):
-            logging.info("Using the genome assembly as RGI input")
+            logging.info("Using genome assembly as RGI input")
             cmd += f"""
                 {_TOOL} load --card_json "{self.card_reference_json}";
                 {_TOOL} main \
@@ -1340,17 +1340,36 @@ class Handler:
                     --input_type contig \
                     --num_threads {argValidator.threads} \
                     --output_file "{out_mask}";
+                for category in "drug_class" "resistance_mechanism" "gene_family";
+                    do \
+                        {_TOOL} heatmap \
+                            --input "{stage_dir}" \
+                            --category "$category" \
+                            --output "{out_mask}_heatmap_by_$category";
+                    done;
             """
         else:
             # `rgi bwt` outputs into STDERR
             # `sam_parse1` is spamming too much
-            logging.info("Using the raw reads as RGI input")
+            logging.info("Using reads files as RGI input")
             cmd += f"""
                 {_TOOL} clean --local;
-                {_TOOL} card_annotation --input "{self.card_reference_json}";
+                {_TOOL} card_annotation \
+                    --input "{self.card_reference_json}" \
+                    > {os.path.join(argValidator.log_dir, "{}-card_annotation_{}.log".format(_TOOL, sampledata.name))} \
+                    2>&1;
                 {_TOOL} load --card_json "{self.card_reference_json}" --local;
                 ln -s \
-                    "$(find . -maxdepth 1 -type f -name 'card_database_v*.fasta' -print0 | xargs -0 realpath | sort | head -n 1)"  \
+                    "$(find \
+                        . \
+                        -maxdepth 1 \
+                        -type f \
+                        -name 'card_database_v*.fasta' \
+                        -print0 \
+                        | xargs -0 realpath \
+                        | sort \
+                        | head -n 1 \
+                    )" \
                     "{stage_dir}/localDB/card_reference.fasta";
                 {_TOOL} bwt \
                     -1 {sampledata.reads[0]} \
@@ -1364,14 +1383,7 @@ class Handler:
                     2>&1;
             """
         cmd += f"""
-                for category in "drug_class" "resistance_mechanism" "gene_family";
-                    do \
-                        {_TOOL} heatmap \
-                            --input "{stage_dir}" \
-                            --category "$category" \
-                            --output "{out_mask}_heatmap_by_$category";
-                    done;
-                rm -rf "{stage_dir}/localDB"
+                rm -rf "{stage_dir}/localDB";
                 chmod -fR a+rw "{stage_dir}";
             '
         """
