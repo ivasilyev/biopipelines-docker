@@ -1365,7 +1365,7 @@ class Handler:
                             "{stage_dir}" \
                             -maxdepth 1 \
                             -type f \
-                            -name \'card_database_v*.fasta\' \
+                            -name card_database_v*.fasta \
                             -print0 \
                         | xargs -0 realpath \
                         | sort \
