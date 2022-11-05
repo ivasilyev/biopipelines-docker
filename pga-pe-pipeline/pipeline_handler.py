@@ -1359,8 +1359,7 @@ class Handler:
                     > "{os.path.join(argValidator.log_dir, "{}-card_annotation_{}.log".format(_TOOL, sampledata.name))}" \
                     2>&1;
                 {_TOOL} load --card_json "{self.card_reference_json}" --local;
-                ln -s \
-                    "$( 
+                export REFERENCE_FASTA="$( 
                         find \
                             "{stage_dir}" \
                             -maxdepth 1 \
@@ -1369,8 +1368,10 @@ class Handler:
                             -print0 \
                         | xargs -0 realpath \
                         | sort \
-                        | head -n 1 \
-                    )" \
+                        | head -n 1
+                )";
+                ln -s \
+                    "$REFERENCE_FASTA" \
                     "{stage_dir}/localDB/card_reference.fasta";
                 {_TOOL} bwt \
                     -1 "{sampledata.reads[0]}" \
