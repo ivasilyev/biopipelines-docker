@@ -1356,12 +1356,12 @@ class Handler:
                 {_TOOL} clean --local;
                 {_TOOL} card_annotation \
                     --input "{self.card_reference_json}" \
-                    > {os.path.join(argValidator.log_dir, "{}-card_annotation_{}.log".format(_TOOL, sampledata.name))} \
+                    > "{os.path.join(argValidator.log_dir, "{}-card_annotation_{}.log".format(_TOOL, sampledata.name))}" \
                     2>&1;
                 {_TOOL} load --card_json "{self.card_reference_json}" --local;
                 ln -s \
-                    "$(find \
-                        . \
+                    "$( find \
+                        "{stage_dir}" \
                         -maxdepth 1 \
                         -type f \
                         -name 'card_database_v*.fasta' \
@@ -1372,8 +1372,8 @@ class Handler:
                     )" \
                     "{stage_dir}/localDB/card_reference.fasta";
                 {_TOOL} bwt \
-                    -1 {sampledata.reads[0]} \
-                    -2 {sampledata.reads[1]} \
+                    -1 "{sampledata.reads[0]}" \
+                    -2 "{sampledata.reads[1]}" \
                     --aligner kma \
                     --clean \
                     --local \
