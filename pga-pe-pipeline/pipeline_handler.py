@@ -1358,11 +1358,23 @@ class Handler:
                     --input "{self.card_reference_json}" \
                     > "{os.path.join(argValidator.log_dir, "{}-card_annotation_{}.log".format(_TOOL, sampledata.name))}" \
                     2>&1;
-                {_TOOL} load --card_json "{self.card_reference_json}" --local;
-                export REFERENCE_FASTA="$( find "{stage_dir}" -maxdepth 1 -typef -pattern card_database_v*.fasta -print0 | xargs -0 realpath | sort | head -n 1 )";
+                {_TOOL} load \
+                    --card_json "{self.card_reference_json}" \
+                    --local;
+                export REFERENCE_FASTA="$( 
+                    find \
+                        "{stage_dir}"/ \
+                        -maxdepth 1 \
+                        -name "card_database_v*.fasta" \
+                        -print0 \
+                        -type f \
+                    | xargs -0 realpath \
+                    | sort \
+                    | head -n 1 
+                S)";
                 ln -s \
                     "$REFERENCE_FASTA" \
-                    "{stage_dir}/localDB/card_reference.fasta";
+                    "{os.path.join(stage_dir, "localDB", "card_reference.fasta")}";
                 {_TOOL} bwt \
                     -1 "{sampledata.reads[0]}" \
                     -2 "{sampledata.reads[1]}" \
@@ -1375,7 +1387,7 @@ class Handler:
                     2>&1;
             """
         cmd += f"""
-                rm -rf "{stage_dir}/localDB";
+                rm -rf "{os.path.join(stage_dir, "localDB")}";
                 chmod -fR a+rw "{stage_dir}";
             '
         """
