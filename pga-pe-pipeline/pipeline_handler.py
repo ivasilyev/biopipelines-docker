@@ -1387,7 +1387,6 @@ class Handler:
                     2>&1;
             """
         cmd += f"""
-                rm -rf "{os.path.join(stage_dir, "localDB")}";
                 chmod -fR a+rw "{stage_dir}";
             '
         """
