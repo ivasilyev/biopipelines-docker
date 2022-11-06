@@ -1339,13 +1339,17 @@ class Handler:
                     --input_sequence "{sampledata.genome_assembly}" \
                     --input_type contig \
                     --num_threads {argValidator.threads} \
-                    --output_file "{out_mask}";
+                    --output_file "{out_mask}" \
+                    > "{os.path.join(argValidator.log_dir, "{}-main_{}.log".format(_TOOL, sampledata.name))}" \
+                    2>&1;
                 for category in "drug_class" "resistance_mechanism" "gene_family";
                     do \
                         {_TOOL} heatmap \
                             --input "{stage_dir}" \
                             --category "$category" \
-                            --output "{out_mask}_heatmap_by_$category";
+                            --output "{out_mask}_heatmap_by_$category" \
+                            > "{os.path.join(argValidator.log_dir, "{}-heatmap_{}.log".format(_TOOL, sampledata.name))}" \
+                            2>&1;
                     done;
             """
         else:
