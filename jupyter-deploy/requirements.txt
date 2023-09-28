@@ -7,23 +7,23 @@ wheel
 # Base data analysis
 numpy
 pandas
-statsmodels
 scipy
+statsmodels
 
 # Web scraping
-requests
 bs4
 lxml
+requests
 
 # SQL queries
 pyodbc
 sqlalchemy
 
 # Excel file handling
-xlrd
-openpyxl
 odfpy
+openpyxl
 pyxlsb
+xlrd
 xlsxwriter
 
 # Queueing & pipelining
@@ -42,12 +42,13 @@ matplotlib
 pillow
 plotly
 seaborn
+supervenn
 
 # Web interface
-jupyterlab-requirements
+dash
 jupyter
 jupyterlab
-dash
+jupyterlab-requirements
 
 # ML-related
 keras
@@ -56,3 +57,6 @@ xgboost
 
 # Biological data processing
 biopython
+
+# Archivers
+mgzip
