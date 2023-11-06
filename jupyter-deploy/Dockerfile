@@ -68,7 +68,7 @@ RUN echo "Create user docker with password docker" && \
         --user-group \
         --uid 1000 \
         --groups sudo,fuse docker && \
-    echo `echo "docker\ndocker\n" | passwd docker` && \
+    echo 'docker:docker' | chpasswd && \
     mkdir -p /config /home/docker/bin && \
     chown docker:docker /config /home/docker/bin && \
     chmod -R a+rw /config /home/docker/bin
