@@ -45,17 +45,10 @@ RUN echo "Update packages" && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN echo "Install Tini - A tiny but valid init for containers" && \
-    TINI_VERSION=`curl -s "https://github.com/krallin/tini/releases/latest" | grep -o "/v.*\"" | sed 's:^..\(.*\).$:\1:'` && \
-    DL_FILE="/tmp/tini.deb" && \
-    mkdir -p "(basename "${DL_FILE}")" && \
-    curl -fsSL "https://github.com/krallin/tini/releases/download/v${TINI_VERSION}/tini_${TINI_VERSION}.deb" -o "${DL_FILE}" && \
-    dpkg -i "${DL_FILE}" && \
-    rm -f "${DL_FILE}"
-
 RUN echo "Install primary Python packages" && \
     cd /tmp/ && \
     pip3 install --upgrade --no-cache-dir pip setuptools wheel && \
+    # Deliberately download the files to avoid leftovers
     curl -fsSLO "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/requirements.txt" && \
     curl -fsSLO "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/requirements-linux.txt" && \
     pip3 install --no-cache-dir --requirement "requirements.txt" && \
