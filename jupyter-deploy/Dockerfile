@@ -27,7 +27,7 @@ RUN echo "Update packages" && \
             # Python
             python3-dev \
             python3-pip \
-            # LXML dependenciea
+            # LXML dependencies
             libxml2-dev \
             libxslt1-dev \
             zlib1g-dev \
@@ -62,7 +62,12 @@ EXPOSE 80 443 31522
 
 RUN echo "Create user docker with password docker" && \
     groupadd fuse && \
-    useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse docker && \
+    useradd \
+        --create-home \
+        --shell "/bin/bash" \
+        --user-group \
+        --uid 1000 \
+        --groups sudo,fuse docker && \
     echo `echo "docker\ndocker\n" | passwd docker` && \
     mkdir -p /config /home/docker/bin && \
     chown docker:docker /config /home/docker/bin && \
