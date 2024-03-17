@@ -60,3 +60,5 @@ biopython
 
 # Archivers
 mgzip
+py7zr
+pylzma
