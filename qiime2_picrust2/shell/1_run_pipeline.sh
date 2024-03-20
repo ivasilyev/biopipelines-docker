@@ -91,7 +91,7 @@ else
     log "QIIME2 sampledata does exist"
 fi
 
-curl -fsSL "ttps://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/2_run_qiime2_dada2.sh" \
+curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/2_run_qiime2_dada2.sh" \
     -o "${QIIME2_SCRIPT}"
 cd "${QIIME2_DIR}" || exit 1
 
@@ -124,7 +124,7 @@ cd "${ROOT_DIR}" || exit 1
 
 
 
-curl -fsSL "ttps://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/3_run_picrust2.sh" \
+curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/3_run_picrust2.sh" \
     -o "${PICRUST2_SCRIPT}"
 cd "${PICRUST2_DIR}" || exit 1
 
