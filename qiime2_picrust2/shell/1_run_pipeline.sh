@@ -96,7 +96,14 @@ curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/mast
 cd "${QIIME2_DIR}" || exit 1
 
 log "Run QIIME2"
-export IMG="quay.io/qiime2/core:latest"
+export LATEST_IMG_TAG="$(
+    curl -fsSL "https://quay.io/api/v1/repository/qiime2/core" \
+    | grep \
+        --only-matching \
+        --perl-regexp \
+        '(?<=\"tags\": {\")[^\"]*(?=\":)'
+)"
+export IMG="quay.io/qiime2/core:${LATEST_IMG_TAG}"
 force_docker_pull "${IMG}"
 docker run \
     --env QIIME2_DIR="${QIIME2_DIR}" \
