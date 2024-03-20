@@ -18,6 +18,22 @@ force_docker_pull () {
 }
 
 
+get_latest_quay_tag() {
+    echo "$(
+        curl -fsSL "https://quay.io/api/v1/repository/${1}/${2}" \
+        | grep \
+            --only-matching \
+            --perl-regexp \
+            '(?<=\"tags\": {\")[^\"]*(?=\":)'
+    )"
+}
+
+
+compose_quay_img() {
+    echo "quay.io/${1}/${2}:$(get_latest_quay_tag ${1} ${2})"
+}
+
+
 # Required variables begin
 export ROOT_DIR="$(realpath "${ROOT_DIR}")/"
 export SAMPLEDATA_DIR="$(realpath "${SAMPLEDATA_DIR}")/"
@@ -96,14 +112,7 @@ curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/mast
 cd "${QIIME2_DIR}" || exit 1
 
 log "Run QIIME2"
-export LATEST_IMG_TAG="$(
-    curl -fsSL "https://quay.io/api/v1/repository/qiime2/core" \
-    | grep \
-        --only-matching \
-        --perl-regexp \
-        '(?<=\"tags\": {\")[^\"]*(?=\":)'
-)"
-export IMG="quay.io/qiime2/core:${LATEST_IMG_TAG}"
+export IMG="$(compose_quay_img qiime2 core)"
 force_docker_pull "${IMG}"
 docker run \
     --env QIIME2_DIR="${QIIME2_DIR}" \
@@ -136,14 +145,7 @@ curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/mast
 cd "${PICRUST2_DIR}" || exit 1
 
 log "Run PICRUSt2"
-export LATEST_IMG_TAG="$(
-    curl -fsSL "https://quay.io/api/v1/repository/biocontainers/picrust2" \
-    | grep \
-        --only-matching \
-        --perl-regexp \
-        '(?<=\"tags\": {\")[^\"]*(?=\":)'
-)"
-export IMG="quay.io/biocontainers/picrust2:${LATEST_IMG_TAG}"
+export IMG="$(compose_quay_img biocontainers picrust2)"
 force_docker_pull "${IMG}"
 docker run \
     --env QIME2_FEATURES_BIOM="${QIME2_FEATURES_BIOM}" \
