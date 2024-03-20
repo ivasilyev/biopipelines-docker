@@ -129,7 +129,14 @@ curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/mast
 cd "${PICRUST2_DIR}" || exit 1
 
 log "Run PICRUSt2"
-export IMG="quay.io/biocontainers/picrust2:2.5.0--pyhdfd78af_0"
+export LATEST_IMG_TAG="$(
+    curl -fsSL "https://quay.io/api/v1/repository/biocontainers/picrust2" \
+    | grep \
+        --only-matching \
+        --perl-regexp \
+        '(?<=\"tags\": {\")[^\"]*(?=\":)'
+)"
+export IMG="quay.io/biocontainers/picrust2:${LATEST_IMG_TAG}"
 force_docker_pull "${IMG}"
 docker run \
     --env QIME2_FEATURES_BIOM="${QIME2_FEATURES_BIOM}" \
