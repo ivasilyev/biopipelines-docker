@@ -25,7 +25,10 @@ cd "${PICRUST2_DIR}" || exit 1
 log Ensure that the output directory does not exist
 rm -rf "${PIPELINE_DIR}"
 
-log Run the PICRUSt2 pipeline
+
+
+log "Run the PICRUSt2 pipeline"
+
 picrust2_pipeline.py \
     --coverage \
     --hsp_method mp \
@@ -37,7 +40,8 @@ picrust2_pipeline.py \
     --verbose \
     |& tee "${LOG_DIR}picrust2_pipeline.log"
 
-log Run the PICRUSt2 pathway pipeline
+log "Run the PICRUSt2 pathway pipeline"
+
 pathway_pipeline.py \
     --input "${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz" \
     --intermediate "${PIPELINE_DIR}pathways_out/intermediate" \
@@ -46,34 +50,48 @@ pathway_pipeline.py \
     --verbose \
     |& tee "${LOG_DIR}pathway_pipeline.log"
 
+
+
 log Convert tables
+
 mkdir -p "${TABLES_DIR}EC_metagenome_out/"
+
 convert_table.py \
     "${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_contrib.tsv.gz" \
     --conversion contrib_to_legacy \
     --output "${TABLES_DIR}EC_metagenome_out/pred_metagenome_contrib.legacy.tsv" \
     |& tee "${LOG_DIR}convert_table.log"
 
-log Add KEGG ENZYME descriptions
+
+
+log "Add KEGG ENZYME descriptions"
+
 add_descriptions.py \
     --input "${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz" \
     --map_type EC \
     --output "${TABLES_DIR}EC_metagenome_out/pred_metagenome_unstrat_described.tsv" \
     |& tee "${LOG_DIR}add_descriptions-EC.log"
 
-log Add KEGG ORTHOLOGY descriptions
+
+
+log "Add KEGG ORTHOLOGY descriptions"
+
 add_descriptions.py \
     --input "${PIPELINE_DIR}KO_metagenome_out/pred_metagenome_unstrat.tsv.gz" \
     --map_type KO \
     --output "${TABLES_DIR}KO_metagenome_out/pred_metagenome_unstrat_described.tsv" \
     |& tee "${LOG_DIR}add_descriptions-KO.log"
 
-log Add MetaCyc descriptions
+
+
+log "Add MetaCyc descriptions"
 add_descriptions.py  \
     --input "${PIPELINE_DIR}pathways_out/path_abun_unstrat.tsv.gz" \
     --map_type METACYC \
     --output "${TABLES_DIR}pathways_out/path_abun_unstrat_described.tsv" \
     |& tee "${LOG_DIR}add_descriptions-METACYC.log"
+
+
 
 log "Completed running PICRUSt2 in ${PICRUST2_DIR}"
 chmod -R 777 "$(pwd)"
