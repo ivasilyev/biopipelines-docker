@@ -29,7 +29,7 @@ cd "${QIIME2_DIR}" || exit 1
 
 
 
-log Import and convert pre-demultiplexed paired-end FASTQ files to QIIME2 artifact
+log "Import and convert pre-demultiplexed paired-end FASTQ files to QIIME2 artifact"
 
 mkdir -p "${QIIME2_DIR}demultiplexed_reads/"
 
@@ -41,7 +41,7 @@ qiime tools import --input-format PairedEndFastqManifestPhred33 \
 
 
 
-log Summarize sequences
+log "Summarize sequences"
 
 mkdir -p "${QIIME2_DIR}visualizations/"
 
@@ -53,7 +53,7 @@ qiime demux summarize \
 
 
 
-log DADA2 denoising
+log "DADA2 denoising"
 
 mkdir -p "${QIIME2_DIR}dada2/"
 
@@ -77,7 +77,7 @@ qiime metadata tabulate \
 
 
 
-log Import metadata
+log "Import metadata"
 
 export METADATA_QZV="${QIIME2_DIR}visualizations/tabulated_sample_metadata.qzv"
 
@@ -89,7 +89,7 @@ qiime metadata tabulate \
 
 
 
-log Summarize statistics
+log "Summarize statistics"
 
 qiime feature-table summarize \
     --i-table "${QIIME2_DIR}dada2/dada2_frequency_table.qza"\
@@ -106,7 +106,7 @@ qiime feature-table tabulate-seqs \
 
 
 
-log Assign taxonomy
+log "Assign taxonomy"
 
 mkdir -p "${QIIME2_DIR}taxonomy/"
 
@@ -122,7 +122,7 @@ qiime feature-classifier classify-sklearn \
 
 
 
-log Create Amplicon Sequence Variant table
+log "Create Amplicon Sequence Variant table"
 
 qiime metadata tabulate \
     --m-input-file "${QIIME2_DIR}taxonomy/classified_taxonomy.qza" \
@@ -132,7 +132,7 @@ qiime metadata tabulate \
 
 
 
-log Make prokaryotic profile
+log "Make prokaryotic profile"
 
 qiime taxa barplot \
     --m-metadata-file "${METADATA_TSV}" \
@@ -144,7 +144,7 @@ qiime taxa barplot \
 
 
 
-log Join paired-end reads
+log "Join paired-end reads"
 
 mkdir -p "${QIIME2_DIR}joined_reads/"
 
@@ -159,7 +159,7 @@ qiime vsearch join-pairs \
 
 
 
-log Filter based on Q scores
+log "Filter based on Q scores"
 
 mkdir -p "${QIIME2_DIR}q_score_filtered_reads/"
 
@@ -172,7 +172,7 @@ qiime quality-filter q-score \
 
 
 
-log Dereplicate sequences
+log "Dereplicate sequences"
 
 mkdir -p "${QIIME2_DIR}dereplicated/"
 
@@ -185,7 +185,7 @@ qiime vsearch dereplicate-sequences \
 
 
 
-log Cluster closed references at ${CONSENSUS_THRESHOLD}%
+log "Cluster closed references at ${CONSENSUS_THRESHOLD}%"
 
 mkdir -p "${QIIME2_DIR}closed_references/"
 
@@ -203,7 +203,7 @@ qiime vsearch cluster-features-closed-reference \
 
 
 
-log Export the aligned sequences
+log "Export the aligned sequences"
 
 # Output: 'dna-sequences.fasta'
 qiime tools export \
@@ -214,7 +214,7 @@ qiime tools export \
 
 
 
-log Export an OTU table
+log "Export an OTU table"
 
 mkdir -p "${QIIME2_DIR}bioms/"
 
@@ -227,7 +227,7 @@ qiime tools export \
 
 
 
-log Annotate biom with taxonomy data
+log "Annotate biom with taxonomy data"
 
 biom add-metadata \
     --sc-separated "taxonomy" \
@@ -239,7 +239,7 @@ biom add-metadata \
 
 
 
-log Convert biom to JSON
+log "Convert biom to JSON"
 
 biom convert \
     --to-json \
@@ -249,7 +249,7 @@ biom convert \
 
 
 
-log Convert biom to TSV
+log "Convert biom to TSV"
 
 biom convert \
     --to-tsv \
@@ -260,7 +260,7 @@ biom convert \
 
 
 
-log Perform de novo multiple sequence alignment
+log "Perform de novo multiple sequence alignment"
 
 mkdir -p "${QIIME2_DIR}alignments/"
 
@@ -273,7 +273,7 @@ qiime alignment mafft \
 
 
 
-log Filter the unconserved and highly variable and gapped columns to avoid overestimate distances
+log "Filter the unconserved and highly variable and gapped columns to avoid overestimate distances"
 
 mkdir -p "${QIIME2_DIR}masked_alignments/"
 
@@ -285,7 +285,7 @@ qiime alignment mask \
 
 
 
-log Build a phylogenetic ML tree
+log "Build a phylogenetic ML tree"
 
 mkdir -p "${QIIME2_DIR}unrooted_trees/"
 
@@ -298,7 +298,7 @@ qiime phylogeny fasttree \
 
 
 
-log Root the unrooted tree based on the midpoint rooting method
+log "Root the unrooted tree based on the midpoint rooting method"
 
 mkdir -p "${QIIME2_DIR}rooted_trees/"
 
@@ -326,7 +326,7 @@ biom convert \
 
 
 
-log Analyze the core diversity using the phylogenetic pipeline
+log "Analyze the core diversity using the phylogenetic pipeline"
 
 # '--output-dir' must not exist!
 rm -rf "${QIIME2_DIR}phylogenetic_core_metrics/"
@@ -355,7 +355,7 @@ qiime tools export \
 
 
 
-log Visualize alpha diversity
+log "Visualize alpha diversity"
 
 qiime diversity alpha-group-significance \
     --i-alpha-diversity "${QIIME2_DIR}phylogenetic_core_metrics/faith_pd_vector.qza" \
@@ -385,7 +385,7 @@ qiime diversity alpha-rarefaction \
 
 
 
-log Visualize beta diversity
+log "Visualize beta diversity"
 
 qiime diversity beta-group-significance \
     --i-distance-matrix "${QIIME2_DIR}phylogenetic_core_metrics/unweighted_unifrac_distance_matrix.qza" \
