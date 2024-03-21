@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 export LINE="======================================================================================"
-export _LOG_COUNTER
+export _LOG_COUNTER=1
 
 function log {
     printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][QIIME2][OP#${_LOG_COUNTER}] $@\n\n${LINE}\n\n"
