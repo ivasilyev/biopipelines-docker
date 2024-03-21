@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
 export LINE="======================================================================================"
+export _LOG_COUNTER=1
 
 function log {
-    printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][Pipeline] $@\n\n${LINE}\n\n"
+    printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][Pipeline][OP#${_LOG_COUNTER}] $@\n\n${LINE}\n\n"
+    _LOG_COUNTER=$((_LOG_COUNTER + 1))
 }
 
 
@@ -40,7 +42,8 @@ export SAMPLEDATA_DIR="$(realpath "${SAMPLEDATA_DIR}")/"
 export SCRIPT_DIR="$(realpath "${SCRIPT_DIR}")/"
 # Required variables end
 
-log "Working on ${ROOT_DIR}"
+log "Create environment in ${ROOT_DIR}"
+
 export LOG_DIR="${ROOT_DIR}logs/"
 export SAMPLEDATA_CSV="${SAMPLEDATA_DIR}qiime2_sample_data.csv"
 export METADATA_TSV="${SAMPLEDATA_DIR}qiime2_meta_data.tsv"
@@ -79,6 +82,7 @@ mkdir \
 
 
 log "Check QIIME2 sampledata"
+
 if [ ! -s "${SAMPLEDATA_CSV}" ] && [ ! -s "${METADATA_TSV}" ]
     then
     log "Create sampledata in ${SAMPLEDATA_DIR}"
@@ -107,13 +111,20 @@ else
     log "QIIME2 sampledata does exist"
 fi
 
+
+
+log "Deploy QIIME2 script"
+
 curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/2_run_qiime2_dada2.sh" \
     -o "${QIIME2_SCRIPT}"
 cd "${QIIME2_DIR}" || exit 1
 
 log "Run QIIME2"
+
 export IMG="$(compose_quay_img qiime2 core)"
+
 force_docker_pull "${IMG}"
+
 docker run \
     --env QIIME2_DIR="${QIIME2_DIR}" \
     --env SAMPLEDATA_CSV="${SAMPLEDATA_CSV}" \
@@ -133,20 +144,25 @@ docker run \
     bash "${QIIME2_SCRIPT}" \
 |& tee "${LOGS_DIR}$(basename "${QIIME2_SCRIPT}").log"
 
-
 rm -f "${QIIME2_SCRIPT}"
 
 cd "${ROOT_DIR}" || exit 1
 
 
 
+log "Deploy PICRUSt2 script"
+
 curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/3_run_picrust2.sh" \
     -o "${PICRUST2_SCRIPT}"
+
 cd "${PICRUST2_DIR}" || exit 1
 
 log "Run PICRUSt2"
+
 export IMG="$(compose_quay_img biocontainers picrust2)"
+
 force_docker_pull "${IMG}"
+
 docker run \
     --env QIME2_FEATURES_BIOM="${QIME2_FEATURES_BIOM}" \
     --env QIME2_FEATURES_FASTA="${QIME2_FEATURES_FASTA}" \
@@ -167,8 +183,11 @@ rm -f "${PICRUST2_SCRIPT}"
 cd "${ROOT_DIR}" || exit 1
 
 
-log "Copy files"
+
+log "Copy QIIME2 and PICRUSt2 pipeline output tables"
+
 mkdir -p "${RESULT_DIR}"
+
 find "${ROOT_DIR}" \
     -type f \( \
         -name "path_abun_unstrat_described.tsv" \
@@ -211,8 +230,11 @@ find "${ROOT_DIR}" \
 sed -i '1d' "${OTU_TABLE}"
 
 log "Concatenate tables"
+
 export IMG="ivasilyev/curated_projects:latest"
+
 force_docker_pull "${IMG}"
+
 docker run \
     --env OTU_TABLE="${OTU_TABLE}" \
     --env TAXA_REFERENCE_HEADER="${TAXA_REFERENCE_HEADER}" \
@@ -237,6 +259,7 @@ docker run \
                 --output "${OUT_FILE}"
         ' \
 |& tee "${LOGS_DIR}concatenate_tables.log"
+
 
 
 log "All pipeline runs ended"
