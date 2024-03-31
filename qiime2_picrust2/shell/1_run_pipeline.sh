@@ -142,7 +142,7 @@ docker run \
     --workdir="${QIIME2_DIR}" \
     "${IMG}" \
     bash "${QIIME2_SCRIPT}" \
-|& tee "${LOGS_DIR}$(basename "${QIIME2_SCRIPT}").log"
+|& tee "${LOG_DIR}$(basename "${QIIME2_SCRIPT}").log"
 
 rm -f "${QIIME2_SCRIPT}"
 
@@ -176,7 +176,7 @@ docker run \
     --workdir="${PICRUST2_DIR}" \
     "${IMG}" \
     bash "${PICRUST2_SCRIPT}" \
-|& tee "${LOGS_DIR}$(basename "${PICRUST2_SCRIPT}").log"
+|& tee "${LOG_DIR}$(basename "${PICRUST2_SCRIPT}").log"
 
 rm -f "${PICRUST2_SCRIPT}"
 
@@ -258,7 +258,7 @@ docker run \
                     "${OTU_TABLE}" \
                 --output "${OUT_FILE}"
         ' \
-|& tee "${LOGS_DIR}concatenate_tables.log"
+|& tee "${LOG_DIR}concatenate_tables.log"
 
 
 

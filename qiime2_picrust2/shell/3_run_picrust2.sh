@@ -15,7 +15,7 @@ export QIME2_FEATURES_BIOM="$(realpath "${QIME2_FEATURES_BIOM}")"
 export QIME2_FEATURES_FASTA="$(realpath "${QIME2_FEATURES_FASTA}")"
 # Required variables end
 
-log "Run PICRUSt2 in ${PICRUST2_DIR}"
+log "Run PICRUSt2 in '${PICRUST2_DIR}'"
 
 export LOG_DIR="${PICRUST2_DIR}logs/"
 export PIPELINE_DIR="${PICRUST2_DIR}main_pipeline/"
@@ -24,7 +24,7 @@ export NPROC="$(grep -c '^processor' "/proc/cpuinfo")"
 
 mkdir -p "${PICRUST2_DIR}" "${LOG_DIR}"
 cd "${PICRUST2_DIR}" || exit 1
-log Ensure that the output directory does not exist
+log "Ensure that the output directory does not exist"
 rm -rf "${PIPELINE_DIR}"
 
 
