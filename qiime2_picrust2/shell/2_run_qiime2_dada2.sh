@@ -148,16 +148,18 @@ qiime taxa barplot \
 
 log "Join paired-end reads"
 
-mkdir -p "${QIIME2_DIR}joined_reads/"
+export MERGED_SEQUENCES_DIR="${QIIME2_DIR}merged_reads/"
+export MERGED_SEQUENCES="${QIIME2_DIR}merged_reads/merged_sequences.qza"
+mkdir -p "$(dirname "${MERGED_SEQUENCES}")"
 
 # Threads number must be within [0, 8].
-qiime vsearch join-pairs \
-    --p-threads 8 \
+qiime vsearch merge-pairs \
     --i-demultiplexed-seqs "${QIIME2_DIR}demultiplexed_reads/demultiplexed_PE_reads.qza" \
+    --o-merged-sequences "${MERGED_SEQUENCES}" \
     --p-allowmergestagger \
-    --o-joined-sequences "${QIIME2_DIR}joined_reads/joined_PE_reads.qza" \
+    --p-threads 8 \
     --verbose \
-    |& tee "${LOG_DIR}vsearch join-pairs.log"
+    |& tee "${LOG_DIR}vsearch merge-pairs.log"
 
 
 
@@ -166,7 +168,7 @@ log "Filter based on Q scores"
 mkdir -p "${QIIME2_DIR}q_score_filtered_reads/"
 
 qiime quality-filter q-score \
-    --i-demux "${QIIME2_DIR}joined_reads/joined_PE_reads.qza" \
+    --i-demux "${MERGED_SEQUENCES}" \
     --o-filtered-sequences "${QIIME2_DIR}q_score_filtered_reads/sequences_filtered_by_q_score.qza" \
     --o-filter-stats "${QIIME2_DIR}q_score_filtered_reads/filtering_statistics.qza" \
     --verbose \
