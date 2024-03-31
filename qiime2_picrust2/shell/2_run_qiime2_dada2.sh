@@ -376,7 +376,7 @@ qiime diversity alpha-group-significance \
     |& tee "${LOG_DIR}diversity alpha-group-significance evenness_vector.log"
 
 # The first 2 lines are '# Constructed from biom file' and header
-export DENOISED_SAMPLES=$(( $(wc -l "${QIIME2_DIR}dada2/feature-table.tsv" | awk '{ print $1 }') - 2 ))
+export DENOISED_SAMPLES=$(( $(wc -l "${QIIME2_DIR}dada2/feature-table.tsv" | awk '{ print $1 }') / 2 ))
 
 qiime diversity alpha-rarefaction \
     --m-metadata-file "${METADATA_TSV}" \
