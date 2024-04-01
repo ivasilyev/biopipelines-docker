@@ -5,7 +5,7 @@ export _LOG_COUNTER=1
 
 function log {
     # The PICRUSt2 docker image shell does mot have an alias for nanoseconds
-    printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S')][PICRUSt2][OP#${_LOG_COUNTER}] $@\n\n${LINE}\n\n"
+    printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][PICRUSt2][OP#$(printf "%02d" ${_LOG_COUNTER})] $@\n\n${LINE}\n\n"
     _LOG_COUNTER=$((_LOG_COUNTER + 1))
 }
 
