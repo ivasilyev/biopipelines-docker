@@ -8,6 +8,17 @@ function log {
     _LOG_COUNTER=$((_LOG_COUNTER + 1))
 }
 
+function md {
+    for i in "${@}"
+        do
+        mkdir \
+            --mode 0777 \
+            --parents \
+            --verbose \
+            "$(dirname "${i}")"
+        done
+}
+
 # Required variables begin
 export QIIME2_DIR="$(realpath "${QIIME2_DIR}")/"
 export SAMPLEDATA_CSV="$(realpath "${SAMPLEDATA_CSV}")"

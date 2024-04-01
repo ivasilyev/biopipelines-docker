@@ -9,6 +9,17 @@ function log {
     _LOG_COUNTER=$((_LOG_COUNTER + 1))
 }
 
+function md {
+    for i in "${@}"
+        do
+        mkdir \
+            --mode 0777 \
+            --parents \
+            --verbose \
+            "$(dirname "${i}")"
+        done
+}
+
 # Required variables begin
 export PICRUST2_DIR="$(realpath "${PICRUST2_DIR}")/"
 export QIME2_FEATURES_BIOM="$(realpath "${QIME2_FEATURES_BIOM}")"
