@@ -3,24 +3,15 @@
 export LINE="=========================================="
 export _LOG_COUNTER=1
 
+
 function log {
     # The PICRUSt2 docker image shell does mot have an alias for nanoseconds
     printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][PICRUSt2][OP#$(printf "%02d" ${_LOG_COUNTER})] ${*}\n\n${LINE}\n\n"
     _LOG_COUNTER=$((_LOG_COUNTER + 1))
 }
 
-function md {
-    for i in "${@}"
-        do
-        mkdir \
-            --mode 0777 \
-            --parents \
-            --verbose \
-            "$(dirname "${i}")"
-        done
-}
 
-# Required variables begin
+# Required variables start
 export PICRUST2_DIR="$(realpath "${PICRUST2_DIR}")/"
 export QIME2_FEATURES_BIOM="$(realpath "${QIME2_FEATURES_BIOM}")"
 export QIME2_FEATURES_FASTA="$(realpath "${QIME2_FEATURES_FASTA}")"
@@ -53,10 +44,14 @@ picrust2_pipeline.py \
     --verbose \
     |& tee "${LOG_DIR}picrust2_pipeline.log"
 
+
+
 log "Run the PICRUSt2 pathway pipeline"
 
+export PREDICTED_METAGENOMES="${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz"
+
 pathway_pipeline.py \
-    --input "${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz" \
+    --input "${PREDICTED_METAGENOMES}" \
     --intermediate "${PIPELINE_DIR}pathways_out/intermediate" \
     --out_dir "${PIPELINE_DIR}pathways_out" \
     --processes "${NPROC}" \
@@ -80,7 +75,7 @@ convert_table.py \
 log "Add KEGG ENZYME descriptions"
 
 add_descriptions.py \
-    --input "${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz" \
+    --input "${PREDICTED_METAGENOMES}" \
     --map_type EC \
     --output "${TABLES_DIR}EC_metagenome_out/pred_metagenome_unstrat_described.tsv" \
     |& tee "${LOG_DIR}add_descriptions-EC.log"
@@ -98,6 +93,7 @@ add_descriptions.py \
 
 
 log "Add MetaCyc descriptions"
+
 add_descriptions.py  \
     --input "${PIPELINE_DIR}pathways_out/path_abun_unstrat.tsv.gz" \
     --map_type METACYC \
@@ -106,7 +102,10 @@ add_descriptions.py  \
 
 
 
-log "Completed running PICRUSt2 in ${PICRUST2_DIR}"
+log "Completed running PICRUSt2 in '${PICRUST2_DIR}'"
+
 chmod -R 777 "$(pwd)"
+
 cd ..
+
 exit 0
