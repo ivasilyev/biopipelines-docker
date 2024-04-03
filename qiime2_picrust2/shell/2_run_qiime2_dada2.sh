@@ -238,6 +238,18 @@ qiime vsearch cluster-features-closed-reference \
 
 
 
+export DECONTAMINATED_TABLE="${CLUSTERED_DIR}decontam_scores_by_prevalence.qza"
+
+qiime quality-control decontam-identify \
+    --i-table "${CLUSTERED_TABLE}" \
+    --m-metadata-file "${METADATA_TSV}" \
+    --o-decontam-scores "${DECONTAMINATED_TABLE}" \
+    --p-method prevalence \
+    --p-prev-control-column "Subgroup" \
+    --p-prev-control-indicator "ControlNegative" \
+    --verbose
+
+
 log "Export the aligned sequences"
 
 # Output: 'dna-sequences.fasta'
