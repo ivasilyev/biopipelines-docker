@@ -237,6 +237,7 @@ qiime vsearch cluster-features-closed-reference \
     |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
 
 
+log "Trying to decontaminate clustered sequences"
 
 export DECONTAMINATED_TABLE="${CLUSTERED_DIR}decontam_scores_by_prevalence.qza"
 
@@ -248,6 +249,15 @@ qiime quality-control decontam-identify \
     --p-prev-control-column "Subgroup" \
     --p-prev-control-indicator "ControlNegative" \
     --verbose
+
+if [[ -s "${DECONTAMINATED_TABLE}" ]]
+    then
+        echo "The decontamination was successful, use the output file: '${DECONTAMINATED_TABLE}'"
+        export CLUSTERED_TABLE="${DECONTAMINATED_TABLE}"
+    else
+        echo "The decontamination was unsuccessful, keep use the input file: '${CLUSTERED_TABLE}'"
+    fi
+
 
 
 log "Export the aligned sequences"
