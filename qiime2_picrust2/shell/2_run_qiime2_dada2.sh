@@ -209,8 +209,8 @@ md "${DEREPLICATED_SEQUENCES}"
 
 qiime vsearch dereplicate-sequences \
     --i-sequences "${QUALITY_FILTERED_SEQUENCES}" \
+    --o-dereplicated-sequences "${DEREPLICATED_SEQUENCES}" \
     --o-dereplicated-table "${DEREPLICATED_FREQUENCIES}" \
-    --o-dereplicated-sequences "${DEREPLICATED_FREQUENCIES}" \
     --verbose \
     |& tee "${LOG_DIR}vsearch dereplicate-sequences.log"
 
@@ -225,14 +225,14 @@ export CLUSTERED_TABLE="${CLUSTERED_DIR}closed_reference_clustered_table.qza"
 md "${CLUSTERED_SEQUENCES}"
 
 qiime vsearch cluster-features-closed-reference \
-    --p-threads "${NPROC}" \
     --i-reference-sequences "${TAXA_REFERENCE_SEQUENCES}" \
+    --i-sequences "${DEREPLICATED_SEQUENCES}" \
     --i-table "${DEREPLICATED_FREQUENCIES}" \
-    --i-sequences "${DEREPLICATED_FREQUENCIES}" \
-    --o-clustered-table "${CLUSTERED_TABLE}" \
     --o-clustered-sequences "${CLUSTERED_SEQUENCES}" \
+    --o-clustered-table "${CLUSTERED_TABLE}" \
     --o-unmatched-sequences "${QIIME2_DIR}closed_references/closed_reference_unmatched_sequences.qza" \
     --p-perc-identity 0.${CONSENSUS_THRESHOLD} \
+    --p-threads "${NPROC}" \
     --verbose \
     |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
 
