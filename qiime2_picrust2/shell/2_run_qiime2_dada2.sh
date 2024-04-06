@@ -237,18 +237,48 @@ qiime vsearch cluster-features-closed-reference \
     |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
 
 
+
 log "Trying to decontaminate clustered sequences"
 
-export DECONTAMINATED_TABLE="${CLUSTERED_DIR}decontam_scores_by_prevalence.qza"
+export DECONTAMINATED_DIR="${QIIME2_DIR}decontam/"
+export DECONTAMINATED_SCORES="${DECONTAMINATED_DIR}decontam_scores_by_prevalence.qza"
+
+md "${DECONTAMINATED_SCORES}"
 
 qiime quality-control decontam-identify \
     --i-table "${CLUSTERED_TABLE}" \
     --m-metadata-file "${METADATA_TSV}" \
-    --o-decontam-scores "${DECONTAMINATED_TABLE}" \
+    --o-decontam-scores "${DECONTAMINATED_SCORES}" \
     --p-method prevalence \
     --p-prev-control-column "Subgroup" \
     --p-prev-control-indicator "ControlNegative" \
-    --verbose
+    --verbose \
+|& tee "${LOG_DIR}quality-control decontam-identify.log"
+
+# Output: 'stats.tsv'
+qiime tools export \
+    --input-path "${DECONTAMINATED_SCORES}" \
+    --output-format DecontamScoreDirFmt \
+    --output-path "${DECONTAMINATED_DIR}" \
+|& tee "${LOG_DIR}tools export decontam.log"
+
+qiime quality-control decontam-score-viz \
+    --i-decontam-scores "${DECONTAMINATED_SCORES}" \
+    --i-table "${CLUSTERED_TABLE}" \
+    --o-visualization "${DECONTAMINATED_DIR}decontam_scores_by_prevalence.qzv" \
+    --verbose \
+|& tee "${LOG_DIR}quality-control decontam-score-viz.log"
+
+export DECONTAMINATED_TABLE="${DECONTAMINATED_DIR}decontam_closed_reference_clustered_table.qza"
+
+qiime quality-control decontam-remove \
+    --i-decontam-scores "${DECONTAMINATED_SCORES}" \
+    --i-table "${CLUSTERED_TABLE}" \
+    --o-filtered-table "${DECONTAMINATED_TABLE}" \
+    --verbose \
+|& tee "${LOG_DIR}quality-control decontam-remove.log"
+
+
 
 if [[ -s "${DECONTAMINATED_TABLE}" ]]
     then
