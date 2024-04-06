@@ -33,30 +33,35 @@ rm -rf "${PIPELINE_DIR}"
 
 log "Run the PICRUSt2 pipeline"
 
-picrust2_pipeline.py \
-    --coverage \
-    --hsp_method mp \
-    --input "${QIME2_FEATURES_BIOM}" \
-    --processes "${NPROC}" \
-    --study_fasta "${QIME2_FEATURES_FASTA}" \
-    --output "${PIPELINE_DIR}" \
-    --stratified \
-    --verbose \
-    |& tee "${LOG_DIR}picrust2_pipeline.log"
-
-
-
-log "Run the PICRUSt2 pathway pipeline"
-
 export PREDICTED_METAGENOMES="${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz"
 
-pathway_pipeline.py \
-    --input "${PREDICTED_METAGENOMES}" \
-    --intermediate "${PIPELINE_DIR}pathways_out/intermediate" \
-    --out_dir "${PIPELINE_DIR}pathways_out" \
-    --processes "${NPROC}" \
-    --verbose \
+if [[ ! -s "${PREDICTED_METAGENOMES}" ]]
+    then
+
+    picrust2_pipeline.py \
+        --coverage \
+        --hsp_method mp \
+        --input "${QIME2_FEATURES_BIOM}" \
+        --processes "${NPROC}" \
+        --study_fasta "${QIME2_FEATURES_FASTA}" \
+        --output "${PIPELINE_DIR}" \
+        --stratified \
+        --verbose \
+    |& tee "${LOG_DIR}picrust2_pipeline.log"
+
+    log "Run the PICRUSt2 pathway pipeline"
+
+    pathway_pipeline.py \
+        --input "${PREDICTED_METAGENOMES}" \
+        --intermediate "${PIPELINE_DIR}pathways_out/intermediate" \
+        --out_dir "${PIPELINE_DIR}pathways_out" \
+        --processes "${NPROC}" \
+        --verbose \
     |& tee "${LOG_DIR}pathway_pipeline.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
