@@ -48,12 +48,17 @@ export DEMULTIPLEXED_READS="${QIIME2_DIR}demultiplexed_reads/demultiplexed_PE_re
 
 md "${DEMULTIPLEXED_READS}"
 
-qiime tools import \
-    --input-format PairedEndFastqManifestPhred33 \
-    --input-path "${SAMPLEDATA_CSV}" \
-    --output-path "${DEMULTIPLEXED_READS}" \
-    --type 'SampleData[PairedEndSequencesWithQuality]' \
+if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
+    then
+    qiime tools import \
+        --input-format PairedEndFastqManifestPhred33 \
+        --input-path "${SAMPLEDATA_CSV}" \
+        --output-path "${DEMULTIPLEXED_READS}" \
+        --type 'SampleData[PairedEndSequencesWithQuality]' \
     |& tee "${LOG_DIR}tools import.log"
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -77,17 +82,24 @@ export DENOISING_STATS="${QIIME2_DIR}dada2/dada2_denoising_statistics.qza"
 
 md "${REPRESENTATIVE_SEQUENCES}"
 
-qiime dada2 denoise-paired \
-    --p-trunc-len-f 225 \
-    --p-trunc-len-r 225 \
-    --p-n-reads-learn 30000 \
-    --p-n-threads "${NPROC}" \
-    --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
-    --o-representative-sequences "${REPRESENTATIVE_SEQUENCES}" \
-    --o-table "${FREQUENCY_TABLE}" \
-    --o-denoising-stats "${DENOISING_STATS}" \
-    --verbose \
+if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
+    then
+
+    qiime dada2 denoise-paired \
+        --p-trunc-len-f 225 \
+        --p-trunc-len-r 225 \
+        --p-n-reads-learn 30000 \
+        --p-n-threads "${NPROC}" \
+        --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
+        --o-representative-sequences "${REPRESENTATIVE_SEQUENCES}" \
+        --o-table "${FREQUENCY_TABLE}" \
+        --o-denoising-stats "${DENOISING_STATS}" \
+        --verbose \
     |& tee "${LOG_DIR}dada2 denoise-paired.log"
+
+    else
+        echo "Skip"
+    fi
 
 qiime metadata tabulate \
     --m-input-file "${DENOISING_STATS}" \
@@ -101,11 +113,18 @@ log "Import metadata"
 
 export METADATA_QZV="${QIIME2_DIR}visualizations/tabulated_sample_metadata.qzv"
 
-qiime metadata tabulate \
-    --m-input-file "${METADATA_TSV}" \
-    --o-visualization "${METADATA_QZV}" \
-    --verbose \
+if [[ ! -s "${METADATA_QZV}" ]]
+    then
+
+    qiime metadata tabulate \
+        --m-input-file "${METADATA_TSV}" \
+        --o-visualization "${METADATA_QZV}" \
+        --verbose \
     |& tee "${LOG_DIR}metadata tabulate metadata.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -132,15 +151,22 @@ export CLASSIFIED_TAXONOMY="${QIIME2_DIR}taxonomy/classified_taxonomy.qza"
 
 md "${CLASSIFIED_TAXONOMY}"
 
-# --p-n-jobs, The maximum number of concurrently worker processes. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n-jobs below -1, (n_cpus + 1 + n-jobs) are used. Thus for n-jobs = -2, all CPUs but one are used.
-qiime feature-classifier classify-sklearn \
-    --p-n-jobs "-1" \
-    --p-reads-per-batch 10000 \
-    --i-classifier "${TAXA_REFERENCE_CLASSIFIER}" \
-    --i-reads "${REPRESENTATIVE_SEQUENCES}" \
-    --o-classification "${CLASSIFIED_TAXONOMY}" \
-    --verbose \
+if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
+    then
+
+    # --p-n-jobs, The maximum number of concurrently worker processes. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n-jobs below -1, (n_cpus + 1 + n-jobs) are used. Thus for n-jobs = -2, all CPUs but one are used.
+    qiime feature-classifier classify-sklearn \
+        --p-n-jobs "-1" \
+        --p-reads-per-batch 10000 \
+        --i-classifier "${TAXA_REFERENCE_CLASSIFIER}" \
+        --i-reads "${REPRESENTATIVE_SEQUENCES}" \
+        --o-classification "${CLASSIFIED_TAXONOMY}" \
+        --verbose \
     |& tee "${LOG_DIR}feature-classifier classify-sklearn.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -173,14 +199,21 @@ export MERGED_SEQUENCES="${QIIME2_DIR}merged_reads/merged_sequences.qza"
 
 md "${MERGED_SEQUENCES}"
 
-# Threads number must be within [0, 8].
-qiime vsearch merge-pairs \
-    --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
-    --o-merged-sequences "${MERGED_SEQUENCES}" \
-    --p-allowmergestagger \
-    --p-threads 8 \
-    --verbose \
+if [[ ! -s "${MERGED_SEQUENCES}" ]]
+    then
+
+    # Threads number must be within [0, 8].
+    qiime vsearch merge-pairs \
+        --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
+        --o-merged-sequences "${MERGED_SEQUENCES}" \
+        --p-allowmergestagger \
+        --p-threads 8 \
+        --verbose \
     |& tee "${LOG_DIR}vsearch merge-pairs.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -190,12 +223,19 @@ export QUALITY_FILTERED_SEQUENCES="${QIIME2_DIR}q_score_filtered_reads/sequences
 
 md "${QUALITY_FILTERED_SEQUENCES}"
 
-qiime quality-filter q-score \
-    --i-demux "${MERGED_SEQUENCES}" \
-    --o-filtered-sequences "${QUALITY_FILTERED_SEQUENCES}" \
-    --o-filter-stats "${QIIME2_DIR}q_score_filtered_reads/filtering_statistics.qza" \
-    --verbose \
+if [[ ! -s "${QUALITY_FILTERED_SEQUENCES}" ]]
+    then
+
+    qiime quality-filter q-score \
+        --i-demux "${MERGED_SEQUENCES}" \
+        --o-filtered-sequences "${QUALITY_FILTERED_SEQUENCES}" \
+        --o-filter-stats "${QIIME2_DIR}q_score_filtered_reads/filtering_statistics.qza" \
+        --verbose \
     |& tee "${LOG_DIR}quality-filter q-score.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -207,12 +247,20 @@ export DEREPLICATED_FREQUENCIES="${DEREPLICATED_DIR}dereplicated_frequency_table
 
 md "${DEREPLICATED_SEQUENCES}"
 
-qiime vsearch dereplicate-sequences \
-    --i-sequences "${QUALITY_FILTERED_SEQUENCES}" \
-    --o-dereplicated-sequences "${DEREPLICATED_SEQUENCES}" \
-    --o-dereplicated-table "${DEREPLICATED_FREQUENCIES}" \
-    --verbose \
+if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
+    then
+
+    qiime vsearch dereplicate-sequences \
+        --i-sequences "${QUALITY_FILTERED_SEQUENCES}" \
+        --o-dereplicated-sequences "${DEREPLICATED_SEQUENCES}" \
+        --o-dereplicated-table "${DEREPLICATED_FREQUENCIES}" \
+        --verbose \
     |& tee "${LOG_DIR}vsearch dereplicate-sequences.log"
+
+    else
+        echo "Skip"
+    fi
+
 
 
 
@@ -224,17 +272,24 @@ export CLUSTERED_TABLE="${CLUSTERED_DIR}closed_reference_clustered_table.qza"
 
 md "${CLUSTERED_SEQUENCES}"
 
-qiime vsearch cluster-features-closed-reference \
-    --i-reference-sequences "${TAXA_REFERENCE_SEQUENCES}" \
-    --i-sequences "${DEREPLICATED_SEQUENCES}" \
-    --i-table "${DEREPLICATED_FREQUENCIES}" \
-    --o-clustered-sequences "${CLUSTERED_SEQUENCES}" \
-    --o-clustered-table "${CLUSTERED_TABLE}" \
-    --o-unmatched-sequences "${QIIME2_DIR}closed_references/closed_reference_unmatched_sequences.qza" \
-    --p-perc-identity 0.${CONSENSUS_THRESHOLD} \
-    --p-threads "${NPROC}" \
-    --verbose \
+if [[ ! -s "${CLUSTERED_SEQUENCES}" ]]
+    then
+
+  qiime vsearch cluster-features-closed-reference \
+      --i-reference-sequences "${TAXA_REFERENCE_SEQUENCES}" \
+      --i-sequences "${DEREPLICATED_SEQUENCES}" \
+      --i-table "${DEREPLICATED_FREQUENCIES}" \
+      --o-clustered-sequences "${CLUSTERED_SEQUENCES}" \
+      --o-clustered-table "${CLUSTERED_TABLE}" \
+      --o-unmatched-sequences "${QIIME2_DIR}closed_references/closed_reference_unmatched_sequences.qza" \
+      --p-perc-identity 0.${CONSENSUS_THRESHOLD} \
+      --p-threads "${NPROC}" \
+      --verbose \
     |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -245,15 +300,24 @@ export DECONTAMINATED_SCORES="${DECONTAMINATED_DIR}decontam_scores_by_prevalence
 
 md "${DECONTAMINATED_SCORES}"
 
-qiime quality-control decontam-identify \
-    --i-table "${CLUSTERED_TABLE}" \
-    --m-metadata-file "${METADATA_TSV}" \
-    --o-decontam-scores "${DECONTAMINATED_SCORES}" \
-    --p-method prevalence \
-    --p-prev-control-column "Subgroup" \
-    --p-prev-control-indicator "ControlNegative" \
-    --verbose \
-|& tee "${LOG_DIR}quality-control decontam-identify.log"
+if [[ ! -s "${DECONTAMINATED_SCORES}" ]]
+    then
+
+    qiime quality-control decontam-identify \
+        --i-table "${CLUSTERED_TABLE}" \
+        --m-metadata-file "${METADATA_TSV}" \
+        --o-decontam-scores "${DECONTAMINATED_SCORES}" \
+        --p-method prevalence \
+        --p-prev-control-column "Subgroup" \
+        --p-prev-control-indicator "ControlNegative" \
+        --verbose \
+    |& tee "${LOG_DIR}quality-control decontam-identify.log"
+
+    else
+        echo "Skip"
+    fi
+
+
 
 # Output: 'stats.tsv'
 qiime tools export \
@@ -261,6 +325,8 @@ qiime tools export \
     --output-format DecontamScoreDirFmt \
     --output-path "${DECONTAMINATED_DIR}" \
 |& tee "${LOG_DIR}tools export decontam.log"
+
+
 
 qiime quality-control decontam-score-viz \
     --i-decontam-scores "${DECONTAMINATED_SCORES}" \
@@ -271,14 +337,19 @@ qiime quality-control decontam-score-viz \
 
 export DECONTAMINATED_TABLE="${DECONTAMINATED_DIR}decontam_closed_reference_clustered_table.qza"
 
-qiime quality-control decontam-remove \
-    --i-decontam-scores "${DECONTAMINATED_SCORES}" \
-    --i-table "${CLUSTERED_TABLE}" \
-    --o-filtered-table "${DECONTAMINATED_TABLE}" \
-    --verbose \
-|& tee "${LOG_DIR}quality-control decontam-remove.log"
+if [[ ! -s "${DECONTAMINATED_TABLE}" ]]
+    then
 
+    qiime quality-control decontam-remove \
+        --i-decontam-scores "${DECONTAMINATED_SCORES}" \
+        --i-table "${CLUSTERED_TABLE}" \
+        --o-filtered-table "${DECONTAMINATED_TABLE}" \
+        --verbose \
+    |& tee "${LOG_DIR}quality-control decontam-remove.log"
 
+    else
+        echo "Skip"
+    fi
 
 if [[ -s "${DECONTAMINATED_TABLE}" ]]
     then
@@ -308,12 +379,20 @@ export BIOM_RAW="${BIOM_DIR}feature-table.biom"
 
 md "${BIOM_RAW}"
 
-# Output: 'feature-table.biom'
-qiime tools export \
-    --input-path "${CLUSTERED_TABLE}" \
-    --output-path "${BIOM_DIR}" \
-    --output-format BIOMV210DirFmt \
+if [[ ! -s "${BIOM_RAW}" ]]
+    then
+
+    # Output: 'feature-table.biom'
+    qiime tools export \
+        --input-path "${CLUSTERED_TABLE}" \
+        --output-path "${BIOM_DIR}" \
+        --output-format BIOMV210DirFmt \
     |& tee "${LOG_DIR}tools export feature-table.biom.log"
+
+    else
+        echo "Skip"
+    fi
+
 
 
 
@@ -322,13 +401,20 @@ log "Annotate biom with taxonomy data"
 # The directory was already created
 export BIOM_ANNOTATED="${BIOM_DIR}OTUs_with_taxa.biom"
 
-biom add-metadata \
-    --sc-separated "taxonomy" \
-    --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
-    --sample-metadata-fp "${METADATA_TSV}" \
-    --input-fp "${BIOM_RAW}" \
-    --output-fp "${BIOM_ANNOTATED}" \
+if [[ ! -s "${BIOM_ANNOTATED}" ]]
+    then
+
+    biom add-metadata \
+        --sc-separated "taxonomy" \
+        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
+        --sample-metadata-fp "${METADATA_TSV}" \
+        --input-fp "${BIOM_RAW}" \
+        --output-fp "${BIOM_ANNOTATED}" \
     |& tee "${LOG_DIR}biom add-metadata.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -359,12 +445,19 @@ export ALIGNMENTS_RAW="${QIIME2_DIR}alignments/aligned_sequences.qza"
 
 md "${ALIGNMENTS_RAW}"
 
-qiime alignment mafft \
-    --p-n-threads "${NPROC}" \
-    --i-sequences "${REPRESENTATIVE_SEQUENCES}" \
-    --o-alignment "${ALIGNMENTS_RAW}" \
-    --verbose \
+if [[ ! -s "${ALIGNMENTS_RAW}" ]]
+    then
+
+    qiime alignment mafft \
+        --p-n-threads "${NPROC}" \
+        --i-sequences "${REPRESENTATIVE_SEQUENCES}" \
+        --o-alignment "${ALIGNMENTS_RAW}" \
+        --verbose \
     |& tee "${LOG_DIR}alignment mafft.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -376,11 +469,18 @@ md "${ALIGNMENTS_MASKED}"
 
 mkdir -p "${QIIME2_DIR}masked_alignments/"
 
-qiime alignment mask \
-    --i-alignment "${ALIGNMENTS_RAW}" \
-    --o-masked-alignment "${ALIGNMENTS_MASKED}" \
-    --verbose \
+if [[ ! -s "${ALIGNMENTS_MASKED}" ]]
+    then
+
+    qiime alignment mask \
+        --i-alignment "${ALIGNMENTS_RAW}" \
+        --o-masked-alignment "${ALIGNMENTS_MASKED}" \
+        --verbose \
     |& tee "${LOG_DIR}alignment mask.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -390,12 +490,19 @@ export UNROOTED_TREE="${QIIME2_DIR}unrooted_trees/unrooted_tree.qza"
 
 md "${UNROOTED_TREE}"
 
-qiime phylogeny fasttree \
-    --p-n-threads "${NPROC}" \
-    --i-alignment "${ALIGNMENTS_MASKED}" \
-    --o-tree "${UNROOTED_TREE}" \
-    --verbose \
+if [[ ! -s "${UNROOTED_TREE}" ]]
+    then
+
+    qiime phylogeny fasttree \
+        --p-n-threads "${NPROC}" \
+        --i-alignment "${ALIGNMENTS_MASKED}" \
+        --o-tree "${UNROOTED_TREE}" \
+        --verbose \
     |& tee "${LOG_DIR}phylogeny fasttree.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -405,25 +512,39 @@ export ROOTED_TREE="${QIIME2_DIR}rooted_trees/rooted_tree.qza"
 
 md "${ROOTED_TREE}"
 
-qiime phylogeny midpoint-root \
-    --i-tree "${UNROOTED_TREE}" \
-    --o-rooted-tree "${ROOTED_TREE}" \
-    --verbose \
+if [[ ! -s "${ROOTED_TREE}" ]]
+    then
+
+    qiime phylogeny midpoint-root \
+        --i-tree "${UNROOTED_TREE}" \
+        --o-rooted-tree "${ROOTED_TREE}" \
+        --verbose \
     |& tee "${LOG_DIR}phylogeny midpoint-root.log"
+
+    else
+        echo "Skip"
+    fi
+
 
 
 
 log "Export frequency BIOM"
 
-export FEATURE_BIOM="${QIIME2_DIR}dada2/feature-table.biom" 
+export FEATURE_BIOM="${QIIME2_DIR}dada2/feature-table.biom"
 
 md "${FEATURE_BIOM}"
 
-# Output: 'feature-table.biom'
-qiime tools export \
-    --input-path "${FREQUENCY_TABLE}" \
-    --output-format BIOMV210DirFmt \
-    --output-path "${QIIME2_DIR}dada2/"
+if [[ ! -s "${FEATURE_BIOM}" ]]
+    then
+
+    # Output: 'feature-table.biom'
+    qiime tools export \
+        --input-path "${FREQUENCY_TABLE}" \
+        --output-format BIOMV210DirFmt \
+        --output-path "${QIIME2_DIR}dada2/"
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -431,11 +552,18 @@ log "Convert frequency BIOM to table"
 
 export FEATURE_TABLE="${QIIME2_DIR}dada2/feature-table.tsv"
 
-biom convert \
-    --to-tsv \
-    --input-fp "${FEATURE_BIOM}" \
-    --output-fp "${FEATURE_TABLE}" \
+if [[ ! -s "${FEATURE_TABLE}" ]]
+    then
+
+    biom convert \
+        --to-tsv \
+        --input-fp "${FEATURE_BIOM}" \
+        --output-fp "${FEATURE_TABLE}" \
     |& tee "${LOG_DIR}biom convert dada2 tsv.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -452,7 +580,7 @@ qiime diversity core-metrics-phylogenetic \
     --p-n-jobs-or-threads "${NPROC}" \
     --p-sampling-depth 10 \
     --verbose \
-    |& tee "${LOG_DIR}diversity core-metrics-phylogenetic.log"
+|& tee "${LOG_DIR}diversity core-metrics-phylogenetic.log"
 
 export FAITH_VECTOR="${QIIME2_DIR}phylogenetic_core_metrics/faith_pd_vector.qza"
 
@@ -466,7 +594,7 @@ qiime tools export \
     --input-path "${FAITH_VECTOR}" \
     --output-format AlphaDiversityDirectoryFormat \
     --output-path "${QIIME2_DIR}phylogenetic_core_metrics/" \
-    |& tee "${LOG_DIR}tools export faith_pd_vector.log"
+|& tee "${LOG_DIR}tools export faith_pd_vector.log"
 
 
 
@@ -489,14 +617,21 @@ qiime diversity alpha-group-significance \
 # The first 2 lines are '# Constructed from biom file' and header
 export DENOISED_SAMPLES=$(( $(wc -l "${FEATURE_TABLE}" | awk '{ print $1 }') / 2 ))
 
-qiime diversity alpha-rarefaction \
-    --m-metadata-file "${METADATA_TSV}" \
-    --i-table "${FREQUENCY_TABLE}" \
-    --i-phylogeny "${ROOTED_TREE}" \
-    --o-visualization "${QIIME2_DIR}visualizations/alpha_rarefaction.qzv" \
-    --p-max-depth ${DENOISED_SAMPLES} \
-    --verbose \
+if [[ ! -s "${DENOISED_SAMPLES}" ]]
+    then
+
+    qiime diversity alpha-rarefaction \
+        --m-metadata-file "${METADATA_TSV}" \
+        --i-table "${FREQUENCY_TABLE}" \
+        --i-phylogeny "${ROOTED_TREE}" \
+        --o-visualization "${QIIME2_DIR}visualizations/alpha_rarefaction.qzv" \
+        --p-max-depth ${DENOISED_SAMPLES} \
+        --verbose \
     |& tee "${LOG_DIR}diversity alpha-rarefaction.log"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -504,32 +639,39 @@ log "Visualize beta diversity"
 
 export UNIFRAC_MATRIX="${QIIME2_DIR}phylogenetic_core_metrics/unweighted_unifrac_distance_matrix.qza"
 
-qiime diversity beta-group-significance \
-    --i-distance-matrix "${UNIFRAC_MATRIX}" \
-    --m-metadata-file "${METADATA_TSV}" \
-    --m-metadata-column "SampleSource" \
-    --o-visualization "${QIIME2_DIR}visualizations/beta_unweighted_unifrac_SampleSource_significance.qzv" \
-    --p-pairwise \
-    --verbose \
+if [[ ! -s "${UNIFRAC_MATRIX}" ]]
+    then
+
+    qiime diversity beta-group-significance \
+        --i-distance-matrix "${UNIFRAC_MATRIX}" \
+        --m-metadata-file "${METADATA_TSV}" \
+        --m-metadata-column "SampleSource" \
+        --o-visualization "${QIIME2_DIR}visualizations/beta_unweighted_unifrac_SampleSource_significance.qzv" \
+        --p-pairwise \
+        --verbose \
     |& tee "${LOG_DIR}diversity beta-group-significance SampleSource.log"
 
-qiime diversity beta-group-significance \
-    --i-distance-matrix "${UNIFRAC_MATRIX}" \
-    --m-metadata-file "${METADATA_TSV}" \
-    --m-metadata-column "${GROUPING_COLUMN_NAME}" \
-    --o-visualization "${QIIME2_DIR}visualizations/beta_unweighted_unifrac_${GROUPING_COLUMN_NAME}_significance.qzv" \
-    --p-pairwise \
-    --verbose \
+    qiime diversity beta-group-significance \
+        --i-distance-matrix "${UNIFRAC_MATRIX}" \
+        --m-metadata-file "${METADATA_TSV}" \
+        --m-metadata-column "${GROUPING_COLUMN_NAME}" \
+        --o-visualization "${QIIME2_DIR}visualizations/beta_unweighted_unifrac_${GROUPING_COLUMN_NAME}_significance.qzv" \
+        --p-pairwise \
+        --verbose \
     |& tee "${LOG_DIR}diversity beta-group-significance ${GROUPING_COLUMN_NAME}.log"
 
-qiime emperor plot \
-    --i-pcoa "${QIIME2_DIR}phylogenetic_core_metrics/unweighted_unifrac_pcoa_results.qza" \
-    --m-metadata-file "${METADATA_TSV}" \
-    --o-visualization "${QIIME2_DIR}visualizations/unweighted-unifrac-emperor.qzv" \
-    --verbose \
+    qiime emperor plot \
+        --i-pcoa "${QIIME2_DIR}phylogenetic_core_metrics/unweighted_unifrac_pcoa_results.qza" \
+        --m-metadata-file "${METADATA_TSV}" \
+        --o-visualization "${QIIME2_DIR}visualizations/unweighted-unifrac-emperor.qzv" \
+        --verbose \
     |& tee "${LOG_DIR}emperor plot.log"
 
-log "Completed running QIIME2 in ${QIIME2_DIR}"
+    log "Completed running QIIME2 in ${QIIME2_DIR}"
+
+    else
+        echo "Skip"
+    fi
 
 chmod -R 777 "$(pwd)"
 
