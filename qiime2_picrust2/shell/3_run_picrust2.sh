@@ -17,7 +17,7 @@ export QIME2_FEATURES_BIOM="$(realpath "${QIME2_FEATURES_BIOM}")"
 export QIME2_FEATURES_FASTA="$(realpath "${QIME2_FEATURES_FASTA}")"
 # Required variables end
 
-log "Run PICRUSt2 in '${PICRUST2_DIR}'"
+log "Run PATHWAYS in '${PICRUST2_DIR}'"
 
 export LOG_DIR="${PICRUST2_DIR}logs/"
 export PIPELINE_DIR="${PICRUST2_DIR}main_pipeline/"
@@ -33,35 +33,32 @@ rm -rf "${PIPELINE_DIR}"
 
 log "Run the PICRUSt2 pipeline"
 
-export PREDICTED_METAGENOMES="${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz"
+export EC_METAGENOMES="${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz"
+export KO_METAGENOMES="${PIPELINE_DIR}KO_metagenome_out/pred_metagenome_unstrat.tsv.gz"
+export PATHWAYS="${PIPELINE_DIR}pathways_out/path_abun_unstrat.tsv.gz"
 
-if [[ ! -s "${PREDICTED_METAGENOMES}" ]]
-    then
+picrust2_pipeline.py \
+    --coverage \
+    --hsp_method mp \
+    --input "${QIME2_FEATURES_BIOM}" \
+    --processes "${NPROC}" \
+    --study_fasta "${QIME2_FEATURES_FASTA}" \
+    --output "${PIPELINE_DIR}" \
+    --stratified \
+    --verbose \
+|& tee "${LOG_DIR}picrust2_pipeline.log"
 
-    picrust2_pipeline.py \
-        --coverage \
-        --hsp_method mp \
-        --input "${QIME2_FEATURES_BIOM}" \
-        --processes "${NPROC}" \
-        --study_fasta "${QIME2_FEATURES_FASTA}" \
-        --output "${PIPELINE_DIR}" \
-        --stratified \
-        --verbose \
-    |& tee "${LOG_DIR}picrust2_pipeline.log"
 
-    log "Run the PICRUSt2 pathway pipeline"
 
-    pathway_pipeline.py \
-        --input "${PREDICTED_METAGENOMES}" \
-        --intermediate "${PIPELINE_DIR}pathways_out/intermediate" \
-        --out_dir "${PIPELINE_DIR}pathways_out" \
-        --processes "${NPROC}" \
-        --verbose \
-    |& tee "${LOG_DIR}pathway_pipeline.log"
+log "Run the PICRUSt2 pathway pipeline"
 
-    else
-        echo "Skip"
-    fi
+pathway_pipeline.py \
+    --input "${EC_METAGENOMES}" \
+    --intermediate "${PIPELINE_DIR}pathways_out/intermediate" \
+    --out_dir "${PIPELINE_DIR}pathways_out" \
+    --processes "${NPROC}" \
+    --verbose \
+|& tee "${LOG_DIR}pathway_pipeline.log"
 
 
 
@@ -80,7 +77,7 @@ convert_table.py \
 log "Add KEGG ENZYME descriptions"
 
 add_descriptions.py \
-    --input "${PREDICTED_METAGENOMES}" \
+    --input "${EC_METAGENOMES}" \
     --map_type EC \
     --output "${TABLES_DIR}EC_metagenome_out/pred_metagenome_unstrat_described.tsv" \
     |& tee "${LOG_DIR}add_descriptions-EC.log"
@@ -90,7 +87,7 @@ add_descriptions.py \
 log "Add KEGG ORTHOLOGY descriptions"
 
 add_descriptions.py \
-    --input "${PREDICTED_METAGENOMES}" \
+    --input "${KO_METAGENOMES}" \
     --map_type KO \
     --output "${TABLES_DIR}KO_metagenome_out/pred_metagenome_unstrat_described.tsv" \
     |& tee "${LOG_DIR}add_descriptions-KO.log"
@@ -100,7 +97,7 @@ add_descriptions.py \
 log "Add MetaCyc descriptions"
 
 add_descriptions.py  \
-    --input "${PIPELINE_DIR}pathways_out/path_abun_unstrat.tsv.gz" \
+    --input "${PATHWAYS}" \
     --map_type METACYC \
     --output "${TABLES_DIR}pathways_out/path_abun_unstrat_described.tsv" \
     |& tee "${LOG_DIR}add_descriptions-METACYC.log"
