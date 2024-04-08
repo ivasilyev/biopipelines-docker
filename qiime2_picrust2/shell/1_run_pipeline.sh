@@ -220,6 +220,7 @@ find "${ROOT_DIR}" \
             export DST_FILE="${RESULT_DIR}$(basename "$(dirname "${SRC_FILE}")")_$(basename "${SRC_FILE}")";
             echo "Copy \"${SRC_FILE}\" to \"${DST_FILE}\"";
             cp \
+                --force \
                 "${SRC_FILE}" \
                 "${DST_FILE}";
         '
