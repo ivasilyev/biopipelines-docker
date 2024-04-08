@@ -90,7 +90,7 @@ add_descriptions.py \
 log "Add KEGG ORTHOLOGY descriptions"
 
 add_descriptions.py \
-    --input "${PIPELINE_DIR}KO_metagenome_out/pred_metagenome_unstrat.tsv.gz" \
+    --input "${PREDICTED_METAGENOMES}" \
     --map_type KO \
     --output "${TABLES_DIR}KO_metagenome_out/pred_metagenome_unstrat_described.tsv" \
     |& tee "${LOG_DIR}add_descriptions-KO.log"
