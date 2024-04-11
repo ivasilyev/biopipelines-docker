@@ -44,41 +44,45 @@ cd "${QIIME2_DIR}" || exit 1
 
 log "Import and convert pre-demultiplexed paired-end FASTQ files to QIIME2 artifact"
 
-export DEMULTIPLEXED_READS="${QIIME2_DIR}demultiplexed_reads/demultiplexed_PE_reads.qza"
+export DEMULTIPLEXED_DIR="${QIIME2_DIR}demultiplexed_reads/"
+export DEMULTIPLEXED_READS="${DEMULTIPLEXED_DIR}demultiplexed_PE_reads.qza"
 
 md "${DEMULTIPLEXED_READS}"
 
 if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
     then
+
     qiime tools import \
         --input-format PairedEndFastqManifestPhred33 \
         --input-path "${SAMPLEDATA_CSV}" \
         --output-path "${DEMULTIPLEXED_READS}" \
         --type 'SampleData[PairedEndSequencesWithQuality]' \
     |& tee "${LOG_DIR}tools import.log"
+
+    log "Summarize sequences"
+
+    qiime demux summarize \
+        --i-data "${DEMULTIPLEXED_READS}" \
+        --o-visualization "${DEMULTIPLEXED_DIR}demultiplexed_PE_reads.qzv" \
+         --verbose \
+    |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
+
     else
         echo "Skip"
     fi
 
 
 
-log "Summarize sequences"
-
 mkdir -p "${QIIME2_DIR}visualizations/"
-
-qiime demux summarize \
-    --i-data "${DEMULTIPLEXED_READS}" \
-    --o-visualization "${QIIME2_DIR}visualizations/demultiplexed_PE_reads.qzv" \
-     --verbose \
-    |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 
 
 
 log "DADA2 denoising"
 
-export REPRESENTATIVE_SEQUENCES="${QIIME2_DIR}dada2/REPRESENTATIVE_SEQUENCES.qza"
-export FREQUENCY_TABLE="${QIIME2_DIR}dada2/dada2_frequency_table.qza"
-export DENOISING_STATS="${QIIME2_DIR}dada2/dada2_denoising_statistics.qza"
+export DENOISING_DIR="${QIIME2_DIR}dada/"
+export REPRESENTATIVE_SEQUENCES="${DENOISING_DIR}REPRESENTATIVE_SEQUENCES.qza"
+export FREQUENCY_TABLE="${DENOISING_DIR}dada2_frequency_table.qza"
+export DENOISING_STATS="${DENOISING_DIR}dada2_denoising_statistics.qza"
 
 md "${REPRESENTATIVE_SEQUENCES}"
 
@@ -97,24 +101,15 @@ if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
         --verbose \
     |& tee "${LOG_DIR}dada2 denoise-paired.log"
 
-    else
-        echo "Skip"
-    fi
-
-qiime metadata tabulate \
-    --m-input-file "${DENOISING_STATS}" \
-    --o-visualization "${QIIME2_DIR}visualizations/dada2_denoising_statistics.qza" \
-    --verbose \
+    qiime metadata tabulate \
+        --m-input-file "${DENOISING_STATS}" \
+        --o-visualization "${DENOISING_DIR}dada2_denoising_statistics.qza" \
+        --verbose \
     |& tee "${LOG_DIR}metadata tabulate dada2_denoising_statistics.log"
 
+    log "Import metadata"
 
-
-log "Import metadata"
-
-export METADATA_QZV="${QIIME2_DIR}visualizations/tabulated_sample_metadata.qzv"
-
-if [[ ! -s "${METADATA_QZV}" ]]
-    then
+    export METADATA_QZV="${DENOISING_DIR}tabulated_sample_metadata.qzv"
 
     qiime metadata tabulate \
         --m-input-file "${METADATA_TSV}" \
@@ -122,32 +117,30 @@ if [[ ! -s "${METADATA_QZV}" ]]
         --verbose \
     |& tee "${LOG_DIR}metadata tabulate metadata.log"
 
+    log "Summarize statistics"
+
+    qiime feature-table summarize \
+        --i-table "${FREQUENCY_TABLE}"\
+        --o-visualization "${DENOISING_DIR}dada2_frequency_table.qzv" \
+        --m-sample-metadata-file "${METADATA_TSV}" \
+        --verbose \
+    |& tee "${LOG_DIR}feature-table summarize.log"
+
+    qiime feature-table tabulate-seqs \
+        --i-data "${REPRESENTATIVE_SEQUENCES}" \
+        --o-visualization "${DENOISING_DIR}dada2_representative_sequences.qzv" \
+        --verbose \
+    |& tee "${LOG_DIR}tabulate-seqs.log"
+
     else
         echo "Skip"
     fi
 
 
-
-log "Summarize statistics"
-
-qiime feature-table summarize \
-    --i-table "${FREQUENCY_TABLE}"\
-    --o-visualization "${QIIME2_DIR}visualizations/dada2_frequency_table.qzv" \
-    --m-sample-metadata-file "${METADATA_TSV}" \
-    --verbose \
-    |& tee "${LOG_DIR}feature-table summarize.log"
-
-qiime feature-table tabulate-seqs \
-    --i-data "${REPRESENTATIVE_SEQUENCES}" \
-    --o-visualization "${QIIME2_DIR}visualizations/dada2_representative_sequences.qzv" \
-    --verbose \
-    |& tee "${LOG_DIR}tabulate-seqs.log"
-
-
-
 log "Assign taxonomy"
 
-export CLASSIFIED_TAXONOMY="${QIIME2_DIR}taxonomy/classified_taxonomy.qza"
+export TAXONOMY_DIR="${QIIME2_DIR}taxonomy/"
+export CLASSIFIED_TAXONOMY="${TAXONOMY_DIR}classified_taxonomy.qza"
 
 md "${CLASSIFIED_TAXONOMY}"
 
@@ -164,31 +157,27 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         --verbose \
     |& tee "${LOG_DIR}feature-classifier classify-sklearn.log"
 
+    log "Create Amplicon Sequence Variant table"
+
+    qiime metadata tabulate \
+        --m-input-file "${CLASSIFIED_TAXONOMY}" \
+        --o-visualization "${TAXONOMY_DIR}classified_taxonomy.qzv" \
+        --verbose \
+        |& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
+
+    log "Make prokaryotic profile"
+
+    qiime taxa barplot \
+        --m-metadata-file "${METADATA_TSV}" \
+        --i-table "${FREQUENCY_TABLE}" \
+        --i-taxonomy "${CLASSIFIED_TAXONOMY}" \
+        --o-visualization "${TAXONOMY_DIR}taxonomy_barplots.qzv" \
+        --verbose \
+        |& tee "${LOG_DIR}taxa barplot.log"
+
     else
         echo "Skip"
     fi
-
-
-
-log "Create Amplicon Sequence Variant table"
-
-qiime metadata tabulate \
-    --m-input-file "${CLASSIFIED_TAXONOMY}" \
-    --o-visualization "${QIIME2_DIR}visualizations/classified_taxonomy.qzv" \
-    --verbose \
-    |& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
-
-
-
-log "Make prokaryotic profile"
-
-qiime taxa barplot \
-    --m-metadata-file "${METADATA_TSV}" \
-    --i-table "${FREQUENCY_TABLE}" \
-    --i-taxonomy "${CLASSIFIED_TAXONOMY}" \
-    --o-visualization "${QIIME2_DIR}visualizations/taxonomy_barplots.qzv" \
-    --verbose \
-    |& tee "${LOG_DIR}taxa barplot.log"
 
 
 

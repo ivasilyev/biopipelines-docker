@@ -164,7 +164,7 @@ export IMG="$(compose_quay_img biocontainers picrust2)"
 export TOTAL_RAM="$(
     free \
     | awk '{ print $2 }' \
-    | tail -n 2 \
+    | tail +2 \
     | awk '{ sum += $1 } END { print sum }'
 )"
 
