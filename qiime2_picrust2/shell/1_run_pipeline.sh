@@ -162,7 +162,7 @@ log "Run PICRUSt2"
 export IMG="$(compose_quay_img biocontainers picrust2)"
 
 export TOTAL_RAM="$(
-    free \
+    free --giga \
     | awk '{ print $2 }' \
     | tail +2 \
     | awk '{ sum += $1 } END { print sum }'
@@ -171,10 +171,11 @@ export TOTAL_RAM="$(
 force_docker_pull "${IMG}"
 
 docker run \
+    --cpus "$(nproc)" \
     --env QIME2_FEATURES_BIOM="${QIME2_FEATURES_BIOM}" \
     --env QIME2_FEATURES_FASTA="${QIME2_FEATURES_FASTA}" \
     --env PICRUST2_DIR="${PICRUST2_DIR}" \
-    --memory "${TOTAL_RAM}" \
+    --memory "${TOTAL_RAM}g" \
     --memory-swappiness 100 \
     --net host \
     --oom-kill-disable \
