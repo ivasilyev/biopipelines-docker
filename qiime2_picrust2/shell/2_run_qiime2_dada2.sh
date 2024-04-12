@@ -564,31 +564,33 @@ if [[ ! -s "${FEATURE_TABLE}" ]]
 
 log "Analyze the core diversity using the phylogenetic pipeline"
 
+export CORE_METRICS_DIR="${QIIME2_DIR}phylogenetic_core_metrics/"
+
 # '--output-dir' must not exist!
-rm -rf "${QIIME2_DIR}phylogenetic_core_metrics/"
+rm -rf "${CORE_METRICS_DIR}"
 
 qiime diversity core-metrics-phylogenetic \
     --i-phylogeny "${ROOTED_TREE}" \
     --i-table "${FREQUENCY_TABLE}" \
     --m-metadata-file "${METADATA_TSV}" \
-    --output-dir "${QIIME2_DIR}phylogenetic_core_metrics/" \
+    --output-dir "${CORE_METRICS_DIR}" \
     --p-n-jobs-or-threads "${NPROC}" \
     --p-sampling-depth 10 \
     --verbose \
 |& tee "${LOG_DIR}diversity core-metrics-phylogenetic.log"
 
-export FAITH_VECTOR="${QIIME2_DIR}phylogenetic_core_metrics/faith_pd_vector.qza"
+export FAITH_VECTOR="${CORE_METRICS_DIR}faith_pd_vector.qza"
 
 qiime metadata tabulate \
     --m-input-file "${FAITH_VECTOR}" \
-    --o-visualization "${QIIME2_DIR}visualizations/faith-pd-group-significance.qzv" \
+    --o-visualization "${CORE_METRICS_DIR}faith-pd-group-significance.qzv" \
     --verbose
 
 # Output: alpha-diversity.tsv
 qiime tools export \
     --input-path "${FAITH_VECTOR}" \
     --output-format AlphaDiversityDirectoryFormat \
-    --output-path "${QIIME2_DIR}phylogenetic_core_metrics/" \
+    --output-path "${CORE_METRICS_DIR}" \
 |& tee "${LOG_DIR}tools export faith_pd_vector.log"
 
 
@@ -598,19 +600,20 @@ log "Visualize alpha diversity"
 qiime diversity alpha-group-significance \
     --i-alpha-diversity "${FAITH_VECTOR}" \
     --m-metadata-file "${METADATA_TSV}" \
-    --o-visualization "${QIIME2_DIR}visualizations/alpha_faith_pd_group_significance.qzv" \
+    --o-visualization "${CORE_METRICS_DIR}alpha_faith_pd_group_significance.qzv" \
     --verbose \
     |& tee "${LOG_DIR}diversity alpha-group-significance faith_pd_vector.log"
 
 qiime diversity alpha-group-significance \
-    --i-alpha-diversity "${QIIME2_DIR}phylogenetic_core_metrics/evenness_vector.qza" \
+    --i-alpha-diversity "${CORE_METRICS_DIR}evenness_vector.qza" \
     --m-metadata-file "${METADATA_TSV}" \
-    --o-visualization "${QIIME2_DIR}visualizations/alpha_evenness_group_significance.qzv" \
+    --o-visualization "${CORE_METRICS_DIR}alpha_evenness_group_significance.qzv" \
     --verbose \
     |& tee "${LOG_DIR}diversity alpha-group-significance evenness_vector.log"
 
 # The first 2 lines are '# Constructed from biom file' and header
 export DENOISED_SAMPLES=$(( $(wc -l "${FEATURE_TABLE}" | awk '{ print $1 }') / 2 ))
+export ALPHA_RAREFACTION="${CORE_METRICS_DIR}alpha_rarefaction.qzv"
 
 if [[ ! -s "${DENOISED_SAMPLES}" ]]
     then
@@ -619,7 +622,7 @@ if [[ ! -s "${DENOISED_SAMPLES}" ]]
         --m-metadata-file "${METADATA_TSV}" \
         --i-table "${FREQUENCY_TABLE}" \
         --i-phylogeny "${ROOTED_TREE}" \
-        --o-visualization "${QIIME2_DIR}visualizations/alpha_rarefaction.qzv" \
+        --o-visualization "${ALPHA_RAREFACTION}" \
         --p-max-depth ${DENOISED_SAMPLES} \
         --verbose \
     |& tee "${LOG_DIR}diversity alpha-rarefaction.log"
@@ -632,7 +635,7 @@ if [[ ! -s "${DENOISED_SAMPLES}" ]]
 
 log "Visualize beta diversity"
 
-export UNIFRAC_MATRIX="${QIIME2_DIR}phylogenetic_core_metrics/unweighted_unifrac_distance_matrix.qza"
+export UNIFRAC_MATRIX="${CORE_METRICS_DIR}unweighted_unifrac_distance_matrix.qza"
 
 if [[ ! -s "${UNIFRAC_MATRIX}" ]]
     then
@@ -641,7 +644,7 @@ if [[ ! -s "${UNIFRAC_MATRIX}" ]]
         --i-distance-matrix "${UNIFRAC_MATRIX}" \
         --m-metadata-file "${METADATA_TSV}" \
         --m-metadata-column "SampleSource" \
-        --o-visualization "${QIIME2_DIR}visualizations/beta_unweighted_unifrac_SampleSource_significance.qzv" \
+        --o-visualization "${CORE_METRICS_DIR}beta_unweighted_unifrac_SampleSource_significance.qzv" \
         --p-pairwise \
         --verbose \
     |& tee "${LOG_DIR}diversity beta-group-significance SampleSource.log"
@@ -650,23 +653,23 @@ if [[ ! -s "${UNIFRAC_MATRIX}" ]]
         --i-distance-matrix "${UNIFRAC_MATRIX}" \
         --m-metadata-file "${METADATA_TSV}" \
         --m-metadata-column "${GROUPING_COLUMN_NAME}" \
-        --o-visualization "${QIIME2_DIR}visualizations/beta_unweighted_unifrac_${GROUPING_COLUMN_NAME}_significance.qzv" \
+        --o-visualization "${CORE_METRICS_DIR}beta_unweighted_unifrac_${GROUPING_COLUMN_NAME}_significance.qzv" \
         --p-pairwise \
         --verbose \
     |& tee "${LOG_DIR}diversity beta-group-significance ${GROUPING_COLUMN_NAME}.log"
 
     qiime emperor plot \
-        --i-pcoa "${QIIME2_DIR}phylogenetic_core_metrics/unweighted_unifrac_pcoa_results.qza" \
+        --i-pcoa "${CORE_METRICS_DIR}unweighted_unifrac_pcoa_results.qza" \
         --m-metadata-file "${METADATA_TSV}" \
-        --o-visualization "${QIIME2_DIR}visualizations/unweighted-unifrac-emperor.qzv" \
+        --o-visualization "${CORE_METRICS_DIR}unweighted-unifrac-emperor.qzv" \
         --verbose \
     |& tee "${LOG_DIR}emperor plot.log"
-
-    log "Completed running QIIME2 in ${QIIME2_DIR}"
 
     else
         echo "Skip"
     fi
+
+log "Completed running QIIME2 in ${QIIME2_DIR}"
 
 chmod -R 777 "$(pwd)"
 
