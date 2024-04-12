@@ -77,17 +77,18 @@ mkdir -p "${QIIME2_DIR}visualizations/"
 
 
 
-log "DADA2 denoising"
-
 export DENOISING_DIR="${QIIME2_DIR}dada/"
 export REPRESENTATIVE_SEQUENCES="${DENOISING_DIR}REPRESENTATIVE_SEQUENCES.qza"
 export FREQUENCY_TABLE="${DENOISING_DIR}dada2_frequency_table.qza"
 export DENOISING_STATS="${DENOISING_DIR}dada2_denoising_statistics.qza"
 
-md "${REPRESENTATIVE_SEQUENCES}"
 
 if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
     then
+
+    log "DADA2 denoising"
+
+    md "${REPRESENTATIVE_SEQUENCES}"
 
     qiime dada2 denoise-paired \
         --p-trunc-len-f 225 \
@@ -137,15 +138,16 @@ if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
     fi
 
 
-log "Assign taxonomy"
 
 export TAXONOMY_DIR="${QIIME2_DIR}taxonomy/"
 export CLASSIFIED_TAXONOMY="${TAXONOMY_DIR}classified_taxonomy.qza"
 
-md "${CLASSIFIED_TAXONOMY}"
-
 if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
     then
+
+    log "Assign taxonomy"
+
+    md "${CLASSIFIED_TAXONOMY}"
 
     # --p-n-jobs, The maximum number of concurrently worker processes. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n-jobs below -1, (n_cpus + 1 + n-jobs) are used. Thus for n-jobs = -2, all CPUs but one are used.
     qiime feature-classifier classify-sklearn \
@@ -191,6 +193,10 @@ md "${MERGED_SEQUENCES}"
 if [[ ! -s "${MERGED_SEQUENCES}" ]]
     then
 
+    log "Join paired-end reads"
+
+    md "${MERGED_SEQUENCES}"
+
     # Threads number must be within [0, 8].
     qiime vsearch merge-pairs \
         --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
@@ -206,14 +212,14 @@ if [[ ! -s "${MERGED_SEQUENCES}" ]]
 
 
 
-log "Filter based on Q scores"
-
 export QUALITY_FILTERED_SEQUENCES="${QIIME2_DIR}q_score_filtered_reads/sequences_filtered_by_q_score.qza"
-
-md "${QUALITY_FILTERED_SEQUENCES}"
 
 if [[ ! -s "${QUALITY_FILTERED_SEQUENCES}" ]]
     then
+
+    log "Filter based on Q scores"
+
+    md "${QUALITY_FILTERED_SEQUENCES}"
 
     qiime quality-filter q-score \
         --i-demux "${MERGED_SEQUENCES}" \
@@ -228,8 +234,6 @@ if [[ ! -s "${QUALITY_FILTERED_SEQUENCES}" ]]
 
 
 
-log "Dereplicate sequences"
-
 export DEREPLICATED_DIR="${QIIME2_DIR}dereplicated/"
 export DEREPLICATED_SEQUENCES="${DEREPLICATED_DIR}dereplicated_sequences.qza"
 export DEREPLICATED_FREQUENCIES="${DEREPLICATED_DIR}dereplicated_frequency_table.qza"
@@ -238,6 +242,10 @@ md "${DEREPLICATED_SEQUENCES}"
 
 if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
     then
+
+    log "Dereplicate sequences"
+
+    md "${DEREPLICATED_SEQUENCES}"
 
     qiime vsearch dereplicate-sequences \
         --i-sequences "${QUALITY_FILTERED_SEQUENCES}" \
@@ -252,28 +260,28 @@ if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
 
 
 
-
-log "Cluster closed references at ${CONSENSUS_THRESHOLD} percent"
-
 export CLUSTERED_DIR="${QIIME2_DIR}closed_references/"
 export CLUSTERED_SEQUENCES="${CLUSTERED_DIR}closed_reference_clustered_sequences.qza"
 export CLUSTERED_TABLE="${CLUSTERED_DIR}closed_reference_clustered_table.qza"
 
-md "${CLUSTERED_SEQUENCES}"
 
 if [[ ! -s "${CLUSTERED_SEQUENCES}" ]]
     then
 
-  qiime vsearch cluster-features-closed-reference \
-      --i-reference-sequences "${TAXA_REFERENCE_SEQUENCES}" \
-      --i-sequences "${DEREPLICATED_SEQUENCES}" \
-      --i-table "${DEREPLICATED_FREQUENCIES}" \
-      --o-clustered-sequences "${CLUSTERED_SEQUENCES}" \
-      --o-clustered-table "${CLUSTERED_TABLE}" \
-      --o-unmatched-sequences "${QIIME2_DIR}closed_references/closed_reference_unmatched_sequences.qza" \
-      --p-perc-identity 0.${CONSENSUS_THRESHOLD} \
-      --p-threads "${NPROC}" \
-      --verbose \
+    log "Cluster closed references at ${CONSENSUS_THRESHOLD} percent"
+
+    md "${CLUSTERED_SEQUENCES}"
+
+    qiime vsearch cluster-features-closed-reference \
+        --i-reference-sequences "${TAXA_REFERENCE_SEQUENCES}" \
+        --i-sequences "${DEREPLICATED_SEQUENCES}" \
+        --i-table "${DEREPLICATED_FREQUENCIES}" \
+        --o-clustered-sequences "${CLUSTERED_SEQUENCES}" \
+        --o-clustered-table "${CLUSTERED_TABLE}" \
+        --o-unmatched-sequences "${QIIME2_DIR}closed_references/closed_reference_unmatched_sequences.qza" \
+        --p-perc-identity 0.${CONSENSUS_THRESHOLD} \
+        --p-threads "${NPROC}" \
+        --verbose \
     |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
 
     else
@@ -282,15 +290,15 @@ if [[ ! -s "${CLUSTERED_SEQUENCES}" ]]
 
 
 
-log "Trying to decontaminate clustered sequences"
-
 export DECONTAMINATED_DIR="${QIIME2_DIR}decontam/"
 export DECONTAMINATED_SCORES="${DECONTAMINATED_DIR}decontam_scores_by_prevalence.qza"
 
-md "${DECONTAMINATED_SCORES}"
-
 if [[ ! -s "${DECONTAMINATED_SCORES}" ]]
     then
+
+    log "Trying to decontaminate clustered sequences"
+
+    md "${DECONTAMINATED_SCORES}"
 
     qiime quality-control decontam-identify \
         --i-table "${CLUSTERED_TABLE}" \
@@ -302,27 +310,25 @@ if [[ ! -s "${DECONTAMINATED_SCORES}" ]]
         --verbose \
     |& tee "${LOG_DIR}quality-control decontam-identify.log"
 
+    # Output: 'stats.tsv'
+    qiime tools export \
+        --input-path "${DECONTAMINATED_SCORES}" \
+        --output-format DecontamScoreDirFmt \
+        --output-path "${DECONTAMINATED_DIR}" \
+    |& tee "${LOG_DIR}tools export decontam.log"
+
+    qiime quality-control decontam-score-viz \
+        --i-decontam-scores "${DECONTAMINATED_SCORES}" \
+        --i-table "${CLUSTERED_TABLE}" \
+        --o-visualization "${DECONTAMINATED_DIR}decontam_scores_by_prevalence.qzv" \
+        --verbose \
+    |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
+
     else
         echo "Skip"
     fi
 
 
-
-# Output: 'stats.tsv'
-qiime tools export \
-    --input-path "${DECONTAMINATED_SCORES}" \
-    --output-format DecontamScoreDirFmt \
-    --output-path "${DECONTAMINATED_DIR}" \
-|& tee "${LOG_DIR}tools export decontam.log"
-
-
-
-qiime quality-control decontam-score-viz \
-    --i-decontam-scores "${DECONTAMINATED_SCORES}" \
-    --i-table "${CLUSTERED_TABLE}" \
-    --o-visualization "${DECONTAMINATED_DIR}decontam_scores_by_prevalence.qzv" \
-    --verbose \
-|& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
 export DECONTAMINATED_TABLE="${DECONTAMINATED_DIR}decontam_closed_reference_clustered_table.qza"
 
