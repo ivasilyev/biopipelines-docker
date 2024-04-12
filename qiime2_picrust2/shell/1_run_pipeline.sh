@@ -9,14 +9,25 @@ function log {
 }
 
 
+force_curl () {
+    while true
+    do
+      if curl -fsSL "${1}" -o "${2}"
+      then
+        return
+      fi
+    done
+}
+
+
 force_docker_pull () {
-  while true
-  do
-    if docker pull "${1}"
-    then
-      return
-    fi
-  done
+    while true
+    do
+      if docker pull "${1}"
+      then
+        return
+      fi
+    done
 }
 
 
@@ -115,8 +126,10 @@ fi
 
 log "Deploy QIIME2 script"
 
-curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/2_run_qiime2_dada2.sh" \
-    -o "${QIIME2_SCRIPT}"
+force_curl \
+    "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/2_run_qiime2_dada2.sh" \
+    "${QIIME2_SCRIPT}"
+
 cd "${QIIME2_DIR}" || exit 1
 
 log "Run QIIME2"
@@ -152,8 +165,9 @@ cd "${ROOT_DIR}" || exit 1
 
 log "Deploy PICRUSt2 script"
 
-curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/3_run_picrust2.sh" \
-    -o "${PICRUST2_SCRIPT}"
+force_curl \
+    "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/3_run_picrust2.sh" \
+    "${PICRUST2_SCRIPT}"
 
 cd "${PICRUST2_DIR}" || exit 1
 
