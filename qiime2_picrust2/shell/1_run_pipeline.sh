@@ -77,7 +77,7 @@ export PICRUST2_DIR="${ROOT_DIR}picrust2/"
 export PICRUST2_SCRIPT="${PICRUST2_DIR}picrust2.sh"
 export RESULT_DIR="${ROOT_DIR}results/"
 
-export OTU_TABLE="${RESULT_DIR}OTUs_with_taxa.tsv"
+export ASV_TABLE="${RESULT_DIR}ASVs_with_taxa.tsv"
 
 cd "${ROOT_DIR}" || exit 1
 
@@ -217,7 +217,7 @@ find "${ROOT_DIR}" \
     -type f \( \
         -name "path_abun_unstrat_described.tsv" \
         -o -name "pred_metagenome_contrib.legacy.tsv" \
-        -o -name "OTUs_with_taxa.tsv" \
+        -o -name "$(basename "${ASV_TABLE}")" \
     \) -print0 \
 | xargs \
     -0 \
@@ -253,7 +253,7 @@ find "${ROOT_DIR}" \
 
 
 # The first line of the raw file is '# Constructed from biom file'
-sed -i '1d' "${OTU_TABLE}"
+sed -i '1d' "${ASV_TABLE}"
 
 log "Concatenate tables"
 
@@ -262,7 +262,7 @@ export IMG="ivasilyev/curated_projects:latest"
 force_docker_pull "${IMG}"
 
 docker run \
-    --env OTU_TABLE="${OTU_TABLE}" \
+    --env ASV_TABLE="${ASV_TABLE}" \
     --env TAXA_REFERENCE_HEADER="${TAXA_REFERENCE_HEADER}" \
     --net host \
     --rm \
@@ -273,15 +273,15 @@ docker run \
     --volume /data04:/data04 \
     "${IMG}" \
         bash -c '
-            OUT_FILE="${OTU_TABLE%.*}_annotated.tsv";
-            echo Concatenate table \"${OTU_TABLE}\" and \"${TAXA_REFERENCE_HEADER}\" into \"${OUT_FILE}\";
+            OUT_FILE="${ASV_TABLE%.*}_annotated.tsv";
+            echo Concatenate table \"${ASV_TABLE}\" and \"${TAXA_REFERENCE_HEADER}\" into \"${OUT_FILE}\";
             git pull --quiet && \
             python3 ./meta/scripts/concatenate_tables.py \
                 --axis 1 \
-                --index "#OTU ID" \
+                --index "#ASV ID" \
                 --input \
                     "${TAXA_REFERENCE_HEADER}" \
-                    "${OTU_TABLE}" \
+                    "${ASV_TABLE}" \
                 --output "${OUT_FILE}"
         ' \
 |& tee "${LOG_DIR}concatenate_tables.log"

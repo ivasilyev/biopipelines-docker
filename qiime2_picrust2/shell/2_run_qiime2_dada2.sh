@@ -77,7 +77,7 @@ mkdir -p "${QIIME2_DIR}visualizations/"
 
 
 
-export DENOISING_DIR="${QIIME2_DIR}dada/"
+export DENOISING_DIR="${QIIME2_DIR}dada2/"
 export REPRESENTATIVE_SEQUENCES="${DENOISING_DIR}REPRESENTATIVE_SEQUENCES.qza"
 export FREQUENCY_TABLE="${DENOISING_DIR}dada2_frequency_table.qza"
 export DENOISING_STATS="${DENOISING_DIR}dada2_denoising_statistics.qza"
@@ -367,7 +367,7 @@ qiime tools export \
 
 
 
-log "Export an OTU table"
+log "Export an ASV table"
 
 export BIOM_DIR="${QIIME2_DIR}bioms/"
 export BIOM_RAW="${BIOM_DIR}feature-table.biom"
@@ -394,7 +394,7 @@ if [[ ! -s "${BIOM_RAW}" ]]
 log "Annotate biom with taxonomy data"
 
 # The directory was already created
-export BIOM_ANNOTATED="${BIOM_DIR}OTUs_with_taxa.biom"
+export BIOM_ANNOTATED="${BIOM_DIR}ASVs_with_taxa.biom"
 
 if [[ ! -s "${BIOM_ANNOTATED}" ]]
     then
@@ -418,19 +418,26 @@ log "Convert biom to JSON"
 biom convert \
     --to-json \
     --input-fp "${BIOM_ANNOTATED}" \
-    --output-fp "${BIOM_DIR}OTUs_with_taxa.json" \
+    --output-fp "${BIOM_DIR}ASVs_with_taxa.json" \
     |& tee "${LOG_DIR}biom convert json.log"
 
 
 
 log "Convert biom to TSV"
 
+export TSV_ANNOTATED="${BIOM_DIR}ASVs_with_taxa.tsv"
+
 biom convert \
     --to-tsv \
     --input-fp "${BIOM_ANNOTATED}" \
-    --output-fp "${BIOM_DIR}OTUs_with_taxa.tsv" \
+    --output-fp "${TSV_ANNOTATED}" \
     --header-key "taxonomy" \
     |& tee "${LOG_DIR}biom convert taxa tsv.log"
+
+sed \
+    --in-place \
+    "s|^#OTU ID\t|#ASV ID\t|" \
+    "${TSV_ANNOTATED}"
 
 
 
