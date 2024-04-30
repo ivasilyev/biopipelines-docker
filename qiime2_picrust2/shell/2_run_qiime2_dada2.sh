@@ -242,6 +242,27 @@ qiime feature-table tabulate-seqs \
 
 
 
+export BIOM_DIR="${TOOL_DIR}bioms/"
+export BIOM_RAW="${BIOM_DIR}feature-table.biom"
+
+md "${BIOM_RAW}"
+
+if [[ ! -s "${BIOM_RAW}" ]]
+    then
+
+    # Output: 'feature-table.biom'
+    qiime tools export \
+        --input-path "${CLUSTERED_TABLE}" \
+        --output-format BIOMV210DirFmt \
+        --output-path "${BIOM_DIR}" \
+    |& tee "${LOG_DIR}tools export feature-table.biom.log"
+
+    else
+        echo "Skip"
+    fi
+
+
+
 log "Assign taxonomy as Amplicon Sequence Variants, ASV"
 
 export TAXONOMY_DIR="${TOOL_DIR}taxonomy/"
