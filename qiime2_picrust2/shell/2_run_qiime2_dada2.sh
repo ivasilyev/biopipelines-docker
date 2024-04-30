@@ -116,7 +116,7 @@ if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
 
 
 export DECONTAMINATION_DIR="${TOOL_DIR}decontam/"
-export DECONTAMINATION_SCORES="${DECONTAMINATION_DIR}decontam_scores_by_prevalence.qza"
+export DECONTAMINATION_SCORES="${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qza"
 
 if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     then
@@ -142,10 +142,15 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
         --output-path "${DECONTAMINATION_DIR}" \
     |& tee "${LOG_DIR}tools export decontam.log"
 
+    mv \
+        "${DECONTAMINATION_DIR}stats.tsv" \
+        "${DECONTAMINATION_DIR}decontamination_stats.tsv"
+
+
     qiime quality-control decontam-score-viz \
         --i-decontam-scores "${DECONTAMINATION_SCORES}" \
         --i-table "${FREQUENCY_TABLE}" \
-        --o-visualization "${DECONTAMINATION_DIR}decontam_scores_by_prevalence.qzv" \
+        --o-visualization "${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qzv" \
         --verbose \
     |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
@@ -155,7 +160,7 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
 
 
 
-export DECONTAMINATION_TABLE="${DECONTAMINATION_DIR}decontam_filtered_frequencies.qza"
+export DECONTAMINATION_TABLE="${DECONTAMINATION_DIR}decontamination_filtered_frequencies.qza"
 
 if [[ ! -s "${DECONTAMINATION_TABLE}" ]]
     then
@@ -410,42 +415,59 @@ qiime diversity core-metrics-phylogenetic \
     --verbose \
 |& tee "${LOG_DIR}diversity core-metrics-phylogenetic.log"
 
-export FAITH_VECTOR="${CORE_METRICS_DIR}faith_pd_vector.qza"
-
-qiime metadata tabulate \
-    --m-input-file "${FAITH_VECTOR}" \
-    --o-visualization "${CORE_METRICS_DIR}faith-pd-group-significance.qzv" \
-    --verbose
-
-# Output: alpha-diversity.tsv
-qiime tools export \
-    --input-path "${FAITH_VECTOR}" \
-    --output-format AlphaDiversityDirectoryFormat \
-    --output-path "${CORE_METRICS_DIR}" \
-|& tee "${LOG_DIR}tools export faith_pd_vector.log"
-
 
 
 log "Visualize alpha diversity"
 
-qiime diversity alpha-group-significance \
-    --i-alpha-diversity "${FAITH_VECTOR}" \
-    --m-metadata-file "${METADATA_TSV}" \
-    --o-visualization "${CORE_METRICS_DIR}alpha_faith_pd_group_significance.qzv" \
-    --verbose \
-    |& tee "${LOG_DIR}diversity alpha-group-significance faith_pd_vector.log"
+find . \
+    -type f \
+    -name "*_vector.qza" \
+    -print0 \
+| xargs \
+    -0 \
+    --max-procs "$(nproc)" \
+    -I "{}" \
+        bash -c '
+            FILE="{}";
 
-qiime diversity alpha-group-significance \
-    --i-alpha-diversity "${CORE_METRICS_DIR}evenness_vector.qza" \
-    --m-metadata-file "${METADATA_TSV}" \
-    --o-visualization "${CORE_METRICS_DIR}alpha_evenness_group_significance.qzv" \
-    --verbose \
-    |& tee "${LOG_DIR}diversity alpha-group-significance evenness_vector.log"
+            ALPHA_METRIC_DIR_NAME="${FILE%.*}/";
+
+            BASE_NAME="${basename "${ALPHA_METRIC_DIR_NAME}"}";
+
+            mkdir -p "${ALPHA_METRIC_DIR_NAME}";
+
+            echo "Visualize alpha diversity data for \`${FILE}\`";
+
+            echo qiime diversity alpha-group-significance \
+                --i-alpha-diversity "${FILE}" \
+                --m-metadata-file "${METADATA_TSV}" \
+                --o-visualization "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}_significance.qzv" \
+                --verbose;
+
+            qiime metadata tabulate \
+                --m-input-file "${FILE}" \
+                --o-visualization "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}_tabulated.qzv" \
+                --verbose;
+
+            # Output: alpha-diversity.tsv
+            qiime tools export \
+                --input-path "${FILE}" \
+                --output-format AlphaDiversityDirectoryFormat \
+                --output-path "${ALPHA_METRIC_DIR_NAME}";
+
+            mv \
+                "${ALPHA_METRIC_DIR_NAME}alpha-diversity.tsv" \
+                "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}.tsv";
+        '
+
+
+
+log "Generate interactive alpha rarefaction curves"
 
 # The first 2 lines are '# Constructed from biom file' and header
 export ALPHA_RAREFACTION="${CORE_METRICS_DIR}alpha_rarefaction.qzv"
 
-if [[ ! -s "${DENOISED_SAMPLES}" ]]
+if [[ ! -s "${ALPHA_RAREFACTION}" ]]
     then
 
     qiime diversity alpha-rarefaction \
@@ -466,15 +488,23 @@ if [[ ! -s "${DENOISED_SAMPLES}" ]]
 log "Visualize beta diversity"
 
 export UNIFRAC_MATRIX="${CORE_METRICS_DIR}unweighted_unifrac_distance_matrix.qza"
+export UNWEIGHTED_EMPEROR_QZV="${CORE_METRICS_DIR}unweighted-unifrac-emperor.qzv"
 
-if [[ ! -s "${UNIFRAC_MATRIX}" ]]
+if [[ ! -s "${UNWEIGHTED_EMPEROR_QZV}" ]]
     then
+
+    qiime emperor plot \
+        --i-pcoa "${CORE_METRICS_DIR}unweighted_unifrac_pcoa_results.qza" \
+        --m-metadata-file "${METADATA_TSV}" \
+        --o-visualization "${CORE_METRICS_DIR}unweighted-unifrac-emperor.qzv" \
+        --verbose \
+    |& tee "${LOG_DIR}emperor plot.log"
 
     qiime diversity beta-group-significance \
         --i-distance-matrix "${UNIFRAC_MATRIX}" \
         --m-metadata-file "${METADATA_TSV}" \
         --m-metadata-column "SampleSource" \
-        --o-visualization "${CORE_METRICS_DIR}beta_unweighted_unifrac_SampleSource_significance.qzv" \
+        --o-visualization "${CORE_METRICS_DIR}unweighted_unifrac_SampleSource_significance.qzv" \
         --p-pairwise \
         --verbose \
     |& tee "${LOG_DIR}diversity beta-group-significance SampleSource.log"
@@ -483,17 +513,10 @@ if [[ ! -s "${UNIFRAC_MATRIX}" ]]
         --i-distance-matrix "${UNIFRAC_MATRIX}" \
         --m-metadata-file "${METADATA_TSV}" \
         --m-metadata-column "${GROUPING_COLUMN_NAME}" \
-        --o-visualization "${CORE_METRICS_DIR}beta_unweighted_unifrac_${GROUPING_COLUMN_NAME}_significance.qzv" \
+        --o-visualization "${CORE_METRICS_DIR}unweighted_unifrac_${GROUPING_COLUMN_NAME}_significance.qzv" \
         --p-pairwise \
         --verbose \
     |& tee "${LOG_DIR}diversity beta-group-significance ${GROUPING_COLUMN_NAME}.log"
-
-    qiime emperor plot \
-        --i-pcoa "${CORE_METRICS_DIR}unweighted_unifrac_pcoa_results.qza" \
-        --m-metadata-file "${METADATA_TSV}" \
-        --o-visualization "${CORE_METRICS_DIR}unweighted-unifrac-emperor.qzv" \
-        --verbose \
-    |& tee "${LOG_DIR}emperor plot.log"
 
     else
         echo "Skip"
