@@ -86,6 +86,9 @@ export MERGED_READS="${QIIME2_DIR}merged_reads/merged_PE_reads.qza"
 
 md "${MERGED_READS}"
 
+# Threads number must be within [0, 8].
+# As of Qiime2 2022.11, this action is called 'merge-pairs',
+# but in older versions of Qiime2 this was called 'join-pairs'.
 qiime vsearch merge-pairs \
     --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
     --o-merged-sequences "${MERGED_READS}" \
@@ -171,7 +174,7 @@ qiime feature-table relative-frequency \
 
 
 
-log "Classify taxonomy as it would be OTUs"
+log "Assign taxonomy as it would be Operational Taxonomic Units, OTU"
 
 export DEBLUR_TAXONOMY_DIR="${DEBLUR_DIR}taxonomy/"
 export DEBLUR_CLASSIFIED_TAXONOMY="${DEBLUR_TAXONOMY_DIR}classified_taxonomy.qza"
@@ -253,7 +256,7 @@ biom add-metadata \
 
 log "Convert annotated OTUs into JSON"
 
-biom convert\
+biom convert \
     --input-fp "${DEBLUR_TAXA_BIOM}" \
     --output-fp "${DEBLUR_BIOM_DIR}OTUs_with_taxa.json"  \
     --to-json
@@ -272,6 +275,8 @@ biom convert \
 
 
 
+log "Denoise demultiplexed sequences with DADA2"
+
 export DADA2_DIR="${QIIME2_DIR}dada2/"
 export DADA2_DENOISING_DIR="${DADA2_DIR}denoising/"
 export DADA2_REPRESENTATIVE_SEQUENCES="${DADA2_DENOISING_DIR}representative_sequences.qza"
@@ -281,12 +286,11 @@ export DADA2_DENOISING_STATS="${DADA2_DENOISING_DIR}denoising_statistics.qza"
 if [[ ! -s "${DADA2_REPRESENTATIVE_SEQUENCES}" ]]
     then
 
-    log "DADA2 denoising"
-
     md "${DADA2_REPRESENTATIVE_SEQUENCES}"
 
     # Q-score based filtering is built in to DADA2,
     # so doing this quality-filter step prior to denoising with DADA2 is unnecessary.
+    # It also will denoise the forward and reverse reads independently and then join (merge) them
     qiime dada2 denoise-paired \
         --p-trunc-len-f 225 \
         --p-trunc-len-r 225 \
@@ -336,13 +340,13 @@ if [[ ! -s "${DADA2_REPRESENTATIVE_SEQUENCES}" ]]
 
 
 
+log "Assign taxonomy as it would be Amplicon Sequence Variants, ASV"
+
 export DADA2_TAXONOMY_DIR="${DADA2_DIR}taxonomy/"
 export DADA2_CLASSIFIED_TAXONOMY="${DADA2_TAXONOMY_DIR}classified_taxonomy.qza"
 
 if [[ ! -s "${DADA2_CLASSIFIED_TAXONOMY}" ]]
     then
-
-    log "Assign taxonomy"
 
     md "${DADA2_CLASSIFIED_TAXONOMY}"
 
@@ -356,7 +360,7 @@ if [[ ! -s "${DADA2_CLASSIFIED_TAXONOMY}" ]]
         --verbose \
     |& tee "${LOG_DIR}feature-classifier classify-sklearn.log"
 
-    log "Create Amplicon Sequence Variant table"
+    log "Create ASV table"
 
     qiime metadata tabulate \
         --m-input-file "${DADA2_CLASSIFIED_TAXONOMY}" \
