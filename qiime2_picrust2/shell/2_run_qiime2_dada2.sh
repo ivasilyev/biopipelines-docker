@@ -33,6 +33,7 @@ export TAXA_REFERENCE_HEADER="$(realpath "${TAXA_REFERENCE_HEADER}")"
 log "Run QIIME2 in ${QIIME2_DIR}"
 
 export LOG_DIR="${QIIME2_DIR}logs/"
+export TOOL_DIR="${QIIME2_DIR}dada2/"
 export CONSENSUS_THRESHOLD=97
 export GROUPING_COLUMN_NAME="SubjectID"
 export PREV_CONTROL_COLUMN="Subgroup"
@@ -82,16 +83,15 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
 
 log "Denoise demultiplexed sequences with DADA2"
 
-export DADA2_DIR="${QIIME2_DIR}dada2/"
-export DADA2_DENOISING_DIR="${DADA2_DIR}denoising/"
-export DADA2_REPRESENTATIVE_SEQUENCES="${DADA2_DENOISING_DIR}representative_sequences.qza"
-export DADA2_FREQUENCY_TABLE="${DADA2_DENOISING_DIR}frequency_table.qza"
-export DADA2_DENOISING_STATS="${DADA2_DENOISING_DIR}denoising_statistics.qza"
+export DENOISING_DIR="${TOOL_DIR}denoising/"
+export REPRESENTATIVE_SEQUENCES="${DENOISING_DIR}representative_sequences.qza"
+export FREQUENCY_TABLE="${DENOISING_DIR}frequency_table.qza"
+export DENOISING_STATS="${DENOISING_DIR}denoising_statistics.qza"
 
-if [[ ! -s "${DADA2_REPRESENTATIVE_SEQUENCES}" ]]
+if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
     then
 
-    md "${DADA2_REPRESENTATIVE_SEQUENCES}"
+    md "${REPRESENTATIVE_SEQUENCES}"
 
     # Q-score based filtering is built in to DADA2,
     # so doing this quality-filter step prior to denoising with DADA2 is unnecessary.
@@ -102,9 +102,9 @@ if [[ ! -s "${DADA2_REPRESENTATIVE_SEQUENCES}" ]]
         --p-n-reads-learn 30000 \
         --p-n-threads "${NPROC}" \
         --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
-        --o-representative-sequences "${DADA2_REPRESENTATIVE_SEQUENCES}" \
-        --o-table "${DADA2_FREQUENCY_TABLE}" \
-        --o-denoising-stats "${DADA2_DENOISING_STATS}" \
+        --o-representative-sequences "${REPRESENTATIVE_SEQUENCES}" \
+        --o-table "${FREQUENCY_TABLE}" \
+        --o-denoising-stats "${DENOISING_STATS}" \
         --verbose \
     |& tee "${LOG_DIR}dada2 denoise-paired.log"
 
@@ -114,20 +114,20 @@ if [[ ! -s "${DADA2_REPRESENTATIVE_SEQUENCES}" ]]
 
 
 
-export DADA2_DECONTAMINATED_DIR="${DADA2_DIR}decontam/"
-export DADA2_DECONTAMINATED_SCORES="${DADA2_DECONTAMINATED_DIR}decontam_scores_by_prevalence.qza"
+export DECONTAMINATION_DIR="${TOOL_DIR}decontam/"
+export DECONTAMINATION_SCORES="${DECONTAMINATION_DIR}decontam_scores_by_prevalence.qza"
 
-if [[ ! -s "${DADA2_DECONTAMINATED_SCORES}" ]]
+if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     then
 
     log "Trying to decontaminate frequency table"
 
-    md "${DADA2_DECONTAMINATED_SCORES}"
+    md "${DECONTAMINATION_SCORES}"
 
     qiime quality-control decontam-identify \
-        --i-table "${DADA2_FREQUENCY_TABLE}" \
+        --i-table "${FREQUENCY_TABLE}" \
         --m-metadata-file "${METADATA_TSV}" \
-        --o-decontam-scores "${DADA2_DECONTAMINATED_SCORES}" \
+        --o-decontam-scores "${DECONTAMINATION_SCORES}" \
         --p-method prevalence \
         --p-prev-control-column "${PREV_CONTROL_COLUMN}" \
         --p-prev-control-indicator "${PREV_CONTROL_INDICATOR}" \
@@ -136,15 +136,15 @@ if [[ ! -s "${DADA2_DECONTAMINATED_SCORES}" ]]
 
     # Output: 'stats.tsv'
     qiime tools export \
-        --input-path "${DADA2_DECONTAMINATED_SCORES}" \
+        --input-path "${DECONTAMINATION_SCORES}" \
         --output-format DecontamScoreDirFmt \
-        --output-path "${DADA2_DECONTAMINATED_DIR}" \
+        --output-path "${DECONTAMINATION_DIR}" \
     |& tee "${LOG_DIR}tools export decontam.log"
 
     qiime quality-control decontam-score-viz \
-        --i-decontam-scores "${DADA2_DECONTAMINATED_SCORES}" \
-        --i-table "${DADA2_FREQUENCY_TABLE}" \
-        --o-visualization "${DADA2_DECONTAMINATED_DIR}decontam_scores_by_prevalence.qzv" \
+        --i-decontam-scores "${DECONTAMINATION_SCORES}" \
+        --i-table "${FREQUENCY_TABLE}" \
+        --o-visualization "${DECONTAMINATION_DIR}decontam_scores_by_prevalence.qzv" \
         --verbose \
     |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
@@ -154,15 +154,15 @@ if [[ ! -s "${DADA2_DECONTAMINATED_SCORES}" ]]
 
 
 
-export DADA2_DECONTAMINATED_TABLE="${DADA2_DECONTAMINATED_DIR}decontam_filtered_frequencies.qza"
+export DECONTAMINATION_TABLE="${DECONTAMINATION_DIR}decontam_filtered_frequencies.qza"
 
-if [[ ! -s "${DADA2_DECONTAMINATED_TABLE}" ]]
+if [[ ! -s "${DECONTAMINATION_TABLE}" ]]
     then
 
     qiime quality-control decontam-remove \
-        --i-decontam-scores "${DADA2_DECONTAMINATED_SCORES}" \
-        --i-table "${DADA2_FREQUENCY_TABLE}" \
-        --o-filtered-table "${DADA2_DECONTAMINATED_TABLE}" \
+        --i-decontam-scores "${DECONTAMINATION_SCORES}" \
+        --i-table "${FREQUENCY_TABLE}" \
+        --o-filtered-table "${DECONTAMINATION_TABLE}" \
         --verbose \
     |& tee "${LOG_DIR}quality-control decontam-remove.log"
 
@@ -172,12 +172,12 @@ if [[ ! -s "${DADA2_DECONTAMINATED_TABLE}" ]]
 
 
 
-if [[ -s "${DADA2_DECONTAMINATED_TABLE}" ]]
+if [[ -s "${DECONTAMINATION_TABLE}" ]]
     then
-        echo "The decontamination was successful, use the output file: '${DADA2_DECONTAMINATED_TABLE}'"
-        export DADA2_FREQUENCY_TABLE="${DADA2_DECONTAMINATED_TABLE}"
+        echo "The decontamination was successful, use the output file: '${DECONTAMINATION_TABLE}'"
+        export FREQUENCY_TABLE="${DECONTAMINATION_TABLE}"
     else
-        echo "The decontamination was unsuccessful, keep use the input file: '${DADA2_FREQUENCY_TABLE}'"
+        echo "The decontamination was unsuccessful, keep use the input file: '${FREQUENCY_TABLE}'"
     fi
 
 
@@ -185,8 +185,8 @@ if [[ -s "${DADA2_DECONTAMINATED_TABLE}" ]]
 log "Generate a tabular view of DADA2 denoising metadata"
 
 qiime metadata tabulate \
-    --m-input-file "${DADA2_DENOISING_STATS}" \
-    --o-visualization "${DADA2_DENOISING_DIR}denoising_statistics.qza" \
+    --m-input-file "${DENOISING_STATS}" \
+    --o-visualization "${DENOISING_DIR}denoising_statistics.qza" \
     --verbose \
 |& tee "${LOG_DIR}metadata tabulate dada2_denoising_statistics.log"
 
@@ -195,8 +195,8 @@ qiime metadata tabulate \
 log "Summarize statistics"
 
 qiime feature-table summarize \
-    --i-table "${DADA2_FREQUENCY_TABLE}"\
-    --o-visualization "${DADA2_DENOISING_DIR}frequency_table.qzv" \
+    --i-table "${FREQUENCY_TABLE}"\
+    --o-visualization "${DENOISING_DIR}frequency_table.qzv" \
     --m-sample-metadata-file "${METADATA_TSV}" \
     --verbose \
 |& tee "${LOG_DIR}feature-table summarize.log"
@@ -206,8 +206,8 @@ qiime feature-table summarize \
 log "Generate tabular view of feature identifier to sequence mapping"
 
 qiime feature-table tabulate-seqs \
-    --i-data "${DADA2_REPRESENTATIVE_SEQUENCES}" \
-    --o-visualization "${DADA2_DENOISING_DIR}representative_sequences.qzv" \
+    --i-data "${REPRESENTATIVE_SEQUENCES}" \
+    --o-visualization "${DENOISING_DIR}representative_sequences.qzv" \
     --verbose \
 |& tee "${LOG_DIR}tabulate-seqs.log"
 
@@ -215,29 +215,29 @@ qiime feature-table tabulate-seqs \
 
 log "Assign taxonomy as Amplicon Sequence Variants, ASV"
 
-export DADA2_TAXONOMY_DIR="${DADA2_DIR}taxonomy/"
-export DADA2_CLASSIFIED_TAXONOMY="${DADA2_TAXONOMY_DIR}classified_taxonomy.qza"
+export TAXONOMY_DIR="${TOOL_DIR}taxonomy/"
+export CLASSIFIED_TAXONOMY="${TAXONOMY_DIR}classified_taxonomy.qza"
 
-if [[ ! -s "${DADA2_CLASSIFIED_TAXONOMY}" ]]
+if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
     then
 
-    md "${DADA2_CLASSIFIED_TAXONOMY}"
+    md "${CLASSIFIED_TAXONOMY}"
 
     # --p-n-jobs, The maximum number of concurrently worker processes. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n-jobs below -1, (n_cpus + 1 + n-jobs) are used. Thus for n-jobs = -2, all CPUs but one are used.
     qiime feature-classifier classify-sklearn \
         --p-n-jobs "-1" \
         --p-reads-per-batch 10000 \
         --i-classifier "${TAXA_REFERENCE_CLASSIFIER}" \
-        --i-reads "${DADA2_REPRESENTATIVE_SEQUENCES}" \
-        --o-classification "${DADA2_CLASSIFIED_TAXONOMY}" \
+        --i-reads "${REPRESENTATIVE_SEQUENCES}" \
+        --o-classification "${CLASSIFIED_TAXONOMY}" \
         --verbose \
     |& tee "${LOG_DIR}feature-classifier classify-sklearn.log"
 
     log "Create ASV table"
 
     qiime metadata tabulate \
-        --m-input-file "${DADA2_CLASSIFIED_TAXONOMY}" \
-        --o-visualization "${DADA2_TAXONOMY_DIR}classified_taxonomy.qzv" \
+        --m-input-file "${CLASSIFIED_TAXONOMY}" \
+        --o-visualization "${TAXONOMY_DIR}classified_taxonomy.qzv" \
         --verbose \
     |& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
 
@@ -245,9 +245,9 @@ if [[ ! -s "${DADA2_CLASSIFIED_TAXONOMY}" ]]
 
     qiime taxa barplot \
         --m-metadata-file "${METADATA_TSV}" \
-        --i-table "${DADA2_FREQUENCY_TABLE}" \
-        --i-taxonomy "${DADA2_CLASSIFIED_TAXONOMY}" \
-        --o-visualization "${DADA2_TAXONOMY_DIR}taxonomy_barplots.qzv" \
+        --i-table "${FREQUENCY_TABLE}" \
+        --i-taxonomy "${CLASSIFIED_TAXONOMY}" \
+        --o-visualization "${TAXONOMY_DIR}taxonomy_barplots.qzv" \
         --verbose \
     |& tee "${LOG_DIR}taxa barplot.log"
 
@@ -268,7 +268,7 @@ if [[ ! -s "${ALIGNMENTS_RAW}" ]]
 
     qiime alignment mafft \
         --p-n-threads "${NPROC}" \
-        --i-sequences "${DADA2_REPRESENTATIVE_SEQUENCES}" \
+        --i-sequences "${REPRESENTATIVE_SEQUENCES}" \
         --o-alignment "${ALIGNMENTS_RAW}" \
         --verbose \
     |& tee "${LOG_DIR}alignment mafft.log"
@@ -354,7 +354,7 @@ rm -rf "${CORE_METRICS_DIR}"
 
 qiime diversity core-metrics-phylogenetic \
     --i-phylogeny "${ROOTED_TREE}" \
-    --i-table "${DADA2_FREQUENCY_TABLE}" \
+    --i-table "${FREQUENCY_TABLE}" \
     --m-metadata-file "${METADATA_TSV}" \
     --output-dir "${CORE_METRICS_DIR}" \
     --p-n-jobs-or-threads "${NPROC}" \
@@ -403,7 +403,7 @@ if [[ ! -s "${DENOISED_SAMPLES}" ]]
 
     qiime diversity alpha-rarefaction \
         --m-metadata-file "${METADATA_TSV}" \
-        --i-table "${DADA2_FREQUENCY_TABLE}" \
+        --i-table "${FREQUENCY_TABLE}" \
         --i-phylogeny "${ROOTED_TREE}" \
         --o-visualization "${ALPHA_RAREFACTION}" \
         --p-max-depth ${DENOISED_SAMPLES} \
