@@ -60,8 +60,8 @@ export SAMPLEDATA_CSV="${SAMPLEDATA_DIR}qiime2_sample_data.csv"
 export METADATA_TSV="${SAMPLEDATA_DIR}qiime2_meta_data.tsv"
 
 export QIIME2_DIR="${ROOT_DIR}qiime2/"
-export QIME2_FEATURES_BIOM="${QIIME2_DIR}bioms/feature-table.biom"
-export QIME2_FEATURES_FASTA="${QIIME2_DIR}closed_references/dna-sequences.fasta"
+export QIIME2_FEATURES_BIOM="${QIIME2_DIR}feature-table.biom"
+export QIIME2_FEATURES_FASTA="${QIIME2_DIR}dna-sequences.fasta"
 export QIIME2_SCRIPT="${QIIME2_DIR}qiime2.sh"
 
 export REFERENCE_NAME="SILVA"
@@ -140,6 +140,8 @@ force_docker_pull "${IMG}"
 
 docker run \
     --env QIIME2_DIR="${QIIME2_DIR}" \
+    --env QIIME2_FEATURES_BIOM="${QIIME2_FEATURES_BIOM}" \
+    --env QIIME2_FEATURES_FASTA="${QIIME2_FEATURES_FASTA}" \
     --env SAMPLEDATA_CSV="${SAMPLEDATA_CSV}" \
     --env METADATA_TSV="${METADATA_TSV}" \
     --env TAXA_REFERENCE_FEATURES="${TAXA_REFERENCE_FEATURES}" \
@@ -186,8 +188,8 @@ force_docker_pull "${IMG}"
 
 docker run \
     --cpus "$(nproc)" \
-    --env QIME2_FEATURES_BIOM="${QIME2_FEATURES_BIOM}" \
-    --env QIME2_FEATURES_FASTA="${QIME2_FEATURES_FASTA}" \
+    --env QIIME2_FEATURES_BIOM="${QIIME2_FEATURES_BIOM}" \
+    --env QIIME2_FEATURES_FASTA="${QIIME2_FEATURES_FASTA}" \
     --env PICRUST2_DIR="${PICRUST2_DIR}" \
     --memory "${TOTAL_RAM}g" \
     --memory-swappiness 100 \
