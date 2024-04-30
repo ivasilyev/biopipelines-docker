@@ -21,6 +21,9 @@ function md {
 
 # Required variables begin
 export QIIME2_DIR="$(realpath "${QIIME2_DIR}")/"
+export QIIME2_FEATURES_BIOM="$(realpath "${QIIME2_FEATURES_BIOM}")"
+export QIIME2_FEATURES_FASTA="$(realpath "${QIIME2_FEATURES_FASTA}")"
+
 export SAMPLEDATA_CSV="$(realpath "${SAMPLEDATA_CSV}")"
 export METADATA_TSV="$(realpath "${METADATA_TSV}")"
 
@@ -115,6 +118,32 @@ if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
 
 
 
+log "Generate tabular view of feature identifier to sequence mapping"
+
+qiime feature-table tabulate-seqs \
+    --i-data "${REPRESENTATIVE_SEQUENCES}" \
+    --o-visualization "${DENOISING_DIR}representative_sequences.qzv" \
+    --verbose \
+|& tee "${LOG_DIR}tabulate-seqs.log"
+
+
+
+log "Export the denoised sequences"
+
+# Output: 'dna-sequences.fasta'
+qiime tools export \
+    --input-path "${REPRESENTATIVE_SEQUENCES}" \
+    --output-format DNASequencesDirectoryFormat \
+    --output-path "${DENOISING_DIR}" \
+    |& tee "${LOG_DIR}tools export fasta.log"
+
+mv \
+    --verbose \
+    "${DENOISING_DIR}dna-sequences.fasta" \
+    "${QIIME2_FEATURES_FASTA}"
+
+
+
 export DECONTAMINATION_DIR="${TOOL_DIR}decontam/"
 export DECONTAMINATION_SCORES="${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qza"
 
@@ -143,6 +172,7 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     |& tee "${LOG_DIR}tools export decontam.log"
 
     mv \
+        --verbose \
         "${DECONTAMINATION_DIR}stats.tsv" \
         "${DECONTAMINATION_DIR}decontamination_stats.tsv"
 
@@ -237,16 +267,6 @@ export MAX_FPS="$(tail -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
 
 
 
-log "Generate tabular view of feature identifier to sequence mapping"
-
-qiime feature-table tabulate-seqs \
-    --i-data "${REPRESENTATIVE_SEQUENCES}" \
-    --o-visualization "${DENOISING_DIR}representative_sequences.qzv" \
-    --verbose \
-|& tee "${LOG_DIR}tabulate-seqs.log"
-
-
-
 export BIOM_DIR="${TOOL_DIR}bioms/"
 export BIOM_RAW="${BIOM_DIR}feature-table.biom"
 
@@ -261,6 +281,11 @@ if [[ ! -s "${BIOM_RAW}" ]]
         --output-format BIOMV210DirFmt \
         --output-path "${BIOM_DIR}" \
     |& tee "${LOG_DIR}tools export feature-table.biom.log"
+
+    mv \
+        --verbose \
+        "${BIOM_RAW}" \
+        "${QIIME2_FEATURES_BIOM}"
 
     else
         echo "Skip"
@@ -432,7 +457,7 @@ find . \
 
             ALPHA_METRIC_DIR_NAME="${FILE%.*}/";
 
-            BASE_NAME="${basename "${ALPHA_METRIC_DIR_NAME}"}";
+            BASE_NAME="$(basename "${ALPHA_METRIC_DIR_NAME}")";
 
             mkdir -p "${ALPHA_METRIC_DIR_NAME}";
 
@@ -456,6 +481,7 @@ find . \
                 --output-path "${ALPHA_METRIC_DIR_NAME}";
 
             mv \
+                --verbose \
                 "${ALPHA_METRIC_DIR_NAME}alpha-diversity.tsv" \
                 "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}.tsv";
         '
