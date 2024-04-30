@@ -160,6 +160,7 @@ qiime vsearch cluster-features-de-novo \
 
 
 
+log "Normalize de novo clustered features"
 
 export DEBLUR_NORMALIZED_TABLE="${DEBLUR_CLUSTERED_DIR}de-novo-clustered-table_normalized.qza"
 
@@ -169,6 +170,8 @@ qiime feature-table relative-frequency \
     --verbose
 
 
+
+log "Classify taxonomy as it would be OTUs"
 
 export DEBLUR_TAXONOMY_DIR="${DEBLUR_DIR}taxonomy/"
 export DEBLUR_CLASSIFIED_TAXONOMY="${DEBLUR_TAXONOMY_DIR}classified_taxonomy.qza"
@@ -185,6 +188,8 @@ qiime feature-classifier classify-sklearn \
 
 
 
+log "Extract OTU-ASV mapper"
+
 export DEBLUR_BIOM_DIR="${DEBLUR_DIR}bioms/"
 export DEBLUR_TAXA_TSV="${DEBLUR_BIOM_DIR}taxonomy.tsv"
 
@@ -195,6 +200,10 @@ qiime tools export \
     --input-path "${DEBLUR_CLASSIFIED_TAXONOMY}" \
     --output-path "${DEBLUR_BIOM_DIR}"
 
+
+
+log "Fix OTU-ASV mapper header"
+
 export DEBLUR_OTU_ASV_MAPPER="${DEBLUR_BIOM_DIR}OTU_ASV_mapper.tsv"
 
 sed \
@@ -203,6 +212,8 @@ sed \
     > "${DEBLUR_OTU_ASV_MAPPER}"
 
 
+
+log "Extract calculated OTUs"
 
 export DEBLUR_FEATURE_BIOM="${DEBLUR_BIOM_DIR}feature-table.biom"
 
@@ -214,6 +225,8 @@ qiime tools export \
 
 
 
+log "Convert raw OTUs into TSV"
+
 export OTU_RAW_TABLE="${DEBLUR_BIOM_DIR}OTUs_raw.tsv"
 
 biom convert \
@@ -222,6 +235,9 @@ biom convert \
     --output-fp "${OTU_RAW_TABLE}" \
     --header-key "${TAXA_COLUMN_NAME}"
 
+
+
+log "Annotate calculated OTUs"
 
 export DEBLUR_TAXA_BIOM="${DEBLUR_BIOM_DIR}OTUs_with_taxa.biom"
 
@@ -235,12 +251,16 @@ biom add-metadata \
 
 
 
+log "Convert annotated OTUs into JSON"
+
 biom convert\
     --input-fp "${DEBLUR_TAXA_BIOM}" \
     --output-fp "${DEBLUR_BIOM_DIR}OTUs_with_taxa.json"  \
     --to-json
 
 
+
+log "Convert annotated OTUs into TSV"
 
 # BIOM format can support only a single observation metadata entry
 # This means, the `confidence` column still must be included manually
