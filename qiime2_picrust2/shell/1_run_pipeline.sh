@@ -280,7 +280,7 @@ docker run \
             git pull --quiet && \
             python3 ./meta/scripts/concatenate_tables.py \
                 --axis 1 \
-                --index "#ASV ID" \
+                --index "#OTU ID" \
                 --input \
                     "${TAXA_REFERENCE_HEADER}" \
                     "${ASV_TABLE}" \
