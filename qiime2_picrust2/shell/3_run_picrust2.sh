@@ -13,8 +13,8 @@ function log {
 
 # Required variables start
 export PICRUST2_DIR="$(realpath "${PICRUST2_DIR}")/"
-export QIME2_FEATURES_BIOM="$(realpath "${QIME2_FEATURES_BIOM}")"
-export QIME2_FEATURES_FASTA="$(realpath "${QIME2_FEATURES_FASTA}")"
+export QIIME2_FEATURES_BIOM="$(realpath "${QIIME2_FEATURES_BIOM}")"
+export QIIME2_FEATURES_FASTA="$(realpath "${QIIME2_FEATURES_FASTA}")"
 # Required variables end
 
 log "Run PATHWAYS in '${PICRUST2_DIR}'"
@@ -40,9 +40,9 @@ export PATHWAYS="${PIPELINE_DIR}pathways_out/path_abun_unstrat.tsv.gz"
 picrust2_pipeline.py \
     --coverage \
     --hsp_method mp \
-    --input "${QIME2_FEATURES_BIOM}" \
+    --input "${QIIME2_FEATURES_BIOM}" \
     --processes "${NPROC}" \
-    --study_fasta "${QIME2_FEATURES_FASTA}" \
+    --study_fasta "${QIIME2_FEATURES_FASTA}" \
     --output "${PIPELINE_DIR}" \
     --stratified \
     --verbose \
@@ -62,7 +62,7 @@ pathway_pipeline.py \
 
 
 
-log Convert tables
+log "Convert tables"
 
 mkdir -p "${TABLES_DIR}EC_metagenome_out/"
 
