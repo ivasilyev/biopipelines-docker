@@ -187,7 +187,7 @@ log "Generate a tabular view of DADA2 denoising metadata"
 
 qiime metadata tabulate \
     --m-input-file "${DENOISING_STATS}" \
-    --o-visualization "${DENOISING_DIR}denoising_statistics.qza" \
+    --o-visualization "${DENOISING_DIR}denoising_statistics.qzv" \
     --verbose \
 |& tee "${LOG_DIR}metadata tabulate dada2_denoising_statistics.log"
 
@@ -195,12 +195,39 @@ qiime metadata tabulate \
 
 log "Summarize statistics"
 
+export SUMMARY_STATISTICS_QZV="${DENOISING_DIR}frequency_table.qzv"
+
 qiime feature-table summarize \
     --i-table "${FREQUENCY_TABLE}"\
-    --o-visualization "${DENOISING_DIR}frequency_table.qzv" \
+    --o-visualization "${SUMMARY_STATISTICS_QZV}" \
     --m-sample-metadata-file "${METADATA_TSV}" \
     --verbose \
 |& tee "${LOG_DIR}feature-table summarize.log"
+
+
+log "Export frequencies per sample"
+
+export SAMPLE_FREQUENCY_DETAILS_DIR="${TOOL_DIR}sample_frequency_details/"
+export SAMPLE_FREQUENCY_DETAILS_CSV="${SAMPLE_FREQUENCY_DETAILS_DIR}sample-frequency-detail.csv"
+
+# Output: directory with the file 'sample-frequency-detail.csv'
+qiime tools export \
+    --input-path "${SUMMARY_STATISTICS_QZV}" \
+    --output-path "${TOOL_DIR}"
+
+export SAMPLE_FREQUENCY_VALUES="${SAMPLE_FREQUENCY_DETAILS_DIR}values.txt"
+
+awk \
+    -F \
+    "," \
+    '{print $NF}' \
+    "${SAMPLE_FREQUENCY_DETAILS_CSV}" \
+| sort --general-numeric-sort \
+> "${SAMPLE_FREQUENCY_VALUES}"
+
+# Frequencies per sample
+export MIN_FPS="$(head -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
+export MAX_FPS="$(tail -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
 
 
 
@@ -260,7 +287,7 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
 
 log "Perform de novo multiple sequence alignment"
 
-export ALIGNMENTS_RAW="${QIIME2_DIR}alignments/aligned_sequences.qza"
+export ALIGNMENTS_RAW="${TOOL_DIR}alignments/aligned_sequences.qza"
 
 md "${ALIGNMENTS_RAW}"
 
@@ -282,11 +309,9 @@ if [[ ! -s "${ALIGNMENTS_RAW}" ]]
 
 log "Filter the unconserved and highly variable and gapped columns to avoid overestimate distances"
 
-export ALIGNMENTS_MASKED="${QIIME2_DIR}masked_alignments/masked_aligned_sequences.qza"
+export ALIGNMENTS_MASKED="${TOOL_DIR}masked_alignments/masked_aligned_sequences.qza"
 
 md "${ALIGNMENTS_MASKED}"
-
-mkdir -p "${QIIME2_DIR}masked_alignments/"
 
 if [[ ! -s "${ALIGNMENTS_MASKED}" ]]
     then
@@ -305,7 +330,7 @@ if [[ ! -s "${ALIGNMENTS_MASKED}" ]]
 
 log "Build a phylogenetic ML tree"
 
-export UNROOTED_TREE="${QIIME2_DIR}unrooted_trees/unrooted_tree.qza"
+export UNROOTED_TREE="${TOOL_DIR}unrooted_trees/unrooted_tree.qza"
 
 md "${UNROOTED_TREE}"
 
@@ -327,7 +352,7 @@ if [[ ! -s "${UNROOTED_TREE}" ]]
 
 log "Root the unrooted tree based on the midpoint rooting method"
 
-export ROOTED_TREE="${QIIME2_DIR}rooted_trees/rooted_tree.qza"
+export ROOTED_TREE="${TOOL_DIR}rooted_trees/rooted_tree.qza"
 
 md "${ROOTED_TREE}"
 
@@ -348,7 +373,7 @@ if [[ ! -s "${ROOTED_TREE}" ]]
 
 log "Analyze the core diversity using the phylogenetic pipeline"
 
-export CORE_METRICS_DIR="${QIIME2_DIR}phylogenetic_core_metrics/"
+export CORE_METRICS_DIR="${TOOL_DIR}phylogenetic_core_metrics/"
 
 # '--output-dir' must not exist!
 rm -rf "${CORE_METRICS_DIR}"
@@ -396,7 +421,6 @@ qiime diversity alpha-group-significance \
     |& tee "${LOG_DIR}diversity alpha-group-significance evenness_vector.log"
 
 # The first 2 lines are '# Constructed from biom file' and header
-export DENOISED_SAMPLES=$(( $(wc -l "${FEATURE_TABLE}" | awk '{ print $1 }') / 2 ))
 export ALPHA_RAREFACTION="${CORE_METRICS_DIR}alpha_rarefaction.qzv"
 
 if [[ ! -s "${DENOISED_SAMPLES}" ]]
@@ -407,7 +431,7 @@ if [[ ! -s "${DENOISED_SAMPLES}" ]]
         --i-table "${FREQUENCY_TABLE}" \
         --i-phylogeny "${ROOTED_TREE}" \
         --o-visualization "${ALPHA_RAREFACTION}" \
-        --p-max-depth ${DENOISED_SAMPLES} \
+        --p-max-depth "${MAX_FPS}" \
         --verbose \
     |& tee "${LOG_DIR}diversity alpha-rarefaction.log"
 
