@@ -80,201 +80,6 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
 
 
 
-log "Merge demultiplexed paired-end reads"
-
-export MERGED_READS="${QIIME2_DIR}merged_reads/merged_PE_reads.qza"
-
-md "${MERGED_READS}"
-
-# Threads number must be within [0, 8].
-# As of Qiime2 2022.11, this action is called 'merge-pairs',
-# but in older versions of Qiime2 this was called 'join-pairs'.
-qiime vsearch merge-pairs \
-    --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
-    --o-merged-sequences "${MERGED_READS}" \
-    --p-allowmergestagger \
-    --p-threads 8 \
-    --verbose
-
-
-
-log "Filter merged sequences based on Q scores"
-
-export QUALITY_FILTER_DIR="${QIIME2_DIR}quality_filter/"
-export QUALITY_FILTERED_SEQUENCES="${QUALITY_FILTER_DIR}q_scoring_sequences.qza"
-
-md "${QUALITY_FILTERED_SEQUENCES}"
-
-if [[ ! -s "${QUALITY_FILTERED_SEQUENCES}" ]]
-    then
-
-    md "${QUALITY_FILTERED_SEQUENCES}"
-
-    qiime quality-filter q-score \
-        --i-demux "${MERGED_READS}" \
-        --o-filtered-sequences "${QUALITY_FILTERED_SEQUENCES}" \
-        --o-filter-stats "${QUALITY_FILTER_DIR}q_scoring_statistics.qza" \
-        --verbose \
-    |& tee "${LOG_DIR}quality-filter q-score.log"
-
-    else
-        echo "Skip"
-    fi
-
-
-
-log "Denoising quality-filtered sequences with Deblur"
-
-export DEBLUR_DIR="${QIIME2_DIR}deblur/"
-export DEBLUR_DENOISING_DIR="${DEBLUR_DIR}denoising/"
-export DEBLUR_DENOISING_STATS="${DEBLUR_DENOISING_DIR}denoising_statistics.qza"
-export DEBLUR_FREQUENCY_TABLE="${DEBLUR_DENOISING_DIR}frequency_table.qza"
-export DEBLUR_REPRESENTATIVE_SEQUENCES="${DEBLUR_DENOISING_DIR}representative_sequences.qza"
-
-md "${DEBLUR_REPRESENTATIVE_SEQUENCES}"
-
-qiime deblur denoise-16S \
-    --i-demultiplexed-seqs "${QUALITY_FILTERED_SEQUENCES}" \
-    --o-representative-sequences "${DEBLUR_REPRESENTATIVE_SEQUENCES}"  \
-    --o-stats "${DEBLUR_DENOISING_STATS}"\
-    --o-table "${DEBLUR_FREQUENCY_TABLE}" \
-    --p-jobs-to-start ${NPROC} \
-    --p-sample-stats \
-    --p-trim-length 250 \
-    --verbose
-
-
-
-log "Cluster features de novo from denoised sequences"
-
-export DEBLUR_CLUSTERED_DIR="${DEBLUR_DIR}cluster_features_de_novo/"
-export DEBLUR_CLUSTERED_SEQUENCES="${DEBLUR_CLUSTERED_DIR}de_novo_clustered_sequences.qza"
-export DEBLUR_CLUSTERED_TABLE="${DEBLUR_CLUSTERED_DIR}de_novo_clustered_table.qza"
-
-md "${DEBLUR_CLUSTERED_SEQUENCES}"
-
-qiime vsearch cluster-features-de-novo \
-    --i-sequences "${DEBLUR_REPRESENTATIVE_SEQUENCES}" \
-    --i-table "${DEBLUR_FREQUENCY_TABLE}" \
-    --o-clustered-sequences "${DEBLUR_CLUSTERED_SEQUENCES}" \
-    --o-clustered-table "${DEBLUR_CLUSTERED_TABLE}" \
-    --p-perc-identity 0.97 \
-    --verbose
-
-
-
-log "Normalize de novo clustered features"
-
-export DEBLUR_NORMALIZED_TABLE="${DEBLUR_CLUSTERED_DIR}de-novo-clustered-table_normalized.qza"
-
-qiime feature-table relative-frequency \
-    --i-table "${DEBLUR_CLUSTERED_TABLE}" \
-    --o-relative-frequency-table "${DEBLUR_NORMALIZED_TABLE}" \
-    --verbose
-
-
-
-log "Assign taxonomy as it would be Operational Taxonomic Units, OTU"
-
-export DEBLUR_TAXONOMY_DIR="${DEBLUR_DIR}taxonomy/"
-export DEBLUR_CLASSIFIED_TAXONOMY="${DEBLUR_TAXONOMY_DIR}classified_taxonomy.qza"
-
-md "${DEBLUR_CLASSIFIED_TAXONOMY}"
-
-qiime feature-classifier classify-sklearn \
-    --i-classifier "${TAXA_REFERENCE_CLASSIFIER}" \
-    --i-reads "${DEBLUR_REPRESENTATIVE_SEQUENCES}" \
-    --o-classification "${DEBLUR_TAXONOMY_DIR}" \
-    --p-n-jobs "-1" \
-    --p-reads-per-batch 10000 \
-    --verbose
-
-
-
-log "Extract OTU-ASV mapper"
-
-export DEBLUR_BIOM_DIR="${DEBLUR_DIR}bioms/"
-export DEBLUR_TAXA_TSV="${DEBLUR_BIOM_DIR}taxonomy.tsv"
-
-md "${DEBLUR_TAXA_TSV}"
-
-# Output file: 'taxonomy.tsv'
-qiime tools export \
-    --input-path "${DEBLUR_CLASSIFIED_TAXONOMY}" \
-    --output-path "${DEBLUR_BIOM_DIR}"
-
-
-
-log "Fix OTU-ASV mapper header"
-
-export DEBLUR_OTU_ASV_MAPPER="${DEBLUR_BIOM_DIR}OTU_ASV_mapper.tsv"
-
-sed \
-    's|Feature ID\tTaxon\tConfidence|#OTU ID\ttaxonomy\tconfidence|' \
-    "${DEBLUR_TAXA_TSV}" \
-    > "${DEBLUR_OTU_ASV_MAPPER}"
-
-
-
-log "Extract calculated OTUs"
-
-export DEBLUR_FEATURE_BIOM="${DEBLUR_BIOM_DIR}feature-table.biom"
-
-# Output file: 'feature-table.biom'
-qiime tools export \
-    --input-path "${DEBLUR_NORMALIZED_TABLE}" \
-    --output-format BIOMV210DirFmt \
-    --output-path "${DEBLUR_BIOM_DIR}"
-
-
-
-log "Convert raw OTUs into TSV"
-
-export OTU_RAW_TABLE="${DEBLUR_BIOM_DIR}OTUs_raw.tsv"
-
-biom convert \
-    --to-tsv \
-    --input-fp "${DEBLUR_FEATURE_BIOM}" \
-    --output-fp "${OTU_RAW_TABLE}" \
-    --header-key "${TAXA_COLUMN_NAME}"
-
-
-
-log "Annotate calculated OTUs"
-
-export DEBLUR_TAXA_BIOM="${DEBLUR_BIOM_DIR}OTUs_with_taxa.biom"
-
-biom add-metadata \
-    --float-fields "confidence" \
-    --input-fp "${DEBLUR_FEATURE_BIOM}" \
-    --observation-metadata-fp "${DEBLUR_OTU_ASV_MAPPER}" \
-    --sample-metadata-fp "${METADATA_TSV}" \
-    --sc-separated "${TAXA_COLUMN_NAME}" \
-    --output-fp "${DEBLUR_TAXA_BIOM}"
-
-
-
-log "Convert annotated OTUs into JSON"
-
-biom convert \
-    --input-fp "${DEBLUR_TAXA_BIOM}" \
-    --output-fp "${DEBLUR_BIOM_DIR}OTUs_with_taxa.json"  \
-    --to-json
-
-
-
-log "Convert annotated OTUs into TSV"
-
-# BIOM format can support only a single observation metadata entry
-# This means, the `confidence` column still must be included manually
-biom convert \
-    --header-key "taxonomy" \
-    --input-fp "${DEBLUR_TAXA_BIOM}" \
-    --output-fp "${DEBLUR_BIOM_DIR}OTUs_with_taxa.tsv" \
-    --to-tsv
-
-
-
 log "Denoise demultiplexed sequences with DADA2"
 
 export DADA2_DIR="${QIIME2_DIR}dada2/"
@@ -303,36 +108,45 @@ if [[ ! -s "${DADA2_REPRESENTATIVE_SEQUENCES}" ]]
         --verbose \
     |& tee "${LOG_DIR}dada2 denoise-paired.log"
 
-    qiime metadata tabulate \
-        --m-input-file "${DADA2_DENOISING_STATS}" \
-        --o-visualization "${DADA2_DENOISING_DIR}denoising_statistics.qza" \
+    else
+        echo "Skip"
+    fi
+
+
+
+export DADA2_DECONTAMINATED_DIR="${DADA2_DIR}decontam/"
+export DADA2_DECONTAMINATED_SCORES="${DADA2_DECONTAMINATED_DIR}decontam_scores_by_prevalence.qza"
+
+if [[ ! -s "${DADA2_DECONTAMINATED_SCORES}" ]]
+    then
+
+    log "Trying to decontaminate frequency table"
+
+    md "${DADA2_DECONTAMINATED_SCORES}"
+
+    qiime quality-control decontam-identify \
+        --i-table "${DADA2_FREQUENCY_TABLE}" \
+        --m-metadata-file "${METADATA_TSV}" \
+        --o-decontam-scores "${DADA2_DECONTAMINATED_SCORES}" \
+        --p-method prevalence \
+        --p-prev-control-column "${PREV_CONTROL_COLUMN}" \
+        --p-prev-control-indicator "${PREV_CONTROL_INDICATOR}" \
         --verbose \
-    |& tee "${LOG_DIR}metadata tabulate dada2_denoising_statistics.log"
+    |& tee "${LOG_DIR}quality-control decontam-identify.log"
 
-    log "Import metadata"
+    # Output: 'stats.tsv'
+    qiime tools export \
+        --input-path "${DADA2_DECONTAMINATED_SCORES}" \
+        --output-format DecontamScoreDirFmt \
+        --output-path "${DADA2_DECONTAMINATED_DIR}" \
+    |& tee "${LOG_DIR}tools export decontam.log"
 
-    export METADATA_QZV="${DADA2_DENOISING_DIR}tabulated_sample_metadata.qzv"
-
-    qiime metadata tabulate \
-        --m-input-file "${METADATA_TSV}" \
-        --o-visualization "${METADATA_QZV}" \
+    qiime quality-control decontam-score-viz \
+        --i-decontam-scores "${DADA2_DECONTAMINATED_SCORES}" \
+        --i-table "${DADA2_FREQUENCY_TABLE}" \
+        --o-visualization "${DADA2_DECONTAMINATED_DIR}decontam_scores_by_prevalence.qzv" \
         --verbose \
-    |& tee "${LOG_DIR}metadata tabulate metadata.log"
-
-    log "Summarize statistics"
-
-    qiime feature-table summarize \
-        --i-table "${DADA2_FREQUENCY_TABLE}"\
-        --o-visualization "${DADA2_DENOISING_DIR}frequency_table.qzv" \
-        --m-sample-metadata-file "${METADATA_TSV}" \
-        --verbose \
-    |& tee "${LOG_DIR}feature-table summarize.log"
-
-    qiime feature-table tabulate-seqs \
-        --i-data "${DADA2_REPRESENTATIVE_SEQUENCES}" \
-        --o-visualization "${DADA2_DENOISING_DIR}representative_sequences.qzv" \
-        --verbose \
-    |& tee "${LOG_DIR}tabulate-seqs.log"
+    |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
     else
         echo "Skip"
@@ -340,7 +154,66 @@ if [[ ! -s "${DADA2_REPRESENTATIVE_SEQUENCES}" ]]
 
 
 
-log "Assign taxonomy as it would be Amplicon Sequence Variants, ASV"
+export DADA2_DECONTAMINATED_TABLE="${DADA2_DECONTAMINATED_DIR}decontam_filtered_frequencies.qza"
+
+if [[ ! -s "${DADA2_DECONTAMINATED_TABLE}" ]]
+    then
+
+    qiime quality-control decontam-remove \
+        --i-decontam-scores "${DADA2_DECONTAMINATED_SCORES}" \
+        --i-table "${DADA2_FREQUENCY_TABLE}" \
+        --o-filtered-table "${DADA2_DECONTAMINATED_TABLE}" \
+        --verbose \
+    |& tee "${LOG_DIR}quality-control decontam-remove.log"
+
+    else
+        echo "Skip"
+    fi
+
+
+
+if [[ -s "${DADA2_DECONTAMINATED_TABLE}" ]]
+    then
+        echo "The decontamination was successful, use the output file: '${DADA2_DECONTAMINATED_TABLE}'"
+        export DADA2_FREQUENCY_TABLE="${DADA2_DECONTAMINATED_TABLE}"
+    else
+        echo "The decontamination was unsuccessful, keep use the input file: '${DADA2_FREQUENCY_TABLE}'"
+    fi
+
+
+
+log "Generate a tabular view of DADA2 denoising metadata"
+
+qiime metadata tabulate \
+    --m-input-file "${DADA2_DENOISING_STATS}" \
+    --o-visualization "${DADA2_DENOISING_DIR}denoising_statistics.qza" \
+    --verbose \
+|& tee "${LOG_DIR}metadata tabulate dada2_denoising_statistics.log"
+
+
+
+log "Summarize statistics"
+
+qiime feature-table summarize \
+    --i-table "${DADA2_FREQUENCY_TABLE}"\
+    --o-visualization "${DADA2_DENOISING_DIR}frequency_table.qzv" \
+    --m-sample-metadata-file "${METADATA_TSV}" \
+    --verbose \
+|& tee "${LOG_DIR}feature-table summarize.log"
+
+
+
+log "Generate tabular view of feature identifier to sequence mapping"
+
+qiime feature-table tabulate-seqs \
+    --i-data "${DADA2_REPRESENTATIVE_SEQUENCES}" \
+    --o-visualization "${DADA2_DENOISING_DIR}representative_sequences.qzv" \
+    --verbose \
+|& tee "${LOG_DIR}tabulate-seqs.log"
+
+
+
+log "Assign taxonomy as Amplicon Sequence Variants, ASV"
 
 export DADA2_TAXONOMY_DIR="${DADA2_DIR}taxonomy/"
 export DADA2_CLASSIFIED_TAXONOMY="${DADA2_TAXONOMY_DIR}classified_taxonomy.qza"
@@ -381,213 +254,6 @@ if [[ ! -s "${DADA2_CLASSIFIED_TAXONOMY}" ]]
     else
         echo "Skip"
     fi
-
-
-
-log "Dereplicate sequences"
-
-export DEREPLICATED_DIR="${DADA2_DIR}dereplicated/"
-export DEREPLICATED_SEQUENCES="${DEREPLICATED_DIR}dereplicated_sequences.qza"
-export DEREPLICATED_FREQUENCIES="${DEREPLICATED_DIR}dereplicated_frequency_table.qza"
-
-md "${DEREPLICATED_SEQUENCES}"
-
-if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
-    then
-
-    md "${DEREPLICATED_SEQUENCES}"
-
-    qiime vsearch dereplicate-sequences \
-        --i-sequences "${DADA2_REPRESENTATIVE_SEQUENCES}" \
-        --o-dereplicated-sequences "${DEREPLICATED_SEQUENCES}" \
-        --o-dereplicated-table "${DEREPLICATED_FREQUENCIES}" \
-        --verbose \
-    |& tee "${LOG_DIR}vsearch dereplicate-sequences.log"
-
-    else
-        echo "Skip"
-    fi
-
-
-
-export DADA2_CLUSTERED_DIR="${DADA2_DIR}cluster-features/"
-export DADA2_CLUSTERED_SEQUENCES="${DADA2_CLUSTERED_DIR}closed_reference_clustered_sequences.qza"
-export DADA2_CLUSTERED_TABLE="${DADA2_CLUSTERED_DIR}closed_reference_clustered_table.qza"
-
-
-if [[ ! -s "${DADA2_CLUSTERED_SEQUENCES}" ]]
-    then
-
-    log "Cluster closed references at ${CONSENSUS_THRESHOLD} percent"
-
-    md "${DADA2_CLUSTERED_SEQUENCES}"
-
-    qiime vsearch cluster-features-closed-reference \
-        --i-reference-sequences "${TAXA_REFERENCE_SEQUENCES}" \
-        --i-sequences "${DEREPLICATED_SEQUENCES}" \
-        --i-table "${DEREPLICATED_FREQUENCIES}" \
-        --o-clustered-sequences "${DADA2_CLUSTERED_SEQUENCES}" \
-        --o-clustered-table "${DADA2_CLUSTERED_TABLE}" \
-        --o-unmatched-sequences "${DADA2_CLUSTERED_DIR}closed_reference_unmatched_sequences.qza" \
-        --p-perc-identity 0.${CONSENSUS_THRESHOLD} \
-        --p-threads "${NPROC}" \
-        --verbose \
-    |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
-
-    else
-        echo "Skip"
-    fi
-
-
-
-export DADA2_DECONTAMINATED_DIR="${DADA2_DIR}decontam/"
-export DADA2_DECONTAMINATED_SCORES="${DADA2_DECONTAMINATED_DIR}decontam_scores_by_prevalence.qza"
-
-if [[ ! -s "${DADA2_DECONTAMINATED_SCORES}" ]]
-    then
-
-    log "Trying to decontaminate clustered sequences"
-
-    md "${DADA2_DECONTAMINATED_SCORES}"
-
-    qiime quality-control decontam-identify \
-        --i-table "${DADA2_CLUSTERED_TABLE}" \
-        --m-metadata-file "${METADATA_TSV}" \
-        --o-decontam-scores "${DADA2_DECONTAMINATED_SCORES}" \
-        --p-method prevalence \
-        --p-prev-control-column "${PREV_CONTROL_COLUMN}" \
-        --p-prev-control-indicator "${PREV_CONTROL_INDICATOR}" \
-        --verbose \
-    |& tee "${LOG_DIR}quality-control decontam-identify.log"
-
-    # Output: 'stats.tsv'
-    qiime tools export \
-        --input-path "${DADA2_DECONTAMINATED_SCORES}" \
-        --output-format DecontamScoreDirFmt \
-        --output-path "${DADA2_DECONTAMINATED_DIR}" \
-    |& tee "${LOG_DIR}tools export decontam.log"
-
-    qiime quality-control decontam-score-viz \
-        --i-decontam-scores "${DADA2_DECONTAMINATED_SCORES}" \
-        --i-table "${DADA2_CLUSTERED_TABLE}" \
-        --o-visualization "${DADA2_DECONTAMINATED_DIR}decontam_scores_by_prevalence.qzv" \
-        --verbose \
-    |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
-
-    else
-        echo "Skip"
-    fi
-
-
-
-export DADA2_DECONTAMINATED_TABLE="${DADA2_DECONTAMINATED_DIR}decontam_closed_reference_clustered_table.qza"
-
-if [[ ! -s "${DADA2_DECONTAMINATED_TABLE}" ]]
-    then
-
-    qiime quality-control decontam-remove \
-        --i-decontam-scores "${DADA2_DECONTAMINATED_SCORES}" \
-        --i-table "${DADA2_CLUSTERED_TABLE}" \
-        --o-filtered-table "${DADA2_DECONTAMINATED_TABLE}" \
-        --verbose \
-    |& tee "${LOG_DIR}quality-control decontam-remove.log"
-
-    else
-        echo "Skip"
-    fi
-
-if [[ -s "${DADA2_DECONTAMINATED_TABLE}" ]]
-    then
-        echo "The decontamination was successful, use the output file: '${DADA2_DECONTAMINATED_TABLE}'"
-        export DADA2_CLUSTERED_TABLE="${DADA2_DECONTAMINATED_TABLE}"
-    else
-        echo "The decontamination was unsuccessful, keep use the input file: '${DADA2_CLUSTERED_TABLE}'"
-    fi
-
-
-
-log "Export the aligned sequences"
-
-# Output: 'dna-sequences.fasta'
-qiime tools export \
-    --input-path "${DADA2_CLUSTERED_SEQUENCES}" \
-    --output-format DNASequencesDirectoryFormat \
-    --output-path "${DADA2_CLUSTERED_DIR}" \
-|& tee "${LOG_DIR}tools export fasta.log"
-
-
-
-log "Export an ASV table"
-
-export DADA2_BIOM_DIR="${DADA2_DIR}bioms/"
-export DADA2_BIOM_RAW="${DADA2_BIOM_DIR}feature-table.biom"
-
-md "${DADA2_BIOM_RAW}"
-
-if [[ ! -s "${DADA2_BIOM_RAW}" ]]
-    then
-
-    # Output: 'feature-table.biom'
-    qiime tools export \
-        --input-path "${DADA2_CLUSTERED_TABLE}" \
-        --output-format BIOMV210DirFmt \
-        --output-path "${DADA2_BIOM_DIR}" \
-    |& tee "${LOG_DIR}tools export feature-table.biom.log"
-
-    else
-        echo "Skip"
-    fi
-
-
-
-
-log "Annotate biom with taxonomy data"
-
-# The directory was already created
-export DADA2_BIOM_ANNOTATED="${DADA2_BIOM_DIR}ASVs_with_taxa.biom"
-
-if [[ ! -s "${DADA2_BIOM_ANNOTATED}" ]]
-    then
-
-    biom add-metadata \
-        --sc-separated "${TAXA_COLUMN_NAME}" \
-        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
-        --sample-metadata-fp "${METADATA_TSV}" \
-        --input-fp "${DADA2_BIOM_RAW}" \
-        --output-fp "${DADA2_BIOM_ANNOTATED}" \
-    |& tee "${LOG_DIR}biom add-metadata.log"
-
-    else
-        echo "Skip"
-    fi
-
-
-
-log "Convert biom to JSON"
-
-biom convert \
-    --to-json \
-    --input-fp "${DADA2_BIOM_ANNOTATED}" \
-    --output-fp "${DADA2_BIOM_DIR}ASVs_with_taxa.json" \
-    |& tee "${LOG_DIR}biom convert json.log"
-
-
-
-log "Convert biom to TSV"
-
-export DADA2_TSV_ANNOTATED="${DADA2_BIOM_DIR}ASVs_with_taxa.tsv"
-
-biom convert \
-    --to-tsv \
-    --input-fp "${DADA2_BIOM_ANNOTATED}" \
-    --output-fp "${DADA2_TSV_ANNOTATED}" \
-    --header-key "${TAXA_COLUMN_NAME}" \
-    |& tee "${LOG_DIR}biom convert taxa tsv.log"
-
-sed \
-    --in-place \
-    "s|^#OTU ID\t|#ASV ID\t|" \
-    "${DADA2_TSV_ANNOTATED}"
 
 
 
@@ -672,46 +338,6 @@ if [[ ! -s "${ROOTED_TREE}" ]]
         --o-rooted-tree "${ROOTED_TREE}" \
         --verbose \
     |& tee "${LOG_DIR}phylogeny midpoint-root.log"
-
-    else
-        echo "Skip"
-    fi
-
-
-
-
-log "Export frequency BIOM"
-
-export FEATURE_BIOM="${DADA2_DENOISING_DIR}feature-table.biom"
-
-md "${FEATURE_BIOM}"
-
-if [[ ! -s "${FEATURE_BIOM}" ]]
-    then
-
-    # Output: 'feature-table.biom'
-    qiime tools export \
-        --input-path "${DADA2_FREQUENCY_TABLE}" \
-        --output-format BIOMV210DirFmt \
-        --output-path "${DADA2_DENOISING_DIR}"
-    else
-        echo "Skip"
-    fi
-
-
-
-log "Convert frequency BIOM to table"
-
-export FEATURE_TABLE="${DADA2_DENOISING_DIR}feature-table.tsv"
-
-if [[ ! -s "${FEATURE_TABLE}" ]]
-    then
-
-    biom convert \
-        --to-tsv \
-        --input-fp "${FEATURE_BIOM}" \
-        --output-fp "${FEATURE_TABLE}" \
-    |& tee "${LOG_DIR}biom convert dada2 tsv.log"
 
     else
         echo "Skip"
