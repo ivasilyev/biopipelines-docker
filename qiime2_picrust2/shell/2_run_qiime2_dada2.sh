@@ -269,6 +269,7 @@ export MAX_FPS="$(tail -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
 
 export BIOM_DIR="${TOOL_DIR}bioms/"
 export BIOM_RAW="${BIOM_DIR}feature-table.biom"
+export BIOM_ANNOTATED="${BIOM_DIR}ASV_with_taxa.biom"
 
 md "${BIOM_RAW}"
 
@@ -282,9 +283,37 @@ if [[ ! -s "${BIOM_RAW}" ]]
         --output-path "${BIOM_DIR}" \
     |& tee "${LOG_DIR}tools export feature-table.biom.log"
 
+    log "Annotate biom with taxonomy data"
+
+    # The directory was already created
+    biom add-metadata \
+        --sc-separated "taxonomy" \
+        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
+        --sample-metadata-fp "${METADATA_TSV}" \
+        --input-fp "${BIOM_RAW}" \
+        --output-fp "${BIOM_ANNOTATED}" \
+    |& tee "${LOG_DIR}biom add-metadata.log"
+
+    log "Convert biom to JSON"
+
+    biom convert \
+        --to-json \
+        --input-fp "${BIOM_ANNOTATED}" \
+        --output-fp "${BIOM_DIR}ASV_with_taxa.json" \
+    |& tee "${LOG_DIR}biom convert json.log"
+
+    log "Convert biom to TSV"
+
+    biom convert \
+        --to-tsv \
+        --input-fp "${BIOM_ANNOTATED}" \
+        --output-fp "${BIOM_DIR}ASV_with_taxa.tsv" \
+        --header-key "taxonomy" \
+    |& tee "${LOG_DIR}biom convert taxa tsv.log"
+
     mv \
         --verbose \
-        "${BIOM_RAW}" \
+        "${BIOM_ANNOTATED}" \
         "${QIIME2_FEATURES_BIOM}"
 
     else
@@ -313,7 +342,18 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         --verbose \
     |& tee "${LOG_DIR}feature-classifier classify-sklearn.log"
 
-    log "Create ASV table"
+    log "Create ASV tables"
+
+    # Output file: 'taxonomy.tsv'
+    qiime tools export \
+        --input-path "${CLASSIFIED_TAXONOMY}" \
+        --output-format TSVTaxonomyDirectoryFormat \
+        --output-path "${TAXONOMY_DIR}"
+
+    mv \
+        --verbose \
+        "${TAXONOMY_DIR}taxonomy.tsv" \
+        "${TAXONOMY_DIR}ASV_confidences.tsv"
 
     qiime metadata tabulate \
         --m-input-file "${CLASSIFIED_TAXONOMY}" \
