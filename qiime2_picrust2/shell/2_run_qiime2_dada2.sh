@@ -33,7 +33,7 @@ export TAXA_REFERENCE_HEADER="$(realpath "${TAXA_REFERENCE_HEADER}")"
 log "Run QIIME2 in ${QIIME2_DIR}"
 
 export TOOL_NAME="dada2"
-export TOOL_DIR="${QIIME2_DIR}${TOOL_NAME}"
+export TOOL_DIR="${QIIME2_DIR}${TOOL_NAME}/"
 export LOG_DIR="${TOOL_DIR}logs/"
 export CONSENSUS_THRESHOLD=97
 export GROUPING_COLUMN_NAME="SubjectID"
@@ -213,7 +213,7 @@ export SAMPLE_FREQUENCY_DETAILS_CSV="${SAMPLE_FREQUENCY_DETAILS_DIR}sample-frequ
 # Output: directory with the file 'sample-frequency-detail.csv'
 qiime tools export \
     --input-path "${SUMMARY_STATISTICS_QZV}" \
-    --output-path "${TOOL_DIR}"
+    --output-path "${SAMPLE_FREQUENCY_DETAILS_DIR}"
 
 export SAMPLE_FREQUENCY_VALUES="${SAMPLE_FREQUENCY_DETAILS_DIR}values.txt"
 
@@ -223,6 +223,7 @@ awk \
     '{print $NF}' \
     "${SAMPLE_FREQUENCY_DETAILS_CSV}" \
 | sort --general-numeric-sort \
+| sed 's|\..*$||g' \
 > "${SAMPLE_FREQUENCY_VALUES}"
 
 # Frequencies per sample
