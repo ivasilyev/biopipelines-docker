@@ -384,35 +384,6 @@ if [[ ! -s "${DADA2_CLASSIFIED_TAXONOMY}" ]]
 
 
 
-log "Merge denoised paired-end reads"
-
-export DADA2_MERGED_SEQUENCES_DIR="${DADA2_DIR}merged_reads/"
-export DADA2_MERGED_SEQUENCES="${DADA2_MERGED_SEQUENCES_DIR}merged_sequences.qza"
-
-md "${DADA2_MERGED_SEQUENCES}"
-
-if [[ ! -s "${DADA2_MERGED_SEQUENCES}" ]]
-    then
-
-    md "${DADA2_MERGED_SEQUENCES}"
-
-    # Threads number must be within [0, 8].
-    # As of Qiime2 2022.11, this action is called 'merge-pairs',
-    # but in older versions of Qiime2 this was called 'join-pairs'.
-    qiime vsearch merge-pairs \
-        --i-demultiplexed-seqs "${DADA2_REPRESENTATIVE_SEQUENCES}" \
-        --o-merged-sequences "${DADA2_MERGED_SEQUENCES}" \
-        --p-allowmergestagger \
-        --p-threads 8 \
-        --verbose \
-    |& tee "${LOG_DIR}vsearch merge-pairs.log"
-
-    else
-        echo "Skip"
-    fi
-
-
-
 log "Dereplicate sequences"
 
 export DEREPLICATED_DIR="${DADA2_DIR}dereplicated/"
