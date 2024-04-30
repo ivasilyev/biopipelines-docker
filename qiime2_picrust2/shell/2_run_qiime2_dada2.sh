@@ -32,8 +32,9 @@ export TAXA_REFERENCE_HEADER="$(realpath "${TAXA_REFERENCE_HEADER}")"
 
 log "Run QIIME2 in ${QIIME2_DIR}"
 
-export LOG_DIR="${QIIME2_DIR}logs/"
-export TOOL_DIR="${QIIME2_DIR}dada2/"
+export TOOL_NAME="dada2"
+export TOOL_DIR="${QIIME2_DIR}${TOOL_NAME}"
+export LOG_DIR="${TOOL_DIR}logs/"
 export CONSENSUS_THRESHOLD=97
 export GROUPING_COLUMN_NAME="SubjectID"
 export PREV_CONTROL_COLUMN="Subgroup"
