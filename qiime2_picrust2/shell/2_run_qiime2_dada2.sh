@@ -252,7 +252,7 @@ if [[ ! -s "${BIOM_RAW}" ]]
 
     # Output: 'feature-table.biom'
     qiime tools export \
-        --input-path "${CLUSTERED_TABLE}" \
+        --input-path "${FREQUENCY_TABLE}" \
         --output-format BIOMV210DirFmt \
         --output-path "${BIOM_DIR}" \
     |& tee "${LOG_DIR}tools export feature-table.biom.log"
