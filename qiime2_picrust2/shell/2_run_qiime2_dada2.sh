@@ -37,6 +37,7 @@ export CONSENSUS_THRESHOLD=97
 export GROUPING_COLUMN_NAME="SubjectID"
 export PREV_CONTROL_COLUMN="Subgroup"
 export PREV_CONTROL_INDICATOR="ControlNegative"
+export TAXA_COLUMN_NAME="taxonomy"
 export NPROC="$(grep -c '^processor' "/proc/cpuinfo")"
 
 
@@ -76,6 +77,178 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
     else
         echo "Skip"
     fi
+
+
+
+log "Merge demultiplexed paired-end reads"
+
+export MERGED_READS="${QIIME2_DIR}merged_reads/merged_PE_reads.qza"
+
+md "${MERGED_READS}"
+
+qiime vsearch merge-pairs \
+    --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
+    --o-merged-sequences "${MERGED_READS}" \
+    --p-allowmergestagger \
+    --p-threads 8 \
+    --verbose
+
+
+
+log "Filter merged sequences based on Q scores"
+
+export QUALITY_FILTER_DIR="${QIIME2_DIR}quality_filter/"
+export QUALITY_FILTERED_SEQUENCES="${QUALITY_FILTER_DIR}q_scoring_sequences.qza"
+
+md "${QUALITY_FILTERED_SEQUENCES}"
+
+if [[ ! -s "${QUALITY_FILTERED_SEQUENCES}" ]]
+    then
+
+    md "${QUALITY_FILTERED_SEQUENCES}"
+
+    qiime quality-filter q-score \
+        --i-demux "${MERGED_READS}" \
+        --o-filtered-sequences "${QUALITY_FILTERED_SEQUENCES}" \
+        --o-filter-stats "${QUALITY_FILTER_DIR}q_scoring_statistics.qza" \
+        --verbose \
+    |& tee "${LOG_DIR}quality-filter q-score.log"
+
+    else
+        echo "Skip"
+    fi
+
+
+
+log "Denoising quality-filtered sequences with Deblur"
+
+export DEBLUR_DIR="${QIIME2_DIR}deblur/"
+export DEBLUR_DENOISING_DIR="${DEBLUR_DIR}denoising/"
+export DEBLUR_DENOISING_STATS="${DEBLUR_DENOISING_DIR}denoising_statistics.qza"
+export DEBLUR_FREQUENCY_TABLE="${DEBLUR_DENOISING_DIR}frequency_table.qza"
+export DEBLUR_REPRESENTATIVE_SEQUENCES="${DEBLUR_DENOISING_DIR}representative_sequences.qza"
+
+md "${DEBLUR_REPRESENTATIVE_SEQUENCES}"
+
+qiime deblur denoise-16S \
+    --i-demultiplexed-seqs "${QUALITY_FILTERED_SEQUENCES}" \
+    --o-representative-sequences "${DEBLUR_REPRESENTATIVE_SEQUENCES}"  \
+    --o-stats "${DEBLUR_DENOISING_STATS}"\
+    --o-table "${DEBLUR_FREQUENCY_TABLE}" \
+    --p-jobs-to-start ${NPROC} \
+    --p-sample-stats \
+    --p-trim-length 250 \
+    --verbose
+
+
+
+log "Cluster features de novo from denoised sequences"
+
+export DEBLUR_CLUSTERED_DIR="${DEBLUR_DIR}cluster_features_de_novo/"
+export DEBLUR_CLUSTERED_SEQUENCES="${DEBLUR_CLUSTERED_DIR}de_novo_clustered_sequences.qza"
+export DEBLUR_CLUSTERED_TABLE="${DEBLUR_CLUSTERED_DIR}de_novo_clustered_table.qza"
+
+md "${DEBLUR_CLUSTERED_SEQUENCES}"
+
+qiime vsearch cluster-features-de-novo \
+    --i-sequences "${DEBLUR_REPRESENTATIVE_SEQUENCES}" \
+    --i-table "${DEBLUR_FREQUENCY_TABLE}" \
+    --o-clustered-sequences "${DEBLUR_CLUSTERED_SEQUENCES}" \
+    --o-clustered-table "${DEBLUR_CLUSTERED_TABLE}" \
+    --p-perc-identity 0.97 \
+    --verbose
+
+
+
+
+export DEBLUR_NORMALIZED_TABLE="${DEBLUR_CLUSTERED_DIR}de-novo-clustered-table_normalized.qza"
+
+qiime feature-table relative-frequency \
+    --i-table "${DEBLUR_CLUSTERED_TABLE}" \
+    --o-relative-frequency-table "${DEBLUR_NORMALIZED_TABLE}" \
+    --verbose
+
+
+
+export DEBLUR_TAXONOMY_DIR="${DEBLUR_DIR}taxonomy/"
+export DEBLUR_CLASSIFIED_TAXONOMY="${DEBLUR_TAXONOMY_DIR}classified_taxonomy.qza"
+
+md "${DEBLUR_CLASSIFIED_TAXONOMY}"
+
+qiime feature-classifier classify-sklearn \
+    --i-classifier "${TAXA_REFERENCE_CLASSIFIER}" \
+    --i-reads "${DEBLUR_REPRESENTATIVE_SEQUENCES}" \
+    --o-classification "${DEBLUR_TAXONOMY_DIR}" \
+    --p-n-jobs "-1" \
+    --p-reads-per-batch 10000 \
+    --verbose
+
+
+
+export DEBLUR_BIOM_DIR="${DEBLUR_DIR}bioms/"
+export DEBLUR_TAXA_TSV="${DEBLUR_BIOM_DIR}taxonomy.tsv"
+
+md "${DEBLUR_TAXA_TSV}"
+
+# Output file: 'taxonomy.tsv'
+qiime tools export \
+    --input-path "${DEBLUR_CLASSIFIED_TAXONOMY}" \
+    --output-path "${DEBLUR_BIOM_DIR}"
+
+export DEBLUR_OTU_ASV_MAPPER="${DEBLUR_BIOM_DIR}OTU_ASV_mapper.tsv"
+
+sed \
+    's|Feature ID\tTaxon\tConfidence|#OTU ID\ttaxonomy\tconfidence|' \
+    "${DEBLUR_TAXA_TSV}" \
+    > "${DEBLUR_OTU_ASV_MAPPER}"
+
+
+
+export DEBLUR_FEATURE_BIOM="${DEBLUR_BIOM_DIR}feature-table.biom"
+
+# Output file: 'feature-table.biom'
+qiime tools export \
+    --input-path "${DEBLUR_NORMALIZED_TABLE}" \
+    --output-format BIOMV210DirFmt \
+    --output-path "${DEBLUR_BIOM_DIR}"
+
+
+
+export OTU_RAW_TABLE="${DEBLUR_BIOM_DIR}OTUs_raw.tsv"
+
+biom convert \
+    --to-tsv \
+    --input-fp "${DEBLUR_FEATURE_BIOM}" \
+    --output-fp "${OTU_RAW_TABLE}" \
+    --header-key "${TAXA_COLUMN_NAME}"
+
+
+export DEBLUR_TAXA_BIOM="${DEBLUR_BIOM_DIR}OTUs_with_taxa.biom"
+
+biom add-metadata \
+    --float-fields "confidence" \
+    --input-fp "${DEBLUR_FEATURE_BIOM}" \
+    --observation-metadata-fp "${DEBLUR_OTU_ASV_MAPPER}" \
+    --sample-metadata-fp "${METADATA_TSV}" \
+    --sc-separated "${TAXA_COLUMN_NAME}" \
+    --output-fp "${DEBLUR_TAXA_BIOM}"
+
+
+
+biom convert\
+    --input-fp "${DEBLUR_TAXA_BIOM}" \
+    --output-fp "${DEBLUR_BIOM_DIR}OTUs_with_taxa.json"  \
+    --to-json
+
+
+
+# BIOM format can support only a single observation metadata entry
+# This means, the `confidence` column still must be included manually
+biom convert \
+    --header-key "taxonomy" \
+    --input-fp "${DEBLUR_TAXA_BIOM}" \
+    --output-fp "${DEBLUR_BIOM_DIR}OTUs_with_taxa.tsv" \
+    --to-tsv
 
 
 
@@ -187,7 +360,7 @@ if [[ ! -s "${DADA2_CLASSIFIED_TAXONOMY}" ]]
 
 
 
-log "Join paired-end reads"
+log "Merge denoised paired-end reads"
 
 export DADA2_MERGED_SEQUENCES_DIR="${DADA2_DIR}merged_reads/"
 export DADA2_MERGED_SEQUENCES="${DADA2_MERGED_SEQUENCES_DIR}merged_sequences.qza"
@@ -196,8 +369,6 @@ md "${DADA2_MERGED_SEQUENCES}"
 
 if [[ ! -s "${DADA2_MERGED_SEQUENCES}" ]]
     then
-
-    log "Join paired-end reads"
 
     md "${DADA2_MERGED_SEQUENCES}"
 
@@ -218,6 +389,8 @@ if [[ ! -s "${DADA2_MERGED_SEQUENCES}" ]]
 
 
 
+log "Dereplicate sequences"
+
 export DEREPLICATED_DIR="${DADA2_DIR}dereplicated/"
 export DEREPLICATED_SEQUENCES="${DEREPLICATED_DIR}dereplicated_sequences.qza"
 export DEREPLICATED_FREQUENCIES="${DEREPLICATED_DIR}dereplicated_frequency_table.qza"
@@ -226,8 +399,6 @@ md "${DEREPLICATED_SEQUENCES}"
 
 if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
     then
-
-    log "Dereplicate sequences"
 
     md "${DEREPLICATED_SEQUENCES}"
 
@@ -384,7 +555,7 @@ if [[ ! -s "${DADA2_BIOM_ANNOTATED}" ]]
     then
 
     biom add-metadata \
-        --sc-separated "taxonomy" \
+        --sc-separated "${TAXA_COLUMN_NAME}" \
         --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
         --sample-metadata-fp "${METADATA_TSV}" \
         --input-fp "${DADA2_BIOM_RAW}" \
@@ -415,7 +586,7 @@ biom convert \
     --to-tsv \
     --input-fp "${DADA2_BIOM_ANNOTATED}" \
     --output-fp "${DADA2_TSV_ANNOTATED}" \
-    --header-key "taxonomy" \
+    --header-key "${TAXA_COLUMN_NAME}" \
     |& tee "${LOG_DIR}biom convert taxa tsv.log"
 
 sed \
