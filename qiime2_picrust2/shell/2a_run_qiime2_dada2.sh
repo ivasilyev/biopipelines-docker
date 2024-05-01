@@ -304,11 +304,6 @@ if [[ ! -s "${BIOM_RAW}" ]]
         --header-key "taxonomy" \
     |& tee "${LOG_DIR}biom convert taxa tsv.log"
 
-    mv \
-        --verbose \
-        "${BIOM_ANNOTATED}" \
-        "${QIIME2_FEATURES_BIOM}"
-
     else
         echo "Skip"
     fi
