@@ -225,67 +225,6 @@ if [[ -s "${DECONTAMINATION_TABLE}" ]]
 
 
 
-log "Export ASV"
-
-export BIOM_DIR="${TOOL_DIR}bioms/"
-export BIOM_RAW="${BIOM_DIR}feature-table.biom"
-export BIOM_ANNOTATED="${BIOM_DIR}ASV_with_taxa.biom"
-export TSV_ANNOTATED="${BIOM_DIR}ASV_with_taxa.tsv"
-
-md "${BIOM_RAW}"
-
-if [[ ! -s "${BIOM_RAW}" ]]
-    then
-
-    # Output: 'feature-table.biom'
-    qiime tools export \
-        --input-path "${FREQUENCY_TABLE}" \
-        --output-format BIOMV210DirFmt \
-        --output-path "${BIOM_DIR}" \
-    |& tee "${LOG_DIR}tools export feature-table.biom.log"
-
-    log "Annotate biom with taxonomy data"
-
-    # The directory was already created
-    biom add-metadata \
-        --input-fp "${BIOM_RAW}" \
-        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
-        --output-fp "${BIOM_ANNOTATED}" \
-        --sample-metadata-fp "${METADATA_TSV}" \
-        --sc-separated "taxonomy" \
-    |& tee "${LOG_DIR}biom add-metadata.log"
-
-    log "Convert biom to JSON"
-
-    biom convert \
-        --input-fp "${BIOM_ANNOTATED}" \
-        --output-fp "${BIOM_DIR}ASV_with_taxa.json" \
-        --to-json \
-    |& tee "${LOG_DIR}biom convert json.log"
-
-    log "Convert biom to TSV"
-
-    biom convert \
-        --header-key "taxonomy" \
-        --input-fp "${BIOM_ANNOTATED}" \
-        --output-fp "${TSV_ANNOTATED}" \
-        --to-tsv \
-    |& tee "${LOG_DIR}biom convert taxa tsv.log"
-
-    log "Export denormalized frequencies to use in report"
-
-    ln \
-        --symbolic \
-        --verbose \
-        "${TSV_ANNOTATED}" \
-        "${QIIME2_ASV_TABLE}"
-
-    else
-        echo "Skip"
-    fi
-
-
-
 log "Assign taxonomy into ASV"
 
 export TAXONOMY_DIR="${TOOL_DIR}taxonomy/"
@@ -344,6 +283,71 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         --o-visualization "${TAXONOMY_DIR}taxonomy_barplots.qzv" \
         --verbose \
     |& tee "${LOG_DIR}taxa barplot.log"
+
+    else
+        echo "Skip"
+    fi
+
+
+
+log "Export ASV"
+
+export BIOM_DIR="${TOOL_DIR}bioms/"
+export BIOM_RAW="${BIOM_DIR}feature-table.biom"
+export TSV_RAW="${BIOM_DIR}ASV_with_taxa.tsv"
+export BIOM_ANNOTATED="${BIOM_DIR}ASV_with_taxa.biom"
+
+md "${BIOM_RAW}"
+
+if [[ ! -s "${BIOM_RAW}" ]]
+    then
+
+    # Output: 'feature-table.biom'
+    qiime tools export \
+        --input-path "${FREQUENCY_TABLE}" \
+        --output-format BIOMV210DirFmt \
+        --output-path "${BIOM_DIR}" \
+    |& tee "${LOG_DIR}tools export feature-table.biom.log"
+
+    log "Convert biom to TSV"
+
+    # The annotated biom file cannot include the `confidence` column from mapper
+    # into output TSV file where it is required due to ridiculous format constraints,
+    # so it is better to merge the raw TSV data with the mapper elsewhere
+    biom convert \
+        --header-key "taxonomy" \
+        --input-fp "${BIOM_RAW}" \
+        --output-fp "${TSV_ANNOTATED}" \
+        --to-tsv \
+    |& tee "${LOG_DIR}biom convert taxa tsv.log"
+
+    log "Annotate biom with taxonomy data"
+
+    # The directory was already created
+    biom add-metadata \
+        --input-fp "${BIOM_RAW}" \
+        --float-fields "confidence" \
+        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
+        --output-fp "${BIOM_ANNOTATED}" \
+        --sample-metadata-fp "${METADATA_TSV}" \
+        --sc-separated "taxonomy" \
+    |& tee "${LOG_DIR}biom add-metadata.log"
+
+    log "Convert biom to JSON"
+
+    biom convert \
+        --input-fp "${BIOM_ANNOTATED}" \
+        --output-fp "${BIOM_DIR}ASV_with_taxa.json" \
+        --to-json \
+    |& tee "${LOG_DIR}biom convert json.log"
+
+    log "Export denormalized frequencies to use in report"
+
+    ln \
+        --symbolic \
+        --verbose \
+        "${TSV_RAW}" \
+        "${QIIME2_ASV_TABLE}"
 
     else
         echo "Skip"
