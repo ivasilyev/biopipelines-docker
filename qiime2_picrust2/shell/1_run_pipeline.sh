@@ -161,8 +161,10 @@ docker run \
     --volume /data04:/data04 \
     --workdir="${QIIME2_DIR}" \
     "${IMG}" \
+    bash -c '
         bash "${QIIME2_SCRIPT_1}" \
-        && bash "${QIIME2_SCRIPT_2}" \
+        && bash "${QIIME2_SCRIPT_2}"
+    '
 |& tee "${LOG_DIR}$(basename "${QIIME2_SCRIPT_1}").log"
 
 rm \
