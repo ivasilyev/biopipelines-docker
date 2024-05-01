@@ -166,7 +166,7 @@ docker run \
     bash -c '
         bash "${QIIME2_SCRIPT_1}" \
         && bash "${QIIME2_SCRIPT_2}"
-    '
+    ' \
 |& tee "${LOG_DIR}$(basename "${QIIME2_SCRIPT_1}").log"
 
 rm \
