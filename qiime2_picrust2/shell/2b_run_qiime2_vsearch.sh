@@ -180,7 +180,11 @@ log "Run de novo chimera checking"
 qiime vsearch uchime-denovo \
     --i-table table.qza \
     --i-sequences rep-seqs.qza \
-    --output-dir uchime-dn-out
+    --o-chimeras uchime-dn-out/chimeras.qza \
+    --o-nonchimeras uchime-dn-out/nonchimeras.qza \
+    --o-stats uchime-dn-out/stats.qza \
+    --output-dir uchime-dn-out \
+    --verbose
 
 
 log "Generate chimera checking summary visualization"
@@ -191,19 +195,37 @@ qiime metadata tabulate \
 
 log "Filter input table and sequences, excluding chimeras and borderline chimeras"
 
-qiime feature-table filter-features --m-metadata-file uchime-dn-out/nonchimeras.qza --i-table table.qza --o-filtered-table uchime-dn-out/table-nonchimeric.qza
+qiime feature-table filter-features \
+    --m-metadata-file uchime-dn-out/nonchimeras.qza \
+    --i-table table.qza \
+    --o-filtered-table uchime-dn-out/table-nonchimeric.qza
 
-qiime feature-table filter-seqs --i-data rep-seqs.qza --m-metadata-file uchime-dn-out/nonchimeras.qza --o-filtered-data uchime-dn-out/rep-seqs-nonchimeric.qza
+qiime feature-table filter-seqs \
+    --i-data rep-seqs.qza \
+    --m-metadata-file uchime-dn-out/nonchimeras.qza \
+    --o-filtered-data uchime-dn-out/rep-seqs-nonchimeric.qza
 
-qiime feature-table summarize --i-table uchime-dn-out/table-nonchimeric.qza --o-visualization uchime-dn-out/table-nonchimeric.qzv
+qiime feature-table summarize \
+    --i-table uchime-dn-out/table-nonchimeric.qza \
+    --o-visualization uchime-dn-out/table-nonchimeric.qzv
 
 log "Filter input table and sequences, excluding chimeras but retaining borderline chimeras"
 
-qiime feature-table filter-features --m-metadata-file uchime-dn-out/chimeras.qza --i-table table.qza --o-filtered-table uchime-dn-out/table-nonchimeric.qza --p-exclude-ids
+qiime feature-table filter-features \
+    --m-metadata-file uchime-dn-out/chimeras.qza \
+    --i-table table.qza \
+    --o-filtered-table uchime-dn-out/table-nonchimeric.qza \
+    --p-exclude-ids
 
-qiime feature-table filter-seqs --i-data rep-seqs.qza --m-metadata-file uchime-dn-out/chimeras.qza --o-filtered-data uchime-dn-out/rep-seqs-nonchimeric.qza --p-exclude-ids
+qiime feature-table filter-seqs \
+    --i-data rep-seqs.qza \
+    --m-metadata-file uchime-dn-out/chimeras.qza \
+    --o-filtered-data uchime-dn-out/rep-seqs-nonchimeric.qza \
+    --p-exclude-ids
 
-qiime feature-table summarize --i-table uchime-dn-out/table-nonchimeric.qza --o-visualization uchime-dn-out/table-nonchimeric.qzv
+qiime feature-table summarize \
+    --i-table uchime-dn-out/table-nonchimeric.qza \
+    --o-visualization uchime-dn-out/table-nonchimeric.qzv
 
 log "Completed running QIIME2 in ${QIIME2_DIR}"
 
