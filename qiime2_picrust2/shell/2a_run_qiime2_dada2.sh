@@ -85,7 +85,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
 
 
 
-log "Denoise demultiplexed sequences with DADA2"
+log "Denoise demultiplexed sequences with DADA2 and calculate Amplicon Sequence Variants, ASV"
 
 export DENOISING_DIR="${TOOL_DIR}denoising/"
 export REPRESENTATIVE_SEQUENCES="${DENOISING_DIR}representative_sequences.qza"
@@ -166,13 +166,13 @@ qiime metadata tabulate \
 
 
 
+log "Try to decontaminate frequency table"
+
 export DECONTAMINATION_DIR="${TOOL_DIR}decontam/"
 export DECONTAMINATION_SCORES="${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qza"
 
 if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     then
-
-    log "Trying to decontaminate frequency table"
 
     md "${DECONTAMINATION_SCORES}"
 
@@ -292,7 +292,7 @@ if [[ ! -s "${BIOM_RAW}" ]]
 
 
 
-log "Assign taxonomy as Amplicon Sequence Variants, ASV"
+log "Assign taxonomy into ASV"
 
 export TAXONOMY_DIR="${TOOL_DIR}taxonomy/"
 export CLASSIFIED_TAXONOMY="${TAXONOMY_DIR}classified_taxonomy.qza"

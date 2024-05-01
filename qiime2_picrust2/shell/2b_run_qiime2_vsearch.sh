@@ -150,6 +150,7 @@ if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
     fi
 
 
+log "Cluster closed references at ${CONSENSUS_THRESHOLD} percent and calculate Operational Taxonomic Units, OTU"
 
 export CLUSTERED_DIR="${TOOL_DIR}cluster_features/"
 export CLUSTERED_SEQUENCES="${CLUSTERED_DIR}closed_reference_clustered_sequences.qza"
@@ -157,8 +158,6 @@ export CLUSTERED_FREQUENCIES="${CLUSTERED_DIR}closed_reference_clustered_table.q
 
 if [[ ! -s "${CLUSTERED_SEQUENCES}" && ! -s "${CLUSTERED_FREQUENCIES}" ]]
     then
-
-    log "Cluster closed references at ${CONSENSUS_THRESHOLD} percent"
 
     md "${CLUSTERED_SEQUENCES}"
 
