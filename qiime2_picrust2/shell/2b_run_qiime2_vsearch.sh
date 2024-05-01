@@ -178,7 +178,7 @@ if [[ ! -s "${DADA2_CLUSTERED_SEQUENCES}" ]]
 
 export DECHIMERIZATION_DIR="${TOOL_DIR}uchime-denovo/"
 export CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}chimeras.qza"
-export NON_CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}nonchimeras.qza"
+export CHIMERA_FILTERING_SEQUENCES="${DECHIMERIZATION_DIR}nonchimeras.qza"
 export DECHIMERIZATION_STATS="${DECHIMERIZATION_DIR}statistics.qza"
 
 log "Run de novo chimera checking"
@@ -187,8 +187,8 @@ qiime vsearch uchime-denovo \
     --i-table table.qza \
     --i-sequences rep-seqs.qza \
     --o-chimeras "${CHIMERIC_SEQUENCES}" \
-    --o-nonchimeras "${NON_CHIMERIC_SEQUENCES}" \
-    --o-stats "${NON_CHIMERIC_SEQUENCES}" \
+    --o-nonchimeras "${CHIMERA_FILTERING_SEQUENCES}" \
+    --o-stats "${DECHIMERIZATION_STATS}" \
     --verbose
 
 
@@ -196,53 +196,68 @@ qiime vsearch uchime-denovo \
 log "Visualize chimera check summary"
 
 qiime metadata tabulate \
-    --m-input-file "${NON_CHIMERIC_SEQUENCES}" \
-    --o-visualization ${DECHIMERIZATION_DIR}stats.qzv
+    --m-input-file "${DECHIMERIZATION_STATS}" \
+    --o-visualization "${DECHIMERIZATION_DIR}statistics.qzv"
 
 
 
 log "Exclude chimeras and borderline chimeras from feature table"
 
+export NON_CHIMERIC_FREQUENCIES="${DECHIMERIZATION_DIR}table_nonchimeric.qza"
+
 qiime feature-table filter-features \
-    --m-metadata-file "${NON_CHIMERIC_SEQUENCES}" \
     --i-table table.qza \
-    --o-filtered-table ${DECHIMERIZATION_DIR}table-nonchimeric.qza
+    --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
+    --o-filtered-table "${NON_CHIMERIC_FREQUENCIES}" \
+    --p-no-exclude-ids \
+    --verbose
 
 qiime feature-table summarize \
-    --i-table ${DECHIMERIZATION_DIR}table-nonchimeric.qza \
-    --o-visualization ${DECHIMERIZATION_DIR}table-nonchimeric.qzv
+    --i-table "${NON_CHIMERIC_FREQUENCIES}" \
+    --o-visualization "${DECHIMERIZATION_DIR}table-nonchimeric.qzv"
+
 
 
 log "Exclude chimeras and borderline chimeras from feature sequences"
 
+export NON_CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}representative_sequences_nonchimeric.qza"
+
 qiime feature-table filter-seqs \
     --i-data rep-seqs.qza \
-    --m-metadata-file "${NON_CHIMERIC_SEQUENCES}" \
-    --o-filtered-data ${DECHIMERIZATION_DIR}rep-seqs-nonchimeric.qza
+    --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
+    --o-filtered-data "${NON_CHIMERIC_SEQUENCES}" \
+    --p-no-exclude-ids \
+    --verbose
 
 
 
 log "Exclude chimeras but retain borderline chimeras from feature table"
 
+export BORDERLINE_CHIMERIC_FREQUENCIES="${DECHIMERIZATION_DIR}table_borderline_chimeric.qza"
+
 qiime feature-table filter-features \
-    --m-metadata-file "${CHIMERIC_SEQUENCES}" \
     --i-table table.qza \
-    --o-filtered-table ${DECHIMERIZATION_DIR}table-nonchimeric.qza \
-    --p-exclude-ids
+    --m-metadata-file "${CHIMERIC_SEQUENCES}" \
+    --o-filtered-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
+    --p-exclude-ids \
+    --verbose
 
 qiime feature-table summarize \
-    --i-table ${DECHIMERIZATION_DIR}table-nonchimeric.qza \
-    --o-visualization ${DECHIMERIZATION_DIR}table-nonchimeric.qzv
+    --i-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
+    --o-visualization "${DECHIMERIZATION_DIR}table_borderline_chimeric.qzv"
 
 
 
 log "Exclude chimeras but retain borderline chimeras from feature sequences"
 
+export BORDERLINE_CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}representative_sequences_borderline_chimeric.qza"
+
 qiime feature-table filter-seqs \
     --i-data rep-seqs.qza \
     --m-metadata-file "${CHIMERIC_SEQUENCES}" \
-    --o-filtered-data ${DECHIMERIZATION_DIR}rep-seqs-nonchimeric.qza \
-    --p-exclude-ids
+    --o-filtered-data "${BORDERLINE_CHIMERIC_SEQUENCES}" \
+    --p-exclude-ids \
+    --verbose
 
 
 
