@@ -365,15 +365,16 @@ if [[ -s "${DECONTAMINATION_TABLE}" ]]
 
 
 
-log "Export OTU"
+log "Export denormalized OTU"
 
 export BIOM_DIR="${TOOL_DIR}bioms/"
 export BIOM_RAW="${BIOM_DIR}feature-table.biom"
-export BIOM_ANNOTATED="${BIOM_DIR}OTU_with_taxa.biom"
+export BIOM_DENORMALIZED="${BIOM_DIR}OTU_denormalized.biom"
+export BIOM_DENORMALIZED_ANNOTATED="${BIOM_DIR}OTU_denormalize_with_taxa.biom"
 
-md "${BIOM_RAW}"
+md "${BIOM_DENORMALIZED}"
 
-if [[ ! -s "${BIOM_RAW}" ]]
+if [[ ! -s "${BIOM_DENORMALIZED}" ]]
     then
 
     # Output: 'feature-table.biom'
@@ -383,22 +384,26 @@ if [[ ! -s "${BIOM_RAW}" ]]
         --output-path "${BIOM_DIR}" \
     |& tee "${LOG_DIR}tools export feature-table.biom.log"
 
+    mv \
+        --verbose \
+        "${BIOM_RAW}" \
+        "${BIOM_DENORMALIZED}"
+
     log "Annotate biom with taxonomy data"
 
-    # The directory was already created
     biom add-metadata \
         --sc-separated "taxonomy" \
         --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
         --sample-metadata-fp "${METADATA_TSV}" \
-        --input-fp "${BIOM_RAW}" \
-        --output-fp "${BIOM_ANNOTATED}" \
+        --input-fp "${BIOM_DENORMALIZED}" \
+        --output-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
     |& tee "${LOG_DIR}biom add-metadata.log"
 
     log "Convert biom to JSON"
 
     biom convert \
         --to-json \
-        --input-fp "${BIOM_ANNOTATED}" \
+        --input-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
         --output-fp "${BIOM_DIR}OTU_with_taxa.json" \
     |& tee "${LOG_DIR}biom convert json.log"
 
@@ -406,15 +411,62 @@ if [[ ! -s "${BIOM_RAW}" ]]
 
     biom convert \
         --to-tsv \
-        --input-fp "${BIOM_ANNOTATED}" \
-        --output-fp "${BIOM_DIR}OTU_with_taxa.tsv" \
+        --input-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
+        --output-fp "${BIOM_DIR}OTU_with_taxa_denormalized.tsv" \
         --header-key "taxonomy" \
     |& tee "${LOG_DIR}biom convert taxa tsv.log"
 
     mv \
         --verbose \
-        "${BIOM_ANNOTATED}" \
+        "${BIOM_DENORMALIZED_ANNOTATED}" \
         "${QIIME2_FEATURES_BIOM}"
+
+
+    else
+        echo "Skip"
+    fi
+
+
+
+log "Export normalized OTU"
+
+export NORMALIZED_FREQUENCIES="${BIOM_DIR}clustered_table_normalized.qza"
+export BIOM_NORMALIZED="${BIOM_DIR}OTU_normalized.biom"
+export BIOM_NORMALIZED_ANNOTATED="${BIOM_DIR}OTU_normalized_with_taxa.biom"
+
+if [[ ! -s "${BIOM_NORMALIZED}" ]]
+    then
+
+    log "Normalize clustered features: '${FREQUENCY_TABLE}'"
+
+    qiime feature-table relative-frequency \
+        --i-table "${FREQUENCY_TABLE}" \
+        --o-relative-frequency-table "${NORMALIZED_FREQUENCIES}" \
+        --verbose
+
+    # Output: 'feature-table.biom'
+    qiime tools export \
+        --input-path "${NORMALIZED_FREQUENCIES}" \
+        --output-format BIOMV210DirFmt \
+        --output-path "${BIOM_DIR}"
+
+    mv \
+        --verbose \
+        "${BIOM_RAW}" \
+        "${BIOM_NORMALIZED}"
+
+    biom add-metadata \
+        --sc-separated "taxonomy" \
+        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
+        --sample-metadata-fp "${METADATA_TSV}" \
+        --input-fp "${BIOM_NORMALIZED}" \
+        --output-fp "${BIOM_NORMALIZED_ANNOTATED}"
+
+    biom convert \
+        --to-tsv \
+        --input-fp "${BIOM_NORMALIZED_ANNOTATED}" \
+        --output-fp "${BIOM_DIR}OTU_with_taxa_normalized.tsv" \
+        --header-key "taxonomy"
 
     else
         echo "Skip"
