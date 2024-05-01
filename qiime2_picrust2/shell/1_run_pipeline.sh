@@ -288,8 +288,6 @@ force_docker_pull "${IMG}"
 docker run \
     --env QIIME2_OTU_ASV_MAPPER="${QIIME2_OTU_ASV_MAPPER}" \
     --env QIIME2_ASV_TABLE="${QIIME2_ASV_TABLE}" \
-    --env TAXA_REFERENCE_HEADER="${TAXA_REFERENCE_HEADER}" \
-    --env QIIME2_OTU_TABLE="${QIIME2_OTU_TABLE}" \
     --env INDEX_COLUMN_NAME="#OTU ID" \
     --net host \
     --rm \
@@ -301,7 +299,6 @@ docker run \
     "${IMG}" \
         bash -c '
             OUT_FILE_1="${QIIME2_ASV_TABLE%.*}_annotated.tsv";
-            OUT_FILE_2="${QIIME2_OTU_TABLE%.*}_annotated.tsv";
 
             echo Concatenate table \"${QIIME2_OTU_ASV_MAPPER}\" and \"${QIIME2_ASV_TABLE}\" into \"${OUT_FILE_1}\";
 
@@ -313,17 +310,7 @@ docker run \
                 --input \
                     "${QIIME2_OTU_ASV_MAPPER}" \
                     "${QIIME2_ASV_TABLE}" \
-                --output "${OUT_FILE_1}" && \
-
-            echo Concatenate table \"${QIIME2_OTU_TABLE}\" and \"${TAXA_REFERENCE_HEADER}\" into \"${OUT_FILE_2}\" &&
-
-            python3 ./meta/scripts/concatenate_tables.py \
-                --axis 1 \
-                --index "${INDEX_COLUMN_NAME}" \
-                --input \
-                    "${TAXA_REFERENCE_HEADER}" \
-                    "${QIIME2_OTU_TABLE}" \
-                --output "${OUT_FILE_2}"
+                --output "${OUT_FILE_1}";
         ' \
 |& tee "${LOG_DIR}concatenate_tables.log"
 
