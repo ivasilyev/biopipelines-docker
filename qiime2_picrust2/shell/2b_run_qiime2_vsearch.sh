@@ -87,7 +87,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
 
 log "Merge demultiplexed paired-end reads"
 
-export MERGED_READS="${QIIME2_DIR}merged_reads/merged_PE_reads.qza"
+export MERGED_READS="${TOOL_DIR}merged_reads/merged_PE_reads.qza"
 
 md "${MERGED_READS}"
 
@@ -102,7 +102,7 @@ qiime vsearch merge-pairs \
 
 log "Filter merged sequences based on Q scores"
 
-export QUALITY_FILTER_DIR="${QIIME2_DIR}quality_filter/"
+export QUALITY_FILTER_DIR="${TOOL_DIR}quality_filter/"
 export QUALITY_FILTERED_SEQUENCES="${QUALITY_FILTER_DIR}q_scoring_sequences.qza"
 
 md "${QUALITY_FILTERED_SEQUENCES}"
@@ -127,7 +127,7 @@ if [[ ! -s "${QUALITY_FILTERED_SEQUENCES}" ]]
 
 log "Dereplicate sequences"
 
-export DEREPLICATED_DIR="${DADA2_DIR}dereplicated/"
+export DEREPLICATED_DIR="${TOOL_DIR}dereplicated/"
 export DEREPLICATED_SEQUENCES="${DEREPLICATED_DIR}dereplicated_sequences.qza"
 export DEREPLICATED_FREQUENCIES="${DEREPLICATED_DIR}dereplicated_frequency_table.qza"
 
@@ -139,7 +139,7 @@ if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
     md "${DEREPLICATED_SEQUENCES}"
 
     qiime vsearch dereplicate-sequences \
-        --i-sequences "${DADA2_REPRESENTATIVE_SEQUENCES}" \
+        --i-sequences "${QUALITY_FILTERED_SEQUENCES}" \
         --o-dereplicated-sequences "${DEREPLICATED_SEQUENCES}" \
         --o-dereplicated-table "${DEREPLICATED_FREQUENCIES}" \
         --verbose \
@@ -151,20 +151,24 @@ if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
 
 
 
-if [[ ! -s "${DADA2_CLUSTERED_SEQUENCES}" ]]
+export CLUSTERED_DIR="${TOOL_DIR}cluster_features/"
+export CLUSTERED_SEQUENCES="${CLUSTERED_DIR}closed_reference_clustered_sequences.qza"
+export CLUSTERED_FREQUENCIES="${CLUSTERED_DIR}closed_reference_clustered_table.qza"
+
+if [[ ! -s "${CLUSTERED_SEQUENCES}" ]]
     then
 
     log "Cluster closed references at ${CONSENSUS_THRESHOLD} percent"
 
-    md "${DADA2_CLUSTERED_SEQUENCES}"
+    md "${CLUSTERED_SEQUENCES}"
 
     qiime vsearch cluster-features-closed-reference \
         --i-reference-sequences "${TAXA_REFERENCE_SEQUENCES}" \
         --i-sequences "${DEREPLICATED_SEQUENCES}" \
         --i-table "${DEREPLICATED_FREQUENCIES}" \
-        --o-clustered-sequences "${DADA2_CLUSTERED_SEQUENCES}" \
-        --o-clustered-table "${DADA2_CLUSTERED_TABLE}" \
-        --o-unmatched-sequences "${DADA2_CLUSTERED_DIR}closed_reference_unmatched_sequences.qza" \
+        --o-clustered-sequences "${CLUSTERED_SEQUENCES}" \
+        --o-clustered-table "${CLUSTERED_FREQUENCIES}" \
+        --o-unmatched-sequences "${CLUSTERED_DIR}closed_reference_unmatched_sequences.qza" \
         --p-perc-identity 0.${CONSENSUS_THRESHOLD} \
         --p-threads "${NPROC}" \
         --verbose \
@@ -184,8 +188,8 @@ export DECHIMERIZATION_STATS="${DECHIMERIZATION_DIR}statistics.qza"
 log "Run de novo chimera checking"
 
 qiime vsearch uchime-denovo \
-    --i-table table.qza \
-    --i-sequences rep-seqs.qza \
+    --i-sequences "${CLUSTERED_SEQUENCES}" \
+    --i-table "${CLUSTERED_FREQUENCIES}" \
     --o-chimeras "${CHIMERIC_SEQUENCES}" \
     --o-nonchimeras "${CHIMERA_FILTERING_SEQUENCES}" \
     --o-stats "${DECHIMERIZATION_STATS}" \
@@ -206,7 +210,7 @@ log "Exclude chimeras and borderline chimeras from feature table"
 export NON_CHIMERIC_FREQUENCIES="${DECHIMERIZATION_DIR}table_nonchimeric.qza"
 
 qiime feature-table filter-features \
-    --i-table table.qza \
+    --i-table "${CLUSTERED_FREQUENCIES}" \
     --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
     --o-filtered-table "${NON_CHIMERIC_FREQUENCIES}" \
     --p-no-exclude-ids \
@@ -223,7 +227,7 @@ log "Exclude chimeras and borderline chimeras from feature sequences"
 export NON_CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}representative_sequences_nonchimeric.qza"
 
 qiime feature-table filter-seqs \
-    --i-data rep-seqs.qza \
+    --i-data "${CLUSTERED_SEQUENCES}" \
     --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
     --o-filtered-data "${NON_CHIMERIC_SEQUENCES}" \
     --p-no-exclude-ids \
@@ -236,7 +240,7 @@ log "Exclude chimeras but retain borderline chimeras from feature table"
 export BORDERLINE_CHIMERIC_FREQUENCIES="${DECHIMERIZATION_DIR}table_borderline_chimeric.qza"
 
 qiime feature-table filter-features \
-    --i-table table.qza \
+    --i-table "${CLUSTERED_FREQUENCIES}" \
     --m-metadata-file "${CHIMERIC_SEQUENCES}" \
     --o-filtered-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
     --p-exclude-ids \
@@ -253,7 +257,7 @@ log "Exclude chimeras but retain borderline chimeras from feature sequences"
 export BORDERLINE_CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}representative_sequences_borderline_chimeric.qza"
 
 qiime feature-table filter-seqs \
-    --i-data rep-seqs.qza \
+    --i-data "${CLUSTERED_SEQUENCES}" \
     --m-metadata-file "${CHIMERIC_SEQUENCES}" \
     --o-filtered-data "${BORDERLINE_CHIMERIC_SEQUENCES}" \
     --p-exclude-ids \
