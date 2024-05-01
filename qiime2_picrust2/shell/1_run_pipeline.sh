@@ -77,6 +77,7 @@ export TAXA_REFERENCE_SEQUENCES="${REFERENCE_DIR}${REFERENCE_NAME}-${REFERENCE_V
 export TAXA_REFERENCE_HEADER="${REFERENCE_DIR}${REFERENCE_NAME}_${REFERENCE_VERSION}_taxonomy_headed.tsv"
 
 export PICRUST2_DIR="${ROOT_DIR}picrust2/"
+export PICRUST2_RESULTS_DIR="${PICRUST2_DIR}results/"
 export PICRUST2_SCRIPT="${PICRUST2_DIR}picrust2.sh"
 
 export ASV_TABLE="${RESULT_DIR}ASVs_with_taxa.tsv"
@@ -208,6 +209,7 @@ docker run \
     --env QIIME2_FEATURES_BIOM="${QIIME2_FEATURES_BIOM}" \
     --env QIIME2_FEATURES_FASTA="${QIIME2_FEATURES_FASTA}" \
     --env PICRUST2_DIR="${PICRUST2_DIR}" \
+    --env PICRUST2_RESULTS_DIR="${PICRUST2_RESULTS_DIR}" \
     --memory "${TOTAL_RAM}g" \
     --memory-swappiness 100 \
     --net host \
