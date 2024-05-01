@@ -62,7 +62,8 @@ export METADATA_TSV="${SAMPLEDATA_DIR}qiime2_meta_data.tsv"
 export QIIME2_DIR="${ROOT_DIR}qiime2/"
 export QIIME2_FEATURES_BIOM="${QIIME2_DIR}feature-table.biom"
 export QIIME2_FEATURES_FASTA="${QIIME2_DIR}dna-sequences.fasta"
-export QIIME2_SCRIPT="${QIIME2_DIR}qiime2.sh"
+export QIIME2_SCRIPT_1="${QIIME2_DIR}qiime2_1.sh"
+export QIIME2_SCRIPT_2="${QIIME2_DIR}qiime2_2.sh"
 
 export REFERENCE_NAME="SILVA"
 export REFERENCE_VERSION="138.1"
@@ -127,8 +128,12 @@ fi
 log "Deploy QIIME2 script"
 
 force_curl \
-    "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/2_run_qiime2_dada2.sh" \
-    "${QIIME2_SCRIPT}"
+    "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/2a_run_qiime2_dada2.sh" \
+    "${QIIME2_SCRIPT_1}"
+
+force_curl \
+    "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/2b_run_qiime2_vsearch.sh" \
+    "${QIIME2_SCRIPT_2}"
 
 cd "${QIIME2_DIR}" || exit 1
 
@@ -156,10 +161,15 @@ docker run \
     --volume /data04:/data04 \
     --workdir="${QIIME2_DIR}" \
     "${IMG}" \
-    bash "${QIIME2_SCRIPT}" \
-|& tee "${LOG_DIR}$(basename "${QIIME2_SCRIPT}").log"
+        bash "${QIIME2_SCRIPT_1}" \
+        && bash "${QIIME2_SCRIPT_2}" \
+|& tee "${LOG_DIR}$(basename "${QIIME2_SCRIPT_1}").log"
 
-rm -f "${QIIME2_SCRIPT}"
+rm \
+    --force \
+    --verbose \
+    "${QIIME2_SCRIPT_1}" \
+    "${QIIME2_SCRIPT_2}"
 
 cd "${ROOT_DIR}" || exit 1
 
