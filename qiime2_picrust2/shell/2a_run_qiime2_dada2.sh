@@ -290,13 +290,21 @@ log "Assign taxonomy into ASV"
 
 export TAXONOMY_DIR="${TOOL_DIR}taxonomy/"
 export CLASSIFIED_TAXONOMY="${TAXONOMY_DIR}classified_taxonomy.qza"
+export OTU_ASV_MAPPER="${TAXONOMY_DIR}ASV_confidences.tsv"
 
 if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
     then
 
     md "${CLASSIFIED_TAXONOMY}"
 
-    # --p-n-jobs, The maximum number of concurrently worker processes. If -1 all CPUs are used. If 1 is given, no parallel computing code is used at all, which is useful for debugging. For n-jobs below -1, (n_cpus + 1 + n-jobs) are used. Thus for n-jobs = -2, all CPUs but one are used.
+    # ASV creation is ruining OTU references.
+    # Thus, a separated mapper must be created each time.
+
+    # --p-n-jobs, The maximum number of concurrently worker processes.
+    # If -1 all CPUs are used.
+    # If 1 is given, no parallel computing code is used at all, which is useful for debugging.
+    # For n-jobs below -1, (n_cpus + 1 + n-jobs) are used.
+    # Thus for n-jobs = -2, all CPUs but one are used.
     qiime feature-classifier classify-sklearn \
         --p-n-jobs "-1" \
         --p-reads-per-batch 10000 \
@@ -306,7 +314,7 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         --verbose \
     |& tee "${LOG_DIR}feature-classifier classify-sklearn.log"
 
-    log "Create ASV tables"
+    log "Create ASV-OTU mapper"
 
     # Output file: 'taxonomy.tsv'
     qiime tools export \
@@ -314,10 +322,12 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         --output-format TSVTaxonomyDirectoryFormat \
         --output-path "${TAXONOMY_DIR}"
 
-    mv \
-        --verbose \
+    log "Fix ASV-OTU mapper header"
+
+    sed \
+        's|Feature ID\tTaxon\tConfidence|#OTU ID\ttaxonomy\tconfidence|' \
         "${TAXONOMY_DIR}taxonomy.tsv" \
-        "${TAXONOMY_DIR}ASV_confidences.tsv"
+    > "${OTU_ASV_MAPPER}"
 
     qiime metadata tabulate \
         --m-input-file "${CLASSIFIED_TAXONOMY}" \
@@ -325,7 +335,7 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         --verbose \
     |& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
 
-    log "Make prokaryotic profile"
+    log "Plot prokaryotic profile bar charts"
 
     qiime taxa barplot \
         --m-metadata-file "${METADATA_TSV}" \
