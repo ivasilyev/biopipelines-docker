@@ -317,9 +317,17 @@ if [[ ! -s "${BIOM_RAW}" ]]
     biom convert \
         --header-key "taxonomy" \
         --input-fp "${BIOM_RAW}" \
-        --output-fp "${TSV_ANNOTATED}" \
+        --output-fp "${TSV_RAW}" \
         --to-tsv \
     |& tee "${LOG_DIR}biom convert taxa tsv.log"
+
+    log "Export unannotated denormalized frequencies to use in report"
+
+    ln \
+        --symbolic \
+        --verbose \
+        "${TSV_RAW}" \
+        "${QIIME2_ASV_TABLE}"
 
     log "Annotate biom with taxonomy data"
 
@@ -340,14 +348,6 @@ if [[ ! -s "${BIOM_RAW}" ]]
         --output-fp "${BIOM_DIR}ASV_with_taxa.json" \
         --to-json \
     |& tee "${LOG_DIR}biom convert json.log"
-
-    log "Export denormalized frequencies to use in report"
-
-    ln \
-        --symbolic \
-        --verbose \
-        "${TSV_RAW}" \
-        "${QIIME2_ASV_TABLE}"
 
     else
         echo "Skip"
