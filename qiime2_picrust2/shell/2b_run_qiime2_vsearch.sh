@@ -176,14 +176,16 @@ if [[ ! -s "${DADA2_CLUSTERED_SEQUENCES}" ]]
 
 
 
+export DECHIMERIZATION_DIR="${TOOL_DIR}uchime-denovo/"
+
 log "Run de novo chimera checking"
 
 qiime vsearch uchime-denovo \
     --i-table table.qza \
     --i-sequences rep-seqs.qza \
-    --o-chimeras uchime-dn-out/chimeras.qza \
-    --o-nonchimeras uchime-dn-out/nonchimeras.qza \
-    --o-stats uchime-dn-out/stats.qza \
+    --o-chimeras ${TOOL_DIR}chimeras.qza \
+    --o-nonchimeras ${TOOL_DIR}nonchimeras.qza \
+    --o-stats ${TOOL_DIR}stats.qza \
     --output-dir uchime-dn-out \
     --verbose
 
@@ -192,43 +194,43 @@ qiime vsearch uchime-denovo \
 log "Visualize chimera check summary"
 
 qiime metadata tabulate \
-    --m-input-file uchime-dn-out/stats.qza \
-    --o-visualization uchime-dn-out/stats.qzv
+    --m-input-file ${TOOL_DIR}stats.qza \
+    --o-visualization ${TOOL_DIR}stats.qzv
 
 
 
 log "Exclude chimeras and borderline chimeras from feature table"
 
 qiime feature-table filter-features \
-    --m-metadata-file uchime-dn-out/nonchimeras.qza \
+    --m-metadata-file ${TOOL_DIR}nonchimeras.qza \
     --i-table table.qza \
-    --o-filtered-table uchime-dn-out/table-nonchimeric.qza
+    --o-filtered-table ${TOOL_DIR}table-nonchimeric.qza
 
 qiime feature-table summarize \
-    --i-table uchime-dn-out/table-nonchimeric.qza \
-    --o-visualization uchime-dn-out/table-nonchimeric.qzv
+    --i-table ${TOOL_DIR}table-nonchimeric.qza \
+    --o-visualization ${TOOL_DIR}table-nonchimeric.qzv
 
 
 log "Exclude chimeras and borderline chimeras from feature sequences"
 
 qiime feature-table filter-seqs \
     --i-data rep-seqs.qza \
-    --m-metadata-file uchime-dn-out/nonchimeras.qza \
-    --o-filtered-data uchime-dn-out/rep-seqs-nonchimeric.qza
+    --m-metadata-file ${TOOL_DIR}nonchimeras.qza \
+    --o-filtered-data ${TOOL_DIR}rep-seqs-nonchimeric.qza
 
 
 
 log "Exclude chimeras but retain borderline chimeras from feature table"
 
 qiime feature-table filter-features \
-    --m-metadata-file uchime-dn-out/chimeras.qza \
+    --m-metadata-file ${TOOL_DIR}chimeras.qza \
     --i-table table.qza \
-    --o-filtered-table uchime-dn-out/table-nonchimeric.qza \
+    --o-filtered-table ${TOOL_DIR}table-nonchimeric.qza \
     --p-exclude-ids
 
 qiime feature-table summarize \
-    --i-table uchime-dn-out/table-nonchimeric.qza \
-    --o-visualization uchime-dn-out/table-nonchimeric.qzv
+    --i-table ${TOOL_DIR}table-nonchimeric.qza \
+    --o-visualization ${TOOL_DIR}table-nonchimeric.qzv
 
 
 
@@ -236,8 +238,8 @@ log "Exclude chimeras but retain borderline chimeras from feature sequences"
 
 qiime feature-table filter-seqs \
     --i-data rep-seqs.qza \
-    --m-metadata-file uchime-dn-out/chimeras.qza \
-    --o-filtered-data uchime-dn-out/rep-seqs-nonchimeric.qza \
+    --m-metadata-file ${TOOL_DIR}chimeras.qza \
+    --o-filtered-data ${TOOL_DIR}rep-seqs-nonchimeric.qza \
     --p-exclude-ids
 
 
