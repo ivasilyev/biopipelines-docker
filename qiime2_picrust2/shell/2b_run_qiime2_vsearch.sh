@@ -265,6 +265,63 @@ qiime feature-table filter-seqs \
 
 
 
+log "Export OTU"
+
+export BIOM_DIR="${TOOL_DIR}bioms/"
+export BIOM_RAW="${BIOM_DIR}feature-table.biom"
+export BIOM_ANNOTATED="${BIOM_DIR}OTU_with_taxa.biom"
+
+md "${BIOM_RAW}"
+
+if [[ ! -s "${BIOM_RAW}" ]]
+    then
+
+    # Output: 'feature-table.biom'
+    qiime tools export \
+        --input-path "${FREQUENCY_TABLE}" \
+        --output-format BIOMV210DirFmt \
+        --output-path "${BIOM_DIR}" \
+    |& tee "${LOG_DIR}tools export feature-table.biom.log"
+
+    log "Annotate biom with taxonomy data"
+
+    # The directory was already created
+    biom add-metadata \
+        --sc-separated "taxonomy" \
+        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
+        --sample-metadata-fp "${METADATA_TSV}" \
+        --input-fp "${BIOM_RAW}" \
+        --output-fp "${BIOM_ANNOTATED}" \
+    |& tee "${LOG_DIR}biom add-metadata.log"
+
+    log "Convert biom to JSON"
+
+    biom convert \
+        --to-json \
+        --input-fp "${BIOM_ANNOTATED}" \
+        --output-fp "${BIOM_DIR}OTU_with_taxa.json" \
+    |& tee "${LOG_DIR}biom convert json.log"
+
+    log "Convert biom to TSV"
+
+    biom convert \
+        --to-tsv \
+        --input-fp "${BIOM_ANNOTATED}" \
+        --output-fp "${BIOM_DIR}OTU_with_taxa.tsv" \
+        --header-key "taxonomy" \
+    |& tee "${LOG_DIR}biom convert taxa tsv.log"
+
+    mv \
+        --verbose \
+        "${BIOM_ANNOTATED}" \
+        "${QIIME2_FEATURES_BIOM}"
+
+    else
+        echo "Skip"
+    fi
+
+
+
 log "Completed running QIIME2 in ${QIIME2_DIR}"
 
 chmod -R 777 "$(pwd)"
