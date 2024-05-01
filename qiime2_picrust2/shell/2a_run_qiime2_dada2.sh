@@ -144,6 +144,16 @@ mv \
 
 
 
+log "Generate a tabular view of DADA2 denoising metadata"
+
+qiime metadata tabulate \
+    --m-input-file "${DENOISING_STATS}" \
+    --o-visualization "${DENOISING_DIR}denoising_statistics.qzv" \
+    --verbose \
+|& tee "${LOG_DIR}metadata tabulate dada2_denoising_statistics.log"
+
+
+
 export DECONTAMINATION_DIR="${TOOL_DIR}decontam/"
 export DECONTAMINATION_SCORES="${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qza"
 
@@ -218,16 +228,6 @@ if [[ -s "${DECONTAMINATION_TABLE}" ]]
 
 
 
-log "Generate a tabular view of DADA2 denoising metadata"
-
-qiime metadata tabulate \
-    --m-input-file "${DENOISING_STATS}" \
-    --o-visualization "${DENOISING_DIR}denoising_statistics.qzv" \
-    --verbose \
-|& tee "${LOG_DIR}metadata tabulate dada2_denoising_statistics.log"
-
-
-
 log "Summarize statistics"
 
 export SUMMARY_STATISTICS_QZV="${DENOISING_DIR}frequency_table.qzv"
@@ -240,17 +240,8 @@ qiime feature-table summarize \
 |& tee "${LOG_DIR}feature-table summarize.log"
 
 
-log "Export frequencies per sample"
 
-export SAMPLE_FREQUENCY_DETAILS_DIR="${TOOL_DIR}sample_frequency_details/"
-export SAMPLE_FREQUENCY_DETAILS_CSV="${SAMPLE_FREQUENCY_DETAILS_DIR}sample-frequency-detail.csv"
-
-# Output: directory with the file 'sample-frequency-detail.csv'
-qiime tools export \
-    --input-path "${SUMMARY_STATISTICS_QZV}" \
-    --output-path "${SAMPLE_FREQUENCY_DETAILS_DIR}"
-
-export SAMPLE_FREQUENCY_VALUES="${SAMPLE_FREQUENCY_DETAILS_DIR}values.txt"
+log "Sort frequencies per sample"
 
 awk \
     -F \
@@ -266,6 +257,8 @@ export MIN_FPS="$(head -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
 export MAX_FPS="$(tail -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
 
 
+
+log "Export ASV"
 
 export BIOM_DIR="${TOOL_DIR}bioms/"
 export BIOM_RAW="${BIOM_DIR}feature-table.biom"
@@ -319,6 +312,20 @@ if [[ ! -s "${BIOM_RAW}" ]]
     else
         echo "Skip"
     fi
+
+
+
+log "Export frequencies per sample"
+
+export SAMPLE_FREQUENCY_DETAILS_DIR="${TOOL_DIR}sample_frequency_details/"
+export SAMPLE_FREQUENCY_DETAILS_CSV="${SAMPLE_FREQUENCY_DETAILS_DIR}sample-frequency-detail.csv"
+
+# Output: directory with the file 'sample-frequency-detail.csv'
+qiime tools export \
+    --input-path "${SUMMARY_STATISTICS_QZV}" \
+    --output-path "${SAMPLE_FREQUENCY_DETAILS_DIR}"
+
+export SAMPLE_FREQUENCY_VALUES="${SAMPLE_FREQUENCY_DETAILS_DIR}values.txt"
 
 
 
