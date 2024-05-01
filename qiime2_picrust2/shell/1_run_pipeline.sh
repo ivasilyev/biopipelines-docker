@@ -145,6 +145,8 @@ force_docker_pull "${IMG}"
 
 docker run \
     --env QIIME2_DIR="${QIIME2_DIR}" \
+    --env QIIME2_SCRIPT_1="${QIIME2_SCRIPT_1}" \
+    --env QIIME2_SCRIPT_2="${QIIME2_SCRIPT_2}" \
     --env QIIME2_FEATURES_BIOM="${QIIME2_FEATURES_BIOM}" \
     --env QIIME2_FEATURES_FASTA="${QIIME2_FEATURES_FASTA}" \
     --env SAMPLEDATA_CSV="${SAMPLEDATA_CSV}" \
