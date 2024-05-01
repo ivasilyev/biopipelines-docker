@@ -179,13 +179,14 @@ if [[ ! -s "${CLUSTERED_SEQUENCES}" ]]
     fi
 
 
+log "Run de novo chimera checking"
 
 export DECHIMERIZATION_DIR="${TOOL_DIR}uchime-denovo/"
 export CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}chimeras.qza"
 export CHIMERA_FILTERING_SEQUENCES="${DECHIMERIZATION_DIR}nonchimeras.qza"
 export DECHIMERIZATION_STATS="${DECHIMERIZATION_DIR}statistics.qza"
 
-log "Run de novo chimera checking"
+md "${CHIMERIC_SEQUENCES}"
 
 qiime vsearch uchime-denovo \
     --i-sequences "${CLUSTERED_SEQUENCES}" \
@@ -218,7 +219,7 @@ qiime feature-table filter-features \
 
 qiime feature-table summarize \
     --i-table "${NON_CHIMERIC_FREQUENCIES}" \
-    --o-visualization "${DECHIMERIZATION_DIR}table-nonchimeric.qzv"
+    --o-visualization "${DECHIMERIZATION_DIR}table_nonchimeric.qzv"
 
 
 
@@ -262,6 +263,80 @@ qiime feature-table filter-seqs \
     --o-filtered-data "${BORDERLINE_CHIMERIC_SEQUENCES}" \
     --p-exclude-ids \
     --verbose
+
+
+
+export DECONTAMINATION_DIR="${TOOL_DIR}decontam/"
+export DECONTAMINATION_SCORES="${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qza"
+
+if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
+    then
+
+    log "Trying to decontaminate frequency table"
+
+    md "${DECONTAMINATION_SCORES}"
+
+    qiime quality-control decontam-identify \
+        --i-table "${FREQUENCY_TABLE}" \
+        --m-metadata-file "${METADATA_TSV}" \
+        --o-decontam-scores "${DECONTAMINATION_SCORES}" \
+        --p-method prevalence \
+        --p-prev-control-column "${PREV_CONTROL_COLUMN}" \
+        --p-prev-control-indicator "${PREV_CONTROL_INDICATOR}" \
+        --verbose \
+    |& tee "${LOG_DIR}quality-control decontam-identify.log"
+
+    # Output: 'stats.tsv'
+    qiime tools export \
+        --input-path "${DECONTAMINATION_SCORES}" \
+        --output-format DecontamScoreDirFmt \
+        --output-path "${DECONTAMINATION_DIR}" \
+    |& tee "${LOG_DIR}tools export decontam.log"
+
+    mv \
+        --verbose \
+        "${DECONTAMINATION_DIR}stats.tsv" \
+        "${DECONTAMINATION_DIR}decontamination_stats.tsv"
+
+
+    qiime quality-control decontam-score-viz \
+        --i-decontam-scores "${DECONTAMINATION_SCORES}" \
+        --i-table "${FREQUENCY_TABLE}" \
+        --o-visualization "${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qzv" \
+        --verbose \
+    |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
+
+    else
+        echo "Skip"
+    fi
+
+
+
+export DECONTAMINATION_TABLE="${DECONTAMINATION_DIR}decontamination_filtered_frequencies.qza"
+
+if [[ ! -s "${DECONTAMINATION_TABLE}" ]]
+    then
+
+    qiime quality-control decontam-remove \
+        --i-decontam-scores "${DECONTAMINATION_SCORES}" \
+        --i-table "${FREQUENCY_TABLE}" \
+        --o-filtered-table "${DECONTAMINATION_TABLE}" \
+        --verbose \
+    |& tee "${LOG_DIR}quality-control decontam-remove.log"
+
+    else
+        echo "Skip"
+    fi
+
+
+
+if [[ -s "${DECONTAMINATION_TABLE}" ]]
+    then
+        echo "The decontamination was successful, use the output file: '${DECONTAMINATION_TABLE}'"
+        export FREQUENCY_TABLE="${DECONTAMINATION_TABLE}"
+    else
+        echo "The decontamination was unsuccessful, keep use the input file: '${FREQUENCY_TABLE}'"
+    fi
 
 
 
