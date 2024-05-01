@@ -155,7 +155,7 @@ export CLUSTERED_DIR="${TOOL_DIR}cluster_features/"
 export CLUSTERED_SEQUENCES="${CLUSTERED_DIR}closed_reference_clustered_sequences.qza"
 export CLUSTERED_FREQUENCIES="${CLUSTERED_DIR}closed_reference_clustered_table.qza"
 
-if [[ ! -s "${CLUSTERED_SEQUENCES}" ]]
+if [[ ! -s "${CLUSTERED_SEQUENCES}" && ! -s "${CLUSTERED_FREQUENCIES}" ]]
     then
 
     log "Cluster closed references at ${CONSENSUS_THRESHOLD} percent"
@@ -263,6 +263,32 @@ qiime feature-table filter-seqs \
     --o-filtered-data "${BORDERLINE_CHIMERIC_SEQUENCES}" \
     --p-exclude-ids \
     --verbose
+
+
+
+if [[ -s "${BORDERLINE_CHIMERIC_SEQUENCES}" && -s "${BORDERLINE_CHIMERIC_FREQUENCIES}" ]]
+    then
+
+        echo \
+            "The dechimerization was successful, use the output" \
+            "representative sequences: '${BORDERLINE_CHIMERIC_SEQUENCES}'" \
+            "and frequency table: '${BORDERLINE_CHIMERIC_FREQUENCIES}'"
+
+        export REPRESENTATIVE_SEQUENCES="${BORDERLINE_CHIMERIC_SEQUENCES}"
+
+        export FREQUENCY_TABLE="${BORDERLINE_CHIMERIC_FREQUENCIES}"
+
+    else
+
+        echo \
+            "The dechimerization was unsuccessful, keep use the input" \
+            "representative sequences: '${CLUSTERED_SEQUENCES}'" \
+            "and frequency table: '${CLUSTERED_FREQUENCIES}'"
+
+        export REPRESENTATIVE_SEQUENCES="${CLUSTERED_SEQUENCES}"
+
+        export FREQUENCY_TABLE="${CLUSTERED_FREQUENCIES}"
+    fi
 
 
 
