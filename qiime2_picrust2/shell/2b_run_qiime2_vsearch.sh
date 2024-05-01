@@ -462,7 +462,7 @@ export TSV_ANNOTATED="${BIOM_DIR}OTU_with_taxa_normalized.tsv"
 if [[ ! -s "${BIOM_NORMALIZED}" ]]
     then
 
-    log "Normalize clustered features: '${FREQUENCY_TABLE}'"
+    log "Normalize clustered features"
 
     qiime feature-table relative-frequency \
         --i-table "${FREQUENCY_TABLE}" \
@@ -490,7 +490,7 @@ if [[ ! -s "${BIOM_NORMALIZED}" ]]
     biom convert \
         --header-key "taxonomy" \
         --input-fp "${BIOM_NORMALIZED_ANNOTATED}" \
-        --output-fp "${BIOM_DIR}" \
+        --output-fp "${TSV_ANNOTATED}" \
         --to-tsv
 
     log "Export normalized frequencies to use in report"
