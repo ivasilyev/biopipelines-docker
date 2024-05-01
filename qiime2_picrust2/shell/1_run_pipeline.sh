@@ -90,10 +90,11 @@ mkdir \
     --mode 0777 \
     --parents \
     --verbose \
-    "${QIIME2_DIR}" \
+    "${LOG_DIR}" \
     "${PICRUST2_DIR}" \
-    "${SCRIPT_DIR}" \
-    "${LOG_DIR}"
+    "${QIIME2_DIR}" \
+    "${RESULT_DIR}" \
+    "${SCRIPT_DIR}"
 
 
 
@@ -234,8 +235,6 @@ cd "${ROOT_DIR}" || exit 1
 
 
 log "Copy QIIME2 and PICRUSt2 pipeline output tables"
-
-mkdir -p "${RESULT_DIR}"
 
 find "${ROOT_DIR}" \
     -type f \( \
