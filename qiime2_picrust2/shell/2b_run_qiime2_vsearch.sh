@@ -71,7 +71,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
         --type 'SampleData[PairedEndSequencesWithQuality]' \
     |& tee "${LOG_DIR}tools import.log"
 
-    log "Summarize sequences"
+    log "Create summary statistics for raw sequences"
 
     qiime demux summarize \
         --i-data "${DEMULTIPLEXED_READS}" \
