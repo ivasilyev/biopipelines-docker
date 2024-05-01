@@ -16,3 +16,5 @@ curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/mast
     -o "${PIPELINE_SCRIPT}"
 
 bash "${PIPELINE_SCRIPT}"
+
+rm -f "$(realpath "${0}")"

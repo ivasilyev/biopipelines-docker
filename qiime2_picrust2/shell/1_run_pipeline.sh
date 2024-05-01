@@ -305,3 +305,5 @@ docker run \
 
 
 log "All pipeline runs ended"
+
+rm -f "$(realpath "${0}")"

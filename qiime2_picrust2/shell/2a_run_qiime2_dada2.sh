@@ -581,4 +581,6 @@ chmod -R 777 "$(pwd)"
 
 cd ..
 
+rm -f "$(realpath "${0}")"
+
 exit 0
