@@ -23,6 +23,7 @@ function md {
 export QIIME2_DIR="$(realpath "${QIIME2_DIR}")/"
 export QIIME2_FEATURES_BIOM="$(realpath "${QIIME2_FEATURES_BIOM}")"
 export QIIME2_FEATURES_FASTA="$(realpath "${QIIME2_FEATURES_FASTA}")"
+export QIIME2_OTU_TABLE="$(realpath "${QIIME2_OTU_TABLE}")"
 
 export SAMPLEDATA_CSV="$(realpath "${SAMPLEDATA_CSV}")"
 export METADATA_TSV="$(realpath "${METADATA_TSV}")"
@@ -456,6 +457,7 @@ log "Export normalized OTU"
 export NORMALIZED_FREQUENCIES="${BIOM_DIR}clustered_table_normalized.qza"
 export BIOM_NORMALIZED="${BIOM_DIR}OTU_normalized.biom"
 export BIOM_NORMALIZED_ANNOTATED="${BIOM_DIR}OTU_normalized_with_taxa.biom"
+export TSV_ANNOTATED="${BIOM_DIR}OTU_with_taxa_normalized.tsv"
 
 if [[ ! -s "${BIOM_NORMALIZED}" ]]
     then
@@ -479,17 +481,25 @@ if [[ ! -s "${BIOM_NORMALIZED}" ]]
         "${BIOM_NORMALIZED}"
 
     biom add-metadata \
-        --sc-separated "taxonomy" \
-        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
-        --sample-metadata-fp "${METADATA_TSV}" \
         --input-fp "${BIOM_NORMALIZED}" \
-        --output-fp "${BIOM_NORMALIZED_ANNOTATED}"
+        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
+        --output-fp "${BIOM_NORMALIZED_ANNOTATED}" \
+        --sample-metadata-fp "${METADATA_TSV}" \
+        --sc-separated "taxonomy"
 
     biom convert \
-        --to-tsv \
+        --header-key "taxonomy" \
         --input-fp "${BIOM_NORMALIZED_ANNOTATED}" \
-        --output-fp "${BIOM_DIR}OTU_with_taxa_normalized.tsv" \
-        --header-key "taxonomy"
+        --output-fp "${BIOM_DIR}" \
+        --to-tsv
+
+    log "Export normalized frequencies to use in report"
+
+    ln \
+        --symbolic \
+        --verbose \
+        "${TSV_ANNOTATED}" \
+        "${QIIME2_OTU_TABLE}"
 
     else
         echo "Skip"

@@ -23,6 +23,7 @@ function md {
 export QIIME2_DIR="$(realpath "${QIIME2_DIR}")/"
 export QIIME2_FEATURES_BIOM="$(realpath "${QIIME2_FEATURES_BIOM}")"
 export QIIME2_FEATURES_FASTA="$(realpath "${QIIME2_FEATURES_FASTA}")"
+export QIIME2_ASV_TABLE="$(realpath "${QIIME2_ASV_TABLE}")"
 
 export SAMPLEDATA_CSV="$(realpath "${SAMPLEDATA_CSV}")"
 export METADATA_TSV="$(realpath "${METADATA_TSV}")"
@@ -229,6 +230,7 @@ log "Export ASV"
 export BIOM_DIR="${TOOL_DIR}bioms/"
 export BIOM_RAW="${BIOM_DIR}feature-table.biom"
 export BIOM_ANNOTATED="${BIOM_DIR}ASV_with_taxa.biom"
+export TSV_ANNOTATED="${BIOM_DIR}ASV_with_taxa.tsv"
 
 md "${BIOM_RAW}"
 
@@ -246,29 +248,37 @@ if [[ ! -s "${BIOM_RAW}" ]]
 
     # The directory was already created
     biom add-metadata \
-        --sc-separated "taxonomy" \
-        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
-        --sample-metadata-fp "${METADATA_TSV}" \
         --input-fp "${BIOM_RAW}" \
+        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
         --output-fp "${BIOM_ANNOTATED}" \
+        --sample-metadata-fp "${METADATA_TSV}" \
+        --sc-separated "taxonomy" \
     |& tee "${LOG_DIR}biom add-metadata.log"
 
     log "Convert biom to JSON"
 
     biom convert \
-        --to-json \
         --input-fp "${BIOM_ANNOTATED}" \
         --output-fp "${BIOM_DIR}ASV_with_taxa.json" \
+        --to-json \
     |& tee "${LOG_DIR}biom convert json.log"
 
     log "Convert biom to TSV"
 
     biom convert \
-        --to-tsv \
-        --input-fp "${BIOM_ANNOTATED}" \
-        --output-fp "${BIOM_DIR}ASV_with_taxa.tsv" \
         --header-key "taxonomy" \
+        --input-fp "${BIOM_ANNOTATED}" \
+        --output-fp "${TSV_ANNOTATED}" \
+        --to-tsv \
     |& tee "${LOG_DIR}biom convert taxa tsv.log"
+
+    log "Export denormalized frequencies to use in report"
+
+    ln \
+        --symbolic \
+        --verbose \
+        "${TSV_ANNOTATED}" \
+        "${QIIME2_ASV_TABLE}"
 
     else
         echo "Skip"
