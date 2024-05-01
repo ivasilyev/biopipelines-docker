@@ -66,12 +66,16 @@ log "Convert tables"
 
 mkdir -p "${TABLES_DIR}EC_metagenome_out/"
 
+export LEGASY_TSV="${TABLES_DIR}EC_metagenome_out/pred_metagenome_contrib.legacy.tsv"
+
 convert_table.py \
     "${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_contrib.tsv.gz" \
     --conversion contrib_to_legacy \
-    --output "${TABLES_DIR}EC_metagenome_out/pred_metagenome_contrib.legacy.tsv" \
+    --output "${LEGASY_TSV}.gz" \
     |& tee "${LOG_DIR}convert_table.log"
 
+gzip "${LEGASY_TSV}.gz" \
+> "${LEGASY_TSV}"
 
 
 log "Add KEGG ENZYME descriptions"
