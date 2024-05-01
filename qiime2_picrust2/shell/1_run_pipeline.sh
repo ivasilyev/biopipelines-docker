@@ -66,9 +66,9 @@ export QIIME2_FEATURES_BIOM="${QIIME2_DIR}feature-table.biom"
 export QIIME2_FEATURES_FASTA="${QIIME2_DIR}dna-sequences.fasta"
 export QIIME2_SCRIPT_1="${SCRIPT_DIR}qiime2_1.sh"
 export QIIME2_SCRIPT_2="${SCRIPT_DIR}qiime2_2.sh"
-export QIIME2_OTU_ASV_MAPPER="${QIIME2_DIR}OTU_ASV_mapper.tsv"
-export QIIME2_QIIME2_ASV_TABLE="${QIIME2_DIR}ASV_with_taxa.tsv"
-export QIIME2_OTU_TABLE="${QIIME2_DIR}OTU_with_taxa.tsv"
+export QIIME2_OTU_ASV_MAPPER="${RESULT_DIR}OTU_ASV_mapper.tsv"
+export QIIME2_ASV_TABLE="${RESULT_DIR}ASV.tsv"
+export QIIME2_OTU_TABLE="${RESULT_DIR}OTU.tsv"
 
 
 export REFERENCE_NAME="SILVA"
@@ -81,7 +81,7 @@ export TAXA_REFERENCE_SEQUENCES="${REFERENCE_DIR}${REFERENCE_NAME}-${REFERENCE_V
 export TAXA_REFERENCE_HEADER="${REFERENCE_DIR}${REFERENCE_NAME}_${REFERENCE_VERSION}_taxonomy_headed.tsv"
 
 export PICRUST2_DIR="${ROOT_DIR}picrust2/"
-export PICRUST2_RESULTS_DIR="${PICRUST2_DIR}results/"
+export PICRUST2_RESULTS_DIR="${RESULT_DIR}picrust2/"
 export PICRUST2_SCRIPT="${PICRUST2_DIR}picrust2.sh"
 
 cd "${ROOT_DIR}" || exit 1
@@ -154,7 +154,7 @@ docker run \
     --env QIIME2_FEATURES_BIOM="${QIIME2_FEATURES_BIOM}" \
     --env QIIME2_FEATURES_FASTA="${QIIME2_FEATURES_FASTA}" \
     --env QIIME2_OTU_ASV_MAPPER="${QIIME2_OTU_ASV_MAPPER}" \
-    --env QIIME2_QIIME2_ASV_TABLE="${QIIME2_QIIME2_ASV_TABLE}" \
+    --env QIIME2_ASV_TABLE="${QIIME2_ASV_TABLE}" \
     --env QIIME2_OTU_TABLE="${QIIME2_OTU_TABLE}" \
     --env SAMPLEDATA_CSV="${SAMPLEDATA_CSV}" \
     --env METADATA_TSV="${METADATA_TSV}" \
@@ -286,8 +286,11 @@ export IMG="ivasilyev/curated_projects:latest"
 force_docker_pull "${IMG}"
 
 docker run \
-    --env QIIME2_OTU_TABLE="${QIIME2_OTU_TABLE}" \
+    --env QIIME2_OTU_ASV_MAPPER="${QIIME2_OTU_ASV_MAPPER}" \
+    --env QIIME2_ASV_TABLE="${QIIME2_ASV_TABLE}" \
     --env TAXA_REFERENCE_HEADER="${TAXA_REFERENCE_HEADER}" \
+    --env QIIME2_OTU_TABLE="${QIIME2_OTU_TABLE}" \
+    --env INDEX_COLUMN_NAME="#OTU ID" \
     --net host \
     --rm \
     --volume /data:/data \
@@ -297,19 +300,30 @@ docker run \
     --volume /data04:/data04 \
     "${IMG}" \
         bash -c '
-            OUT_FILE="${QIIME2_OTU_TABLE%.*}_annotated.tsv";
+            OUT_FILE_1="${QIIME2_ASV_TABLE%.*}_annotated.tsv";
+            OUT_FILE_2="${QIIME2_OTU_TABLE%.*}_annotated.tsv";
 
-            echo Concatenate table \"${QIIME2_OTU_TABLE}\" and \"${TAXA_REFERENCE_HEADER}\" into \"${OUT_FILE}\";
+            echo Concatenate table \"${QIIME2_OTU_ASV_MAPPER}\" and \"${QIIME2_ASV_TABLE}\" into \"${OUT_FILE_1}\";
 
             git pull --quiet && \
 
             python3 ./meta/scripts/concatenate_tables.py \
                 --axis 1 \
-                --index "#OTU ID" \
+                --index "${INDEX_COLUMN_NAME}" \
+                --input \
+                    "${QIIME2_OTU_ASV_MAPPER}" \
+                    "${QIIME2_ASV_TABLE}" \
+                --output "${OUT_FILE_1}" && \
+
+            echo Concatenate table \"${QIIME2_OTU_TABLE}\" and \"${TAXA_REFERENCE_HEADER}\" into \"${OUT_FILE_2}\" &&
+
+            python3 ./meta/scripts/concatenate_tables.py \
+                --axis 1 \
+                --index "${INDEX_COLUMN_NAME}" \
                 --input \
                     "${TAXA_REFERENCE_HEADER}" \
                     "${QIIME2_OTU_TABLE}" \
-                --output "${OUT_FILE}"
+                --output "${OUT_FILE_2}"
         ' \
 |& tee "${LOG_DIR}concatenate_tables.log"
 
