@@ -376,9 +376,10 @@ qiime tools export \
     --input-path "${REPRESENTATIVE_SEQUENCES}" \
     --output-format DNASequencesDirectoryFormat \
     --output-path "${DENOISING_DIR}" \
-    |& tee "${LOG_DIR}tools export fasta.log"
+|& tee "${LOG_DIR}tools export fasta.log"
 
-mv \
+ln \
+    --symbolic \
     --verbose \
     "${FASTA}" \
     "${QIIME2_FEATURES_FASTA}"
@@ -438,7 +439,8 @@ if [[ ! -s "${BIOM_DENORMALIZED}" ]]
 
     log "Export the denormalized frequencies to use in PCRUSt2"
 
-    mv \
+    ln \
+        --symbolic \
         --verbose \
         "${BIOM_DENORMALIZED_ANNOTATED}" \
         "${QIIME2_FEATURES_BIOM}"
