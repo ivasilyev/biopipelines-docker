@@ -117,6 +117,18 @@ if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
     fi
 
 
+log "Summarize statistics"
+
+export SUMMARY_STATISTICS_QZV="${DENOISING_DIR}frequency_table.qzv"
+
+qiime feature-table summarize \
+    --i-table "${FREQUENCY_TABLE}"\
+    --o-visualization "${SUMMARY_STATISTICS_QZV}" \
+    --m-sample-metadata-file "${METADATA_TSV}" \
+    --verbose \
+|& tee "${LOG_DIR}feature-table summarize.log"
+
+
 
 log "Generate tabular view of feature identifier to sequence mapping"
 
@@ -228,36 +240,6 @@ if [[ -s "${DECONTAMINATION_TABLE}" ]]
 
 
 
-log "Summarize statistics"
-
-export SUMMARY_STATISTICS_QZV="${DENOISING_DIR}frequency_table.qzv"
-
-qiime feature-table summarize \
-    --i-table "${FREQUENCY_TABLE}"\
-    --o-visualization "${SUMMARY_STATISTICS_QZV}" \
-    --m-sample-metadata-file "${METADATA_TSV}" \
-    --verbose \
-|& tee "${LOG_DIR}feature-table summarize.log"
-
-
-
-log "Sort frequencies per sample"
-
-awk \
-    -F \
-    "," \
-    '{print $NF}' \
-    "${SAMPLE_FREQUENCY_DETAILS_CSV}" \
-| sort --general-numeric-sort \
-| sed 's|\..*$||g' \
-> "${SAMPLE_FREQUENCY_VALUES}"
-
-# Frequencies per sample
-export MIN_FPS="$(head -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
-export MAX_FPS="$(tail -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
-
-
-
 log "Export ASV"
 
 export BIOM_DIR="${TOOL_DIR}bioms/"
@@ -307,20 +289,6 @@ if [[ ! -s "${BIOM_RAW}" ]]
     else
         echo "Skip"
     fi
-
-
-
-log "Export frequencies per sample"
-
-export SAMPLE_FREQUENCY_DETAILS_DIR="${TOOL_DIR}sample_frequency_details/"
-export SAMPLE_FREQUENCY_DETAILS_CSV="${SAMPLE_FREQUENCY_DETAILS_DIR}sample-frequency-detail.csv"
-
-# Output: directory with the file 'sample-frequency-detail.csv'
-qiime tools export \
-    --input-path "${SUMMARY_STATISTICS_QZV}" \
-    --output-path "${SAMPLE_FREQUENCY_DETAILS_DIR}"
-
-export SAMPLE_FREQUENCY_VALUES="${SAMPLE_FREQUENCY_DETAILS_DIR}values.txt"
 
 
 
@@ -527,6 +495,39 @@ find . \
                 "${ALPHA_METRIC_DIR_NAME}alpha-diversity.tsv" \
                 "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}.tsv";
         '
+
+
+
+log "Export frequencies per sample"
+
+export SAMPLE_FREQUENCY_DETAILS_DIR="${TOOL_DIR}sample_frequency_details/"
+export SAMPLE_FREQUENCY_DETAILS_CSV="${SAMPLE_FREQUENCY_DETAILS_DIR}sample-frequency-detail.csv"
+
+md "${SAMPLE_FREQUENCY_DETAILS_CSV}"
+
+# Output: directory with the file 'sample-frequency-detail.csv'
+qiime tools export \
+    --input-path "${SUMMARY_STATISTICS_QZV}" \
+    --output-path "${SAMPLE_FREQUENCY_DETAILS_DIR}"
+
+export SAMPLE_FREQUENCY_VALUES="${SAMPLE_FREQUENCY_DETAILS_DIR}values.txt"
+
+
+
+log "Sort frequencies per sample"
+
+awk \
+    -F \
+    "," \
+    '{print $NF}' \
+    "${SAMPLE_FREQUENCY_DETAILS_CSV}" \
+| sort --general-numeric-sort \
+| sed 's|\..*$||g' \
+> "${SAMPLE_FREQUENCY_VALUES}"
+
+# Frequencies per sample
+export MIN_FPS="$(head -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
+export MAX_FPS="$(tail -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
 
 
 
