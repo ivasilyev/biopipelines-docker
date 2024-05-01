@@ -23,6 +23,7 @@ function md {
 export QIIME2_DIR="$(realpath "${QIIME2_DIR}")/"
 export QIIME2_FEATURES_BIOM="$(realpath "${QIIME2_FEATURES_BIOM}")"
 export QIIME2_FEATURES_FASTA="$(realpath "${QIIME2_FEATURES_FASTA}")"
+export QIIME2_OTU_ASV_MAPPER="$(realpath "${QIIME2_OTU_ASV_MAPPER}")"
 export QIIME2_ASV_TABLE="$(realpath "${QIIME2_ASV_TABLE}")"
 
 export SAMPLEDATA_CSV="$(realpath "${SAMPLEDATA_CSV}")"
@@ -268,6 +269,14 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         "${TAXONOMY_DIR}taxonomy.tsv" \
     > "${OTU_ASV_MAPPER}"
 
+    log "Export unannotated denormalized frequencies to use in report"
+
+    ln \
+        --symbolic \
+        --verbose \
+        "${OTU_ASV_MAPPER}" \
+        "${QIIME2_OTU_ASV_MAPPER}"
+
     qiime metadata tabulate \
         --m-input-file "${CLASSIFIED_TAXONOMY}" \
         --o-visualization "${TAXONOMY_DIR}classified_taxonomy.qzv" \
@@ -335,7 +344,7 @@ if [[ ! -s "${BIOM_RAW}" ]]
     biom add-metadata \
         --input-fp "${BIOM_RAW}" \
         --float-fields "confidence" \
-        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
+        --observation-metadata-fp "${OTU_ASV_MAPPER}" \
         --output-fp "${BIOM_ANNOTATED}" \
         --sample-metadata-fp "${METADATA_TSV}" \
         --sc-separated "taxonomy" \

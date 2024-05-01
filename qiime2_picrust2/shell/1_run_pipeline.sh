@@ -59,13 +59,17 @@ export LOG_DIR="${ROOT_DIR}logs/"
 export SAMPLEDATA_CSV="${SAMPLEDATA_DIR}qiime2_sample_data.csv"
 export METADATA_TSV="${SAMPLEDATA_DIR}qiime2_meta_data.tsv"
 
+export RESULT_DIR="${ROOT_DIR}results/"
+
 export QIIME2_DIR="${ROOT_DIR}qiime2/"
 export QIIME2_FEATURES_BIOM="${QIIME2_DIR}feature-table.biom"
 export QIIME2_FEATURES_FASTA="${QIIME2_DIR}dna-sequences.fasta"
-export QIIME2_SCRIPT_1="${QIIME2_DIR}qiime2_1.sh"
-export QIIME2_SCRIPT_2="${QIIME2_DIR}qiime2_2.sh"
-export QIIME2_ASV_TABLE="${RESULT_DIR}ASV_with_taxa.tsv"
-export QIIME2_OTU_TABLE="${RESULT_DIR}OTU_with_taxa.tsv"
+export QIIME2_SCRIPT_1="${SCRIPT_DIR}qiime2_1.sh"
+export QIIME2_SCRIPT_2="${SCRIPT_DIR}qiime2_2.sh"
+export QIIME2_OTU_ASV_MAPPER="${QIIME2_DIR}OTU_ASV_mapper.tsv"
+export QIIME2_QIIME2_ASV_TABLE="${QIIME2_DIR}ASV_with_taxa.tsv"
+export QIIME2_OTU_TABLE="${QIIME2_DIR}OTU_with_taxa.tsv"
+
 
 export REFERENCE_NAME="SILVA"
 export REFERENCE_VERSION="138.1"
@@ -79,8 +83,6 @@ export TAXA_REFERENCE_HEADER="${REFERENCE_DIR}${REFERENCE_NAME}_${REFERENCE_VERS
 export PICRUST2_DIR="${ROOT_DIR}picrust2/"
 export PICRUST2_RESULTS_DIR="${PICRUST2_DIR}results/"
 export PICRUST2_SCRIPT="${PICRUST2_DIR}picrust2.sh"
-
-export ASV_TABLE="${RESULT_DIR}ASVs_with_taxa.tsv"
 
 cd "${ROOT_DIR}" || exit 1
 
@@ -151,7 +153,8 @@ docker run \
     --env QIIME2_SCRIPT_2="${QIIME2_SCRIPT_2}" \
     --env QIIME2_FEATURES_BIOM="${QIIME2_FEATURES_BIOM}" \
     --env QIIME2_FEATURES_FASTA="${QIIME2_FEATURES_FASTA}" \
-    --env QIIME2_ASV_TABLE="${QIIME2_ASV_TABLE}" \
+    --env QIIME2_OTU_ASV_MAPPER="${QIIME2_OTU_ASV_MAPPER}" \
+    --env QIIME2_QIIME2_ASV_TABLE="${QIIME2_QIIME2_ASV_TABLE}" \
     --env QIIME2_OTU_TABLE="${QIIME2_OTU_TABLE}" \
     --env SAMPLEDATA_CSV="${SAMPLEDATA_CSV}" \
     --env METADATA_TSV="${METADATA_TSV}" \
@@ -238,7 +241,7 @@ find "${ROOT_DIR}" \
     -type f \( \
         -name "path_abun_unstrat_described.tsv" \
         -o -name "pred_metagenome_contrib.legacy.tsv" \
-        -o -name "$(basename "${ASV_TABLE}")" \
+        -o -name "$(basename "${QIIME2_ASV_TABLE}")" \
     \) -print0 \
 | xargs \
     -0 \
@@ -274,7 +277,7 @@ find "${ROOT_DIR}" \
 
 
 # The first line of the raw file is '# Constructed from biom file'
-sed -i '1d' "${ASV_TABLE}"
+sed -i '1d' "${QIIME2_ASV_TABLE}"
 
 log "Concatenate tables"
 
@@ -283,7 +286,7 @@ export IMG="ivasilyev/curated_projects:latest"
 force_docker_pull "${IMG}"
 
 docker run \
-    --env ASV_TABLE="${ASV_TABLE}" \
+    --env QIIME2_OTU_TABLE="${QIIME2_OTU_TABLE}" \
     --env TAXA_REFERENCE_HEADER="${TAXA_REFERENCE_HEADER}" \
     --net host \
     --rm \
@@ -294,15 +297,18 @@ docker run \
     --volume /data04:/data04 \
     "${IMG}" \
         bash -c '
-            OUT_FILE="${ASV_TABLE%.*}_annotated.tsv";
-            echo Concatenate table \"${ASV_TABLE}\" and \"${TAXA_REFERENCE_HEADER}\" into \"${OUT_FILE}\";
+            OUT_FILE="${QIIME2_OTU_TABLE%.*}_annotated.tsv";
+
+            echo Concatenate table \"${QIIME2_OTU_TABLE}\" and \"${TAXA_REFERENCE_HEADER}\" into \"${OUT_FILE}\";
+
             git pull --quiet && \
+
             python3 ./meta/scripts/concatenate_tables.py \
                 --axis 1 \
                 --index "#OTU ID" \
                 --input \
                     "${TAXA_REFERENCE_HEADER}" \
-                    "${ASV_TABLE}" \
+                    "${QIIME2_OTU_TABLE}" \
                 --output "${OUT_FILE}"
         ' \
 |& tee "${LOG_DIR}concatenate_tables.log"
