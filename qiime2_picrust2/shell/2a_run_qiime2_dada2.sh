@@ -140,22 +140,6 @@ qiime feature-table tabulate-seqs \
 
 
 
-log "Export the denoised sequences"
-
-# Output: 'dna-sequences.fasta'
-qiime tools export \
-    --input-path "${REPRESENTATIVE_SEQUENCES}" \
-    --output-format DNASequencesDirectoryFormat \
-    --output-path "${DENOISING_DIR}" \
-    |& tee "${LOG_DIR}tools export fasta.log"
-
-mv \
-    --verbose \
-    "${DENOISING_DIR}dna-sequences.fasta" \
-    "${QIIME2_FEATURES_FASTA}"
-
-
-
 log "Generate a tabular view of DADA2 denoising metadata"
 
 qiime metadata tabulate \

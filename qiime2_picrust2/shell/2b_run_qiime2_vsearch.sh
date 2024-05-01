@@ -365,6 +365,26 @@ if [[ -s "${DECONTAMINATION_TABLE}" ]]
 
 
 
+log "Export the denoised sequences to use in PCRUSt2"
+
+export FASTA="${TOOL_DIR}fasta/dna-sequences.fasta"
+
+md "${FASTA}"
+
+# Output: 'dna-sequences.fasta'
+qiime tools export \
+    --input-path "${REPRESENTATIVE_SEQUENCES}" \
+    --output-format DNASequencesDirectoryFormat \
+    --output-path "${DENOISING_DIR}" \
+    |& tee "${LOG_DIR}tools export fasta.log"
+
+mv \
+    --verbose \
+    "${FASTA}" \
+    "${QIIME2_FEATURES_FASTA}"
+
+
+
 log "Export denormalized OTU"
 
 export BIOM_DIR="${TOOL_DIR}bioms/"
@@ -416,11 +436,12 @@ if [[ ! -s "${BIOM_DENORMALIZED}" ]]
         --header-key "taxonomy" \
     |& tee "${LOG_DIR}biom convert taxa tsv.log"
 
+    log "Export the denormalized frequencies to use in PCRUSt2"
+
     mv \
         --verbose \
         "${BIOM_DENORMALIZED_ANNOTATED}" \
         "${QIIME2_FEATURES_BIOM}"
-
 
     else
         echo "Skip"
