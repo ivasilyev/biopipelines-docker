@@ -118,18 +118,6 @@ if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
     fi
 
 
-log "Summarize statistics"
-
-export SUMMARY_STATISTICS_QZV="${DENOISING_DIR}frequency_table.qzv"
-
-qiime feature-table summarize \
-    --i-table "${FREQUENCY_TABLE}"\
-    --o-visualization "${SUMMARY_STATISTICS_QZV}" \
-    --m-sample-metadata-file "${METADATA_TSV}" \
-    --verbose \
-|& tee "${LOG_DIR}feature-table summarize.log"
-
-
 
 log "Generate tabular view of feature identifier to sequence mapping"
 
@@ -514,12 +502,25 @@ find . \
 
 
 
-log "Export frequencies per sample"
+log "Summarize statistics"
 
 export SAMPLE_FREQUENCY_DETAILS_DIR="${TOOL_DIR}sample_frequency_details/"
-export SAMPLE_FREQUENCY_DETAILS_CSV="${SAMPLE_FREQUENCY_DETAILS_DIR}sample-frequency-detail.csv"
+export SUMMARY_STATISTICS_QZV="${SAMPLE_FREQUENCY_DETAILS_DIR}frequency_table.qzv"
 
 md "${SAMPLE_FREQUENCY_DETAILS_CSV}"
+
+qiime feature-table summarize \
+    --i-table "${FREQUENCY_TABLE}"\
+    --o-visualization "${SUMMARY_STATISTICS_QZV}" \
+    --m-sample-metadata-file "${METADATA_TSV}" \
+    --verbose \
+|& tee "${LOG_DIR}feature-table summarize.log"
+
+
+
+log "Export frequencies per sample"
+
+export SAMPLE_FREQUENCY_DETAILS_CSV="${SAMPLE_FREQUENCY_DETAILS_DIR}sample-frequency-detail.csv"
 
 # Output: directory with the file 'sample-frequency-detail.csv'
 qiime tools export \
