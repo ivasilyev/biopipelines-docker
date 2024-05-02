@@ -551,6 +551,8 @@ log "Generate interactive alpha rarefaction curves"
 
 # The first 2 lines are '# Constructed from biom file' and header
 export ALPHA_RAREFACTION="${CORE_METRICS_DIR}alpha_rarefaction.qzv"
+export ALPHA_RAREFACTION_LOG="${LOG_DIR}diversity alpha-rarefaction.log"
+
 
 if [[ ! -s "${ALPHA_RAREFACTION}" ]]
     then
@@ -562,8 +564,34 @@ if [[ ! -s "${ALPHA_RAREFACTION}" ]]
         --o-visualization "${ALPHA_RAREFACTION}" \
         --p-max-depth "${MAX_FPS}" \
         --verbose \
-    |& tee "${LOG_DIR}diversity alpha-rarefaction.log"
+    |& tee "${ALPHA_RAREFACTION_LOG}"
 
+    if [[ ! -s "${ALPHA_RAREFACTION}" ]]
+        then
+
+        log "Using log from unsuccessful alpha rarefaction as it was from duck typing"
+
+        MAX_FPS="$(
+            grep \
+                --perl-regexp \
+                --only-matching \
+                '(?<= is greater than the maximum sample total frequency of the feature_table \().*(?=\)\.)' \
+                "${ALPHA_RAREFACTION_LOG}" \
+            | head -n 1
+        )"
+
+        qiime diversity alpha-rarefaction \
+            --m-metadata-file "${METADATA_TSV}" \
+            --i-table "${FREQUENCY_TABLE}" \
+            --i-phylogeny "${ROOTED_TREE}" \
+            --o-visualization "${ALPHA_RAREFACTION}" \
+            --p-max-depth "${MAX_FPS}" \
+            --verbose \
+        |& tee -a "${ALPHA_RAREFACTION_LOG}"
+
+        else
+            echo "Alpha rarefaction wss successful from the first attempt"
+        fi
     else
         echo "Skip"
     fi
