@@ -94,6 +94,7 @@ mkdir \
     "${LOG_DIR}" \
     "${PICRUST2_DIR}" \
     "${QIIME2_DIR}" \
+    "${QZV_DIR}" \
     "${RESULT_DIR}" \
     "${SCRIPT_DIR}"
 
@@ -313,6 +314,28 @@ docker run \
                 --output "${OUT_FILE_1}";
         ' \
 |& tee "${LOG_DIR}concatenate_tables.log"
+
+
+
+log "Copy QIIME2 visualizations"
+
+find "${ROOT_DIR}" \
+    -type f \
+    -name *.qzv \
+    -print0 \
+| xargs \
+    -0 \
+    --max-procs "$(nproc)" \
+    -I "{}" \
+        bash -c '
+            FILE="{}";
+
+            cp \
+                --recursive \
+                --verbose \
+                "${FILE}" \
+                "${QZV_DIR}";
+        '
 
 
 
