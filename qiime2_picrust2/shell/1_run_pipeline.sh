@@ -56,6 +56,7 @@ export SCRIPT_DIR="$(realpath "${SCRIPT_DIR}")/"
 log "Create environment in ${ROOT_DIR}"
 
 export LOG_DIR="${ROOT_DIR}logs/"
+export QZV_DIR="${ROOT_DIR}qzv/"
 export SAMPLEDATA_CSV="${SAMPLEDATA_DIR}qiime2_sample_data.csv"
 export METADATA_TSV="${SAMPLEDATA_DIR}qiime2_meta_data.tsv"
 
@@ -175,7 +176,7 @@ docker run \
         bash "${QIIME2_SCRIPT_1}" \
         && bash "${QIIME2_SCRIPT_2}"
     ' \
-|& tee "${LOG_DIR}$(basename "${QIIME2_SCRIPT_1}").log"
+|& tee "${LOG_DIR}qiime2.log"
 
 rm \
     --force \
