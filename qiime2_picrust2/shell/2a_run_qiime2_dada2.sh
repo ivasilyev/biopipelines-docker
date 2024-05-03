@@ -477,7 +477,7 @@ find . \
 
             echo "Visualize alpha diversity data for \`${FILE}\`";
 
-            echo qiime diversity alpha-group-significance \
+            qiime diversity alpha-group-significance \
                 --i-alpha-diversity "${FILE}" \
                 --m-metadata-file "${METADATA_TSV}" \
                 --o-visualization "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}_significance.qzv" \
@@ -534,8 +534,7 @@ export SAMPLE_FREQUENCY_VALUES="${SAMPLE_FREQUENCY_DETAILS_DIR}values.txt"
 log "Sort frequencies per sample"
 
 awk \
-    -F \
-    "," \
+    -F "," \
     '{print $NF}' \
     "${SAMPLE_FREQUENCY_DETAILS_CSV}" \
 | sort --general-numeric-sort \
