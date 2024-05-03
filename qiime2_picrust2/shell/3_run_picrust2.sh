@@ -46,6 +46,12 @@ export EC_METAGENOMES="${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.
 export KO_METAGENOMES="${PIPELINE_DIR}KO_metagenome_out/pred_metagenome_unstrat.tsv.gz"
 export PATHWAYS="${PIPELINE_DIR}pathways_out/path_abun_unstrat.tsv.gz"
 
+# PICRUSt2 drops too many sequences if the BIOM and the FASTA are from DADA2.
+# After dropping ASV, very few sequences are left.
+# So it is practically better to use the BIOM and the FASTA obtained from
+# `vsearch cluster-features-closed-reference`, all preceded by
+# basic quality-score-based filtering and followed by chimera filtering
+# and aggressive OTU filtering (the treacherous trio, a.k.a. the Bokulich method)
 picrust2_pipeline.py \
     --coverage \
     --hsp_method mp \
