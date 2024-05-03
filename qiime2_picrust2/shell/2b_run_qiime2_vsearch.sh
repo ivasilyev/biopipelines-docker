@@ -184,7 +184,7 @@ log "Run de novo chimera checking"
 export DECHIMERIZATION_DIR="${TOOL_DIR}uchime-denovo/"
 export CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}chimeras.qza"
 export CHIMERA_FILTERING_SEQUENCES="${DECHIMERIZATION_DIR}nonchimeras.qza"
-export DECHIMERIZATION_STATS="${DECHIMERIZATION_DIR}statistics.qza"
+export DECHIMERIZATION_STATS="${DECHIMERIZATION_DIR}dechimerization_statistics.qza"
 
 md "${CHIMERIC_SEQUENCES}"
 
@@ -202,7 +202,7 @@ log "Visualize chimera check summary"
 
 qiime metadata tabulate \
     --m-input-file "${DECHIMERIZATION_STATS}" \
-    --o-visualization "${DECHIMERIZATION_DIR}statistics.qzv"
+    --o-visualization "${DECHIMERIZATION_DIR}dechimerization_statistics.qzv"
 
 
 
