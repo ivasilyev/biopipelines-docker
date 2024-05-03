@@ -368,7 +368,8 @@ if [[ -s "${DECONTAMINATION_TABLE}" ]]
 
 log "Export the denoised sequences to use in PCRUSt2"
 
-export FASTA="${TOOL_DIR}fasta/dna-sequences.fasta"
+export FASTA_DIR="${TOOL_DIR}fasta/"
+export FASTA="${FASTA_DIR}dna-sequences.fasta"
 
 md "${FASTA}"
 
@@ -376,7 +377,7 @@ md "${FASTA}"
 qiime tools export \
     --input-path "${REPRESENTATIVE_SEQUENCES}" \
     --output-format DNASequencesDirectoryFormat \
-    --output-path "${DENOISING_DIR}" \
+    --output-path "${FASTA_DIR}" \
 |& tee "${LOG_DIR}tools export fasta.log"
 
 ln \
