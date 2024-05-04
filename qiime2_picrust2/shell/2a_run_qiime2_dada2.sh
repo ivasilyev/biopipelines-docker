@@ -443,14 +443,13 @@ export CORE_METRICS_DIR="${TOOL_DIR}phylogenetic_core_metrics/"
 
 # '--output-dir' must not exist!
 rm \
+    --force \
     --recursive \
     --verbose \
-    --force \
     "${CORE_METRICS_DIR}"
 
 # The description for output files:
 # https://docs.qiime2.org/jupyterbooks/cancer-microbiome-intervention-tutorial/030-tutorial-downstream/050-core-metrics.html#core-phylogenetic-diversity-metrics
-
 qiime diversity core-metrics-phylogenetic \
     --i-phylogeny "${ROOTED_TREE}" \
     --i-table "${FREQUENCY_TABLE}" \
@@ -608,17 +607,10 @@ if [[ ! -s "${ALPHA_RAREFACTION}" ]]
 log "Visualize beta diversity"
 
 export UNIFRAC_MATRIX="${CORE_METRICS_DIR}unweighted_unifrac_distance_matrix.qza"
-export UNWEIGHTED_EMPEROR_QZV="${CORE_METRICS_DIR}${TOOL_NAME}_unweighted_unifrac_pcoa_emperor.qzv"
+export BETA_GROUP_SIGNIFICANCE="${CORE_METRICS_DIR}${TOOL_NAME}_unweighted_unifrac_significance_by_${GROUPING_COLUMN_NAME}.qzv"
 
-if [[ ! -s "${UNWEIGHTED_EMPEROR_QZV}" ]]
+if [[ ! -s "${BETA_GROUP_SIGNIFICANCE}" ]]
     then
-
-    qiime emperor plot \
-        --i-pcoa "${CORE_METRICS_DIR}unweighted_unifrac_pcoa_results.qza" \
-        --m-metadata-file "${METADATA_TSV}" \
-        --o-visualization "${UNWEIGHTED_EMPEROR_QZV}" \
-        --verbose \
-    |& tee "${LOG_DIR}emperor plot.log"
 
     qiime diversity beta-group-significance \
         --i-distance-matrix "${UNIFRAC_MATRIX}" \
@@ -633,7 +625,7 @@ if [[ ! -s "${UNWEIGHTED_EMPEROR_QZV}" ]]
         --i-distance-matrix "${UNIFRAC_MATRIX}" \
         --m-metadata-file "${METADATA_TSV}" \
         --m-metadata-column "${GROUPING_COLUMN_NAME}" \
-        --o-visualization "${CORE_METRICS_DIR}${TOOL_NAME}_unweighted_unifrac_significance_by_${GROUPING_COLUMN_NAME}.qzv" \
+        --o-visualization "${BETA_GROUP_SIGNIFICANCE}" \
         --p-pairwise \
         --verbose \
     |& tee "${LOG_DIR}diversity beta-group-significance ${GROUPING_COLUMN_NAME}.log"
