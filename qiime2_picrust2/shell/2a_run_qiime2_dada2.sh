@@ -668,7 +668,7 @@ qiime composition ancom \
     --i-table "${ANCOM_PSEUDOCOUNT_FREQUENCY_TABLE}" \
     --m-metadata-file "${METADATA_TSV}" \
     --m-metadata-column "${PREV_CONTROL_COLUMN}" \
-    --o-visualization ancom/ancom_${PREV_CONTROL_COLUMN}.qzv \
+    --o-visualization "${ANCOM_DIR}ancom_${PREV_CONTROL_COLUMN}.qzv" \
     --verbose
 
 
