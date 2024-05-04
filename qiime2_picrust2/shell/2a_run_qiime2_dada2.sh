@@ -635,7 +635,45 @@ if [[ ! -s "${UNWEIGHTED_EMPEROR_QZV}" ]]
         echo "Skip"
     fi
 
-log "Completed running QIIME2 in ${QIIME2_DIR}"
+
+
+log "Calculate ANCOM, ANalysis of Composition Of Microbiomes"
+
+export ANCOM_DIR="${TOOL_DIR}ancom/"
+export ANCOM_FREQUENCY_TABLE="${ANCOM_DIR}species_frequencies.qz"
+
+md "${ANCOM_FREQUENCY_TABLE}"
+
+qiime taxa collapse \
+    --i-table "${FREQUENCY_TABLE}" \
+    --i-taxonomy "${CLASSIFIED_TAXONOMY}" \
+    --o-collapsed-table "${ANCOM_FREQUENCY_TABLE}" \
+    --p-level 7 \
+    --verbose
+
+# qiime feature-table filter-features
+
+
+
+export ANCOM_PSEUDOCOUNT_FREQUENCY_TABLE="${ANCOM_DIR}ancom/pseudocounted_frequencies.qza"
+
+qiime composition add-pseudocount \
+    --i-table "${ANCOM_FREQUENCY_TABLE}" \
+    --o-composition-table "${ANCOM_PSEUDOCOUNT_FREQUENCY_TABLE}" \
+    --verbose
+
+
+
+qiime composition ancom \
+    --i-table "${ANCOM_PSEUDOCOUNT_FREQUENCY_TABLE}" \
+    --m-metadata-file "${METADATA_TSV}" \
+    --m-metadata-column "${PREV_CONTROL_COLUMN}" \
+    --o-visualization ancom/ancom_${PREV_CONTROL_COLUMN}.qzv \
+    --verbose
+
+
+
+og "Completed running QIIME2 in ${QIIME2_DIR}"
 
 chmod -R 777 "$(pwd)"
 
