@@ -442,7 +442,14 @@ log "Analyze the core diversity using the phylogenetic pipeline"
 export CORE_METRICS_DIR="${TOOL_DIR}phylogenetic_core_metrics/"
 
 # '--output-dir' must not exist!
-rm -rf "${CORE_METRICS_DIR}"
+rm \
+    --recursive \
+    --verbose \
+    --force \
+    "${CORE_METRICS_DIR}"
+
+# The description for output files:
+# https://docs.qiime2.org/jupyterbooks/cancer-microbiome-intervention-tutorial/030-tutorial-downstream/050-core-metrics.html#core-phylogenetic-diversity-metrics
 
 qiime diversity core-metrics-phylogenetic \
     --i-phylogeny "${ROOTED_TREE}" \
