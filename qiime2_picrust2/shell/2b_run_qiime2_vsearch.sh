@@ -76,7 +76,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
 
     qiime demux summarize \
         --i-data "${DEMULTIPLEXED_READS}" \
-        --o-visualization "${DEMULTIPLEXED_DIR}demultiplexed_PE_reads.qzv" \
+        --o-visualization "${DEMULTIPLEXED_DIR}${TOOL_NAME}_demultiplexed_PE_reads.qzv" \
          --verbose \
     |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 
@@ -202,7 +202,7 @@ log "Visualize chimera check summary"
 
 qiime metadata tabulate \
     --m-input-file "${DECHIMERIZATION_STATS}" \
-    --o-visualization "${DECHIMERIZATION_DIR}dechimerization_statistics.qzv"
+    --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_dechimerization_statistics.qzv"
 
 
 
@@ -219,7 +219,7 @@ qiime feature-table filter-features \
 
 qiime feature-table summarize \
     --i-table "${NON_CHIMERIC_FREQUENCIES}" \
-    --o-visualization "${DECHIMERIZATION_DIR}table_nonchimeric.qzv"
+    --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_table_nonchimeric.qzv"
 
 
 
@@ -249,7 +249,7 @@ qiime feature-table filter-features \
 
 qiime feature-table summarize \
     --i-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
-    --o-visualization "${DECHIMERIZATION_DIR}table_borderline_chimeric.qzv"
+    --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_table_borderline_chimeric.qzv"
 
 
 
@@ -328,7 +328,7 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     qiime quality-control decontam-score-viz \
         --i-decontam-scores "${DECONTAMINATION_SCORES}" \
         --i-table "${FREQUENCY_TABLE}" \
-        --o-visualization "${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qzv" \
+        --o-visualization "${DECONTAMINATION_DIR}${TOOL_NAME}_decontamination_scores_by_prevalence.qzv" \
         --verbose \
     |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
