@@ -673,7 +673,7 @@ qiime composition ancom \
 
 
 
-og "Completed running QIIME2 in ${QIIME2_DIR}"
+log "Completed running QIIME2 in ${QIIME2_DIR}"
 
 chmod -R 777 "$(pwd)"
 
