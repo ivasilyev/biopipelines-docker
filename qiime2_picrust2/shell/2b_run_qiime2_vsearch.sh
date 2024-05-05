@@ -77,7 +77,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
     qiime demux summarize \
         --i-data "${DEMULTIPLEXED_READS}" \
         --o-visualization "${DEMULTIPLEXED_DIR}_demultiplexed_PE_reads.qzv" \
-         --verbose \
+        --verbose \
     |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 
     else
@@ -425,6 +425,27 @@ if [[ ! -s "${FASTA}" ]]
     else
         echo "Skip"
     fi
+
+
+
+log "Visualize denormalized OTU"
+
+export TAXONOMY_DIR="${TOOL_DIR}taxonomy/"
+export SPECIES_FREQUENCY_TABLE="${TAXONOMY_DIR}species_frequencies.qza"
+
+md "${SPECIES_FREQUENCY_TABLE}"
+
+qiime taxa collapse \
+    --i-table "${FREQUENCY_TABLE}" \
+    --i-taxonomy "${TAXA_REFERENCE_FEATURES}" \
+    --p-level 7 \
+    --o-collapsed-table "${SPECIES_FREQUENCY_TABLE}" \
+    --verbose
+
+qiime metadata tabulate \
+    --m-input-file "${SPECIES_FREQUENCY_TABLE}" \
+    --o-visualization "${TAXONOMY_DIR}${TOOL_NAME}_species_frequencies.qzv" \
+    --verbose
 
 
 
