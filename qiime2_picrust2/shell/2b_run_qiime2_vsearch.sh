@@ -92,12 +92,21 @@ export MERGED_READS="${TOOL_DIR}merged_reads/merged_PE_reads.qza"
 
 md "${MERGED_READS}"
 
-qiime vsearch merge-pairs \
-    --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
-    --o-merged-sequences "${MERGED_READS}" \
-    --p-allowmergestagger \
-    --p-threads 8 \
-    --verbose
+if [[ ! -s "${MERGED_READS}" ]]
+    then
+
+    # --p-threads INTEGER Range(0, 8, inclusive_end=True)
+    # The number of threads to use for computation. Does not scale much past 4 threads.
+    qiime vsearch merge-pairs \
+        --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
+        --o-merged-sequences "${MERGED_READS}" \
+        --p-allowmergestagger \
+        --p-threads 8 \
+        --verbose
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -179,6 +188,7 @@ if [[ ! -s "${CLUSTERED_SEQUENCES}" && ! -s "${CLUSTERED_FREQUENCIES}" ]]
     fi
 
 
+
 log "Run de novo chimera checking"
 
 export DECHIMERIZATION_DIR="${TOOL_DIR}uchime-denovo/"
@@ -188,21 +198,26 @@ export DECHIMERIZATION_STATS="${DECHIMERIZATION_DIR}dechimerization_statistics.q
 
 md "${CHIMERIC_SEQUENCES}"
 
-qiime vsearch uchime-denovo \
-    --i-sequences "${CLUSTERED_SEQUENCES}" \
-    --i-table "${CLUSTERED_FREQUENCIES}" \
-    --o-chimeras "${CHIMERIC_SEQUENCES}" \
-    --o-nonchimeras "${CHIMERA_FILTERING_SEQUENCES}" \
-    --o-stats "${DECHIMERIZATION_STATS}" \
-    --verbose
+if [[ ! -s "${CHIMERIC_SEQUENCES}" ]]
+    then
 
+    qiime vsearch uchime-denovo \
+        --i-sequences "${CLUSTERED_SEQUENCES}" \
+        --i-table "${CLUSTERED_FREQUENCIES}" \
+        --o-chimeras "${CHIMERIC_SEQUENCES}" \
+        --o-nonchimeras "${CHIMERA_FILTERING_SEQUENCES}" \
+        --o-stats "${DECHIMERIZATION_STATS}" \
+        --verbose
 
+    log "Visualize chimera check summary"
 
-log "Visualize chimera check summary"
+    qiime metadata tabulate \
+        --m-input-file "${DECHIMERIZATION_STATS}" \
+        --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_dechimerization_statistics.qzv"
 
-qiime metadata tabulate \
-    --m-input-file "${DECHIMERIZATION_STATS}" \
-    --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_dechimerization_statistics.qzv"
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -210,16 +225,23 @@ log "Exclude chimeras and borderline chimeras from feature table"
 
 export NON_CHIMERIC_FREQUENCIES="${DECHIMERIZATION_DIR}table_nonchimeric.qza"
 
-qiime feature-table filter-features \
-    --i-table "${CLUSTERED_FREQUENCIES}" \
-    --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
-    --o-filtered-table "${NON_CHIMERIC_FREQUENCIES}" \
-    --p-no-exclude-ids \
-    --verbose
+if [[ ! -s "${NON_CHIMERIC_FREQUENCIES}" ]]
+    then
 
-qiime feature-table summarize \
-    --i-table "${NON_CHIMERIC_FREQUENCIES}" \
-    --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_table_nonchimeric.qzv"
+    qiime feature-table filter-features \
+        --i-table "${CLUSTERED_FREQUENCIES}" \
+        --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
+        --o-filtered-table "${NON_CHIMERIC_FREQUENCIES}" \
+        --p-no-exclude-ids \
+        --verbose
+
+    qiime feature-table summarize \
+        --i-table "${NON_CHIMERIC_FREQUENCIES}" \
+        --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_table_nonchimeric.qzv"
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -227,42 +249,53 @@ log "Exclude chimeras and borderline chimeras from feature sequences"
 
 export NON_CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}representative_sequences_nonchimeric.qza"
 
-qiime feature-table filter-seqs \
-    --i-data "${CLUSTERED_SEQUENCES}" \
-    --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
-    --o-filtered-data "${NON_CHIMERIC_SEQUENCES}" \
-    --p-no-exclude-ids \
-    --verbose
+if [[ ! -s "${NON_CHIMERIC_SEQUENCES}" ]]
+    then
+
+    qiime feature-table filter-seqs \
+        --i-data "${CLUSTERED_SEQUENCES}" \
+        --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
+        --o-filtered-data "${NON_CHIMERIC_SEQUENCES}" \
+        --p-no-exclude-ids \
+        --verbose
+
+    else
+        echo "Skip"
+    fi
 
 
 
 log "Exclude chimeras but retain borderline chimeras from feature table"
 
 export BORDERLINE_CHIMERIC_FREQUENCIES="${DECHIMERIZATION_DIR}table_borderline_chimeric.qza"
-
-qiime feature-table filter-features \
-    --i-table "${CLUSTERED_FREQUENCIES}" \
-    --m-metadata-file "${CHIMERIC_SEQUENCES}" \
-    --o-filtered-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
-    --p-exclude-ids \
-    --verbose
-
-qiime feature-table summarize \
-    --i-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
-    --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_table_borderline_chimeric.qzv"
-
-
-
-log "Exclude chimeras but retain borderline chimeras from feature sequences"
-
 export BORDERLINE_CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}representative_sequences_borderline_chimeric.qza"
 
-qiime feature-table filter-seqs \
-    --i-data "${CLUSTERED_SEQUENCES}" \
-    --m-metadata-file "${CHIMERIC_SEQUENCES}" \
-    --o-filtered-data "${BORDERLINE_CHIMERIC_SEQUENCES}" \
-    --p-exclude-ids \
-    --verbose
+if [[ ! -s "${BORDERLINE_CHIMERIC_FREQUENCIES}" ]]
+    then
+
+    qiime feature-table filter-features \
+        --i-table "${CLUSTERED_FREQUENCIES}" \
+        --m-metadata-file "${CHIMERIC_SEQUENCES}" \
+        --o-filtered-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
+        --p-exclude-ids \
+        --verbose
+
+    qiime feature-table summarize \
+        --i-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
+        --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_table_borderline_chimeric.qzv"
+
+    log "Exclude chimeras but retain borderline chimeras from feature sequences"
+
+    qiime feature-table filter-seqs \
+        --i-data "${CLUSTERED_SEQUENCES}" \
+        --m-metadata-file "${CHIMERIC_SEQUENCES}" \
+        --o-filtered-data "${BORDERLINE_CHIMERIC_SEQUENCES}" \
+        --p-exclude-ids \
+        --verbose
+
+    else
+        echo "Skip"
+    fi
 
 
 
@@ -373,18 +406,25 @@ export FASTA="${FASTA_DIR}dna-sequences.fasta"
 
 md "${FASTA}"
 
-# Output: 'dna-sequences.fasta'
-qiime tools export \
-    --input-path "${REPRESENTATIVE_SEQUENCES}" \
-    --output-format DNASequencesDirectoryFormat \
-    --output-path "${FASTA_DIR}" \
-|& tee "${LOG_DIR}tools export fasta.log"
+if [[ ! -s "${FASTA}" ]]
+    then
 
-ln \
-    --symbolic \
-    --verbose \
-    "${FASTA}" \
-    "${QIIME2_FEATURES_FASTA}"
+    # Output: 'dna-sequences.fasta'
+    qiime tools export \
+        --input-path "${REPRESENTATIVE_SEQUENCES}" \
+        --output-format DNASequencesDirectoryFormat \
+        --output-path "${FASTA_DIR}" \
+    |& tee "${LOG_DIR}tools export fasta.log"
+
+    ln \
+        --symbolic \
+        --verbose \
+        "${FASTA}" \
+        "${QIIME2_FEATURES_FASTA}"
+
+    else
+        echo "Skip"
+    fi
 
 
 
