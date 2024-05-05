@@ -290,17 +290,24 @@ log "Visualize denormalized ASV"
 
 export SPECIES_FREQUENCY_TABLE="${TAXONOMY_DIR}species_frequencies.qza"
 
-qiime taxa collapse \
-    --i-table "${FREQUENCY_TABLE}" \
-    --i-taxonomy "${CLASSIFIED_TAXONOMY}" \
-    --p-level 7 \
-    --o-collapsed-table "${SPECIES_FREQUENCY_TABLE}" \
-    --verbose
+if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
+    then
 
-qiime metadata tabulate \
-    --m-input-file "${SPECIES_FREQUENCY_TABLE}" \
-    --o-visualization "${TAXONOMY_DIR}${TOOL_NAME}_species_frequencies.qzv" \
-    --verbose
+    qiime taxa collapse \
+        --i-table "${FREQUENCY_TABLE}" \
+        --i-taxonomy "${CLASSIFIED_TAXONOMY}" \
+        --p-level 7 \
+        --o-collapsed-table "${SPECIES_FREQUENCY_TABLE}" \
+        --verbose
+
+    qiime metadata tabulate \
+        --m-input-file "${SPECIES_FREQUENCY_TABLE}" \
+        --o-visualization "${TAXONOMY_DIR}${TOOL_NAME}_species_frequencies.qzv" \
+        --verbose
+
+    else
+        echo "Skip"
+    fi
 
 
 
