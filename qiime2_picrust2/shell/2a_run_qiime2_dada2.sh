@@ -76,7 +76,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
 
     qiime demux summarize \
         --i-data "${DEMULTIPLEXED_READS}" \
-        --o-visualization "${DEMULTIPLEXED_DIR}${TOOL_NAME}_demultiplexed_PE_reads.qzv" \
+        --o-visualization "${DEMULTIPLEXED_DIR}_demultiplexed_PE_reads.qzv" \
          --verbose \
     |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 

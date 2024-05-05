@@ -76,7 +76,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
 
     qiime demux summarize \
         --i-data "${DEMULTIPLEXED_READS}" \
-        --o-visualization "${DEMULTIPLEXED_DIR}${TOOL_NAME}_demultiplexed_PE_reads.qzv" \
+        --o-visualization "${DEMULTIPLEXED_DIR}_demultiplexed_PE_reads.qzv" \
          --verbose \
     |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 
@@ -393,7 +393,7 @@ log "Export denormalized OTU"
 export BIOM_DIR="${TOOL_DIR}bioms/"
 export BIOM_RAW="${BIOM_DIR}feature-table.biom"
 export BIOM_DENORMALIZED="${BIOM_DIR}OTU_denormalized.biom"
-export BIOM_DENORMALIZED_ANNOTATED="${BIOM_DIR}OTU_denormalize_with_taxa.biom"
+export BIOM_DENORMALIZED_ANNOTATED="${BIOM_DIR}OTU_denormalized_with_taxa.biom"
 
 md "${BIOM_DENORMALIZED}"
 
