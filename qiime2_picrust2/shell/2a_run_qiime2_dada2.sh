@@ -270,7 +270,7 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         --verbose \
     |& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
 
-    log "Plot prokaryotic profile bar charts"
+    log "Plot metagenome profile bar charts"
 
     qiime taxa barplot \
         --m-metadata-file "${METADATA_TSV}" \
@@ -283,6 +283,24 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
     else
         echo "Skip"
     fi
+
+
+
+log "Visualize denormalized ASV"
+
+export SPECIES_FREQUENCY_TABLE="${TAXONOMY_DIR}species_frequencies.qza"
+
+qiime taxa collapse \
+    --i-table "${FREQUENCY_TABLE}" \
+    --i-taxonomy "${CLASSIFIED_TAXONOMY}" \
+    --p-level 7 \
+    --o-collapsed-table "${SPECIES_FREQUENCY_TABLE}" \
+    --verbose
+
+qiime metadata tabulate \
+    --m-input-file "${SPECIES_FREQUENCY_TABLE}" \
+    --o-visualization "${TAXONOMY_DIR}${TOOL_NAME}_species_frequencies.qzv" \
+    --verbose
 
 
 
