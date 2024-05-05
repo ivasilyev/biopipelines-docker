@@ -657,29 +657,13 @@ if [[ ! -s "${BETA_GROUP_SIGNIFICANCE}" ]]
 log "Calculate ANCOM, ANalysis of Composition Of Microbiomes"
 
 export ANCOM_DIR="${TOOL_DIR}ancom/"
-export ANCOM_FREQUENCY_TABLE="${ANCOM_DIR}species_frequencies.qz"
-
-md "${ANCOM_FREQUENCY_TABLE}"
-
-qiime taxa collapse \
-    --i-table "${FREQUENCY_TABLE}" \
-    --i-taxonomy "${CLASSIFIED_TAXONOMY}" \
-    --o-collapsed-table "${ANCOM_FREQUENCY_TABLE}" \
-    --p-level 7 \
-    --verbose
-
-# qiime feature-table filter-features
-
-
-
 export ANCOM_PSEUDOCOUNT_FREQUENCY_TABLE="${ANCOM_DIR}ancom/pseudocounted_frequencies.qza"
 
+# qiime feature-table filter-features
 qiime composition add-pseudocount \
-    --i-table "${ANCOM_FREQUENCY_TABLE}" \
+    --i-table "${SPECIES_FREQUENCY_TABLE}" \
     --o-composition-table "${ANCOM_PSEUDOCOUNT_FREQUENCY_TABLE}" \
     --verbose
-
-
 
 qiime composition ancom \
     --i-table "${ANCOM_PSEUDOCOUNT_FREQUENCY_TABLE}" \
