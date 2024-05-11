@@ -83,10 +83,11 @@ mkdir -p "${TABLES_DIR}"
 
 export LEGASY_TSV="${TABLES_DIR}EC_pred_metagenome_contrib_legacy.tsv"
 
+# Output file: `*.gz`
 convert_table.py \
     "${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_contrib.tsv.gz" \
     --conversion contrib_to_legacy \
-    --output "${LEGASY_TSV}.gz" \
+    --output "${LEGASY_TSV}" \
 |& tee "${LOG_DIR}convert_table.log"
 
 gzip "${LEGASY_TSV}.gz" \
@@ -124,7 +125,7 @@ add_descriptions.py  \
 
 
 
-log "Export denormalized frequencies to use in report"
+log "Export output table to use in report"
 
 ln \
     -sv \
