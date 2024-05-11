@@ -83,14 +83,15 @@ mkdir -p "${TABLES_DIR}"
 
 export LEGASY_TSV="${TABLES_DIR}EC_pred_metagenome_contrib_legacy.tsv"
 
-# Output file: `*.gz`
 convert_table.py \
     "${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_contrib.tsv.gz" \
     --conversion contrib_to_legacy \
-    --output "${LEGASY_TSV}" \
+    --output "${LEGASY_TSV}.gz" \
 |& tee "${LOG_DIR}convert_table.log"
 
-gzip "${LEGASY_TSV}.gz" \
+gunzip \
+    -d \
+    "${LEGASY_TSV}.gz" \
 > "${LEGASY_TSV}"
 
 
