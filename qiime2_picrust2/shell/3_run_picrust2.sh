@@ -127,8 +127,7 @@ add_descriptions.py  \
 log "Export denormalized frequencies to use in report"
 
 ln \
-    --symbolic \
-    --verbose \
+    -sv \
     "${TABLES_DIR}" \
     "${PICRUST2_RESULTS_DIR}"
 
