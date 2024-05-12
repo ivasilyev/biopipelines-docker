@@ -311,11 +311,11 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
 
 
 
-log "Export ASV"
+log "Export denormalized ASV"
 
 export BIOM_DIR="${TOOL_DIR}bioms/"
 export BIOM_RAW="${BIOM_DIR}feature-table.biom"
-export TSV_RAW="${BIOM_DIR}ASV_with_taxa.tsv"
+export TSV_RAW="${BIOM_DIR}ASV.tsv"
 export BIOM_ANNOTATED="${BIOM_DIR}ASV_with_taxa.biom"
 
 md "${BIOM_RAW}"
