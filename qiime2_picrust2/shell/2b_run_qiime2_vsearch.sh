@@ -462,6 +462,7 @@ export BIOM_DIR="${TOOL_DIR}bioms/"
 export BIOM_RAW="${BIOM_DIR}feature-table.biom"
 export BIOM_DENORMALIZED="${BIOM_DIR}OTU_denormalized.biom"
 export BIOM_DENORMALIZED_ANNOTATED="${BIOM_DIR}OTU_denormalized_with_taxa.biom"
+export TSV_DENORMALIZED_ANNOTATED="${BIOM_DIR}OTU_denormalized_with_taxa.tsv"
 
 md "${BIOM_DENORMALIZED}"
 
@@ -480,7 +481,7 @@ if [[ ! -s "${BIOM_DENORMALIZED}" ]]
         "${BIOM_RAW}" \
         "${BIOM_DENORMALIZED}"
 
-    log "Annotate biom with taxonomy data"
+    log "Annotate denormalized biom file with taxonomy data"
 
     biom add-metadata \
         --sc-separated "taxonomy" \
@@ -490,7 +491,7 @@ if [[ ! -s "${BIOM_DENORMALIZED}" ]]
         --output-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
     |& tee "${LOG_DIR}biom add-metadata.log"
 
-    log "Convert biom to JSON"
+    log "Convert denormalized biom to JSON"
 
     biom convert \
         --to-json \
@@ -498,14 +499,21 @@ if [[ ! -s "${BIOM_DENORMALIZED}" ]]
         --output-fp "${BIOM_DIR}OTU_with_taxa.json" \
     |& tee "${LOG_DIR}biom convert json.log"
 
-    log "Convert biom to TSV"
+    log "Convert denormalized biom file to TSV"
 
     biom convert \
         --to-tsv \
         --input-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
-        --output-fp "${BIOM_DIR}OTU_with_taxa_denormalized.tsv" \
+        --output-fp "${TSV_DENORMALIZED_ANNOTATED}" \
         --header-key "taxonomy" \
     |& tee "${LOG_DIR}biom convert taxa tsv.log"
+
+    log "Fix denormalized OTU file"
+
+    sed \
+        '/^\# .*/d' \
+        --in-place \
+        "${TSV_DENORMALIZED_ANNOTATED}"
 
     log "Export the denormalized frequencies to use in PCRUSt2"
 
@@ -526,7 +534,7 @@ log "Export normalized OTU"
 export NORMALIZED_FREQUENCIES="${BIOM_DIR}clustered_table_normalized.qza"
 export BIOM_NORMALIZED="${BIOM_DIR}OTU_normalized.biom"
 export BIOM_NORMALIZED_ANNOTATED="${BIOM_DIR}OTU_normalized_with_taxa.biom"
-export TSV_ANNOTATED="${BIOM_DIR}OTU_with_taxa_normalized.tsv"
+export TSV_NORMALIZED_ANNOTATED="${BIOM_DIR}OTU_normalized_with_taxa.tsv"
 
 if [[ ! -s "${BIOM_NORMALIZED}" ]]
     then
@@ -549,6 +557,8 @@ if [[ ! -s "${BIOM_NORMALIZED}" ]]
         "${BIOM_RAW}" \
         "${BIOM_NORMALIZED}"
 
+    log "Annotate normalized biom file with taxonomy data"
+
     biom add-metadata \
         --input-fp "${BIOM_NORMALIZED}" \
         --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
@@ -556,11 +566,20 @@ if [[ ! -s "${BIOM_NORMALIZED}" ]]
         --sample-metadata-fp "${METADATA_TSV}" \
         --sc-separated "taxonomy"
 
+    log "Convert normalized biom file to TSV"
+
     biom convert \
         --header-key "taxonomy" \
         --input-fp "${BIOM_NORMALIZED_ANNOTATED}" \
-        --output-fp "${TSV_ANNOTATED}" \
+        --output-fp "${TSV_NORMALIZED_ANNOTATED}" \
         --to-tsv
+
+    log "Fix normalized OTU TSV file"
+
+    sed \
+        '/^\# .*/d' \
+        --in-place \
+        "${TSV_NORMALIZED_ANNOTATED}"
 
     log "Export normalized frequencies to use in report"
 

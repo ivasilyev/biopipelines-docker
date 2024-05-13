@@ -330,7 +330,7 @@ if [[ ! -s "${BIOM_RAW}" ]]
         --output-path "${BIOM_DIR}" \
     |& tee "${LOG_DIR}tools export feature-table.biom.log"
 
-    log "Convert biom to TSV"
+    log "Convert denormalized biom file to TSV"
 
     # The annotated biom file cannot include the `confidence` column from mapper
     # into output TSV file where it is required due to ridiculous format constraints,
@@ -342,6 +342,13 @@ if [[ ! -s "${BIOM_RAW}" ]]
         --to-tsv \
     |& tee "${LOG_DIR}biom convert taxa tsv.log"
 
+    log "Fix denormalized ASV file"
+
+    sed \
+        '/^\# .*/d' \
+        --in-place \
+        "${TSV_RAW}"
+
     log "Export unannotated denormalized frequencies to use in report"
 
     ln \
@@ -350,7 +357,7 @@ if [[ ! -s "${BIOM_RAW}" ]]
         "${TSV_RAW}" \
         "${QIIME2_ASV_TABLE}"
 
-    log "Annotate biom with taxonomy data"
+    log "Annotate denormalized biom with taxonomy data"
 
     # The directory was already created
     biom add-metadata \
@@ -362,7 +369,7 @@ if [[ ! -s "${BIOM_RAW}" ]]
         --sc-separated "taxonomy" \
     |& tee "${LOG_DIR}biom add-metadata.log"
 
-    log "Convert biom to JSON"
+    log "Convert denormalized biom to JSON"
 
     biom convert \
         --input-fp "${BIOM_ANNOTATED}" \
