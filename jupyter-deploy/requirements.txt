@@ -34,6 +34,7 @@ jinja2
 pyyaml
 
 # Text processing
+deep-translator
 unidecode
 win-unicode-console
 
