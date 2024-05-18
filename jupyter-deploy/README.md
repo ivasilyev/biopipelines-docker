@@ -28,8 +28,8 @@ sudo mkdir \
 ```
 echo Create tool script
 curl -fsSL \
-    "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/run_ci.sh" \
-    -O "${TOOL_SCRIPT}"
+    "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/run-ci.sh" \
+    -o "${TOOL_SCRIPT}"
 
 sudo chmod a+x "${TOOL_SCRIPT}"
 # nano "${TOOL_SCRIPT}"
