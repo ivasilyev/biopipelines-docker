@@ -7,6 +7,7 @@ echo Export variables
 export TOOL_NAME="jupyter-deploy"
 export TOOL_DIR="/opt/${TOOL_NAME}/"
 export TOOL_SCRIPT="${TOOL_DIR}${TOOL_NAME}.sh"
+export TOOL_SERVICE="/etc/systemd/system/${TOOL_NAME}.service"
 
 echo Create directories
 sudo rm \
