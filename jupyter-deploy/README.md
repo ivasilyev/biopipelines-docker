@@ -5,9 +5,11 @@
 ```
 echo Export variables
 export TOOL_NAME="jupyter-deploy"
+
 export TOOL_DIR="/opt/${TOOL_NAME}/"
 export TOOL_SCRIPT="${TOOL_DIR}${TOOL_NAME}.sh"
 export TOOL_SERVICE="/etc/systemd/system/${TOOL_NAME}.service"
+export UN="$(whoami)"
 
 echo Create directories
 sudo rm \
@@ -20,6 +22,12 @@ sudo mkdir \
     --parent \
     --mode 0700 \
     --verbose \
+    "${TOOL_DIR}"
+
+sudo chown \
+    --recursive \
+    --verbose \
+    "$(id --user "${UN}")" \
     "${TOOL_DIR}"
 ```
 
@@ -46,7 +54,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-User=$(whoami)
+User=${UN}
 ExecReload=/usr/bin/env kill -s SIGTERM \$MAINPID
 ExecStart=/usr/bin/env bash "${TOOL_SCRIPT}"
 SyslogIdentifier=${TOOL_NAME}
