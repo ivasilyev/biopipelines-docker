@@ -10,12 +10,15 @@ export TOOL_SCRIPT="${TOOL_DIR}${TOOL_NAME}.sh"
 
 echo Create directories
 sudo rm \
-    -rf \
+    --force \
+    --recursive \
+    --verbose \
     "${TOOL_DIR}"
 
 sudo mkdir \
     --parent \
     --mode 0700 \
+    --verbose \
     "${TOOL_DIR}"
 ```
 
