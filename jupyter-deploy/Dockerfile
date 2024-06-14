@@ -45,7 +45,7 @@ RUN echo "Update packages" && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN echo "Install primary Python packages" && \
+RUN echo "Install Python packages" && \
     cd /tmp/ && \
     pip3 install --upgrade --no-cache-dir pip setuptools wheel && \
     # Deliberately download the files to avoid leftovers
@@ -53,6 +53,13 @@ RUN echo "Install primary Python packages" && \
     curl -fsSLO "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/jupyter-deploy/requirements-linux.txt" && \
     pip3 install --no-cache-dir --requirement "requirements.txt" && \
     pip3 install --no-cache-dir --requirement "requirements-linux.txt" && \
+    pip3 list --outdated \
+    | cut -f1 -d' ' \
+    | tr " " "\n" \
+    | awk '{if(NR>=3)print}' \
+    | cut -d' ' -f1 \
+    | xargs -n1 \
+    pip3 install --no-cache-dir --upgrade --verbose && \
     echo "Clean Python package cache" && \
     pip cache purge && \
     rm -rf /tmp/*
