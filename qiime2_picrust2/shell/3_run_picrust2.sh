@@ -90,9 +90,8 @@ convert_table.py \
     --output "${LEGASY_GZIP}" \
 |& tee "${LOG_DIR}convert_table.log"
 
-zcat \
-    "${LEGASY_GZIP}" \
-> "${LEGASY_TSV}"
+# The output file is too large and does not have clear purpose
+# zcat "${LEGASY_GZIP}" > "${LEGASY_TSV}"
 
 
 
