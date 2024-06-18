@@ -123,7 +123,7 @@ log "Generate tabular view of feature identifier to sequence mapping"
 
 qiime feature-table tabulate-seqs \
     --i-data "${REPRESENTATIVE_SEQUENCES}" \
-    --o-visualization "${DENOISING_DIR}${TOOL_NAME}_representative_sequences.qzv" \
+    --o-visualization "${DENOISING_DIR}representative_sequences.qzv" \
     --verbose \
 |& tee "${LOG_DIR}tabulate-seqs.log"
 
@@ -133,7 +133,7 @@ log "Generate a tabular view of DADA2 denoising metadata"
 
 qiime metadata tabulate \
     --m-input-file "${DENOISING_STATS}" \
-    --o-visualization "${DENOISING_DIR}${TOOL_NAME}_denoising_statistics.qzv" \
+    --o-visualization "${DENOISING_DIR}denoising_statistics.qzv" \
     --verbose \
 |& tee "${LOG_DIR}metadata tabulate dada2_denoising_statistics.log"
 
@@ -175,7 +175,7 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     qiime quality-control decontam-score-viz \
         --i-decontam-scores "${DECONTAMINATION_SCORES}" \
         --i-table "${FREQUENCY_TABLE}" \
-        --o-visualization "${DECONTAMINATION_DIR}${TOOL_NAME}_decontamination_scores_by_prevalence.qzv" \
+        --o-visualization "${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qzv" \
         --verbose \
     |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
@@ -266,7 +266,7 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
 
     qiime metadata tabulate \
         --m-input-file "${CLASSIFIED_TAXONOMY}" \
-        --o-visualization "${TAXONOMY_DIR}${TOOL_NAME}_classified_taxonomy.qzv" \
+        --o-visualization "${TAXONOMY_DIR}classified_taxonomy.qzv" \
         --verbose \
     |& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
 
@@ -276,7 +276,7 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         --m-metadata-file "${METADATA_TSV}" \
         --i-table "${FREQUENCY_TABLE}" \
         --i-taxonomy "${CLASSIFIED_TAXONOMY}" \
-        --o-visualization "${TAXONOMY_DIR}${TOOL_NAME}_taxonomy_barplots.qzv" \
+        --o-visualization "${TAXONOMY_DIR}taxonomy_barplots.qzv" \
         --verbose \
     |& tee "${LOG_DIR}taxa barplot.log"
 
@@ -302,7 +302,7 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
 
     qiime metadata tabulate \
         --m-input-file "${SPECIES_FREQUENCY_TABLE}" \
-        --o-visualization "${TAXONOMY_DIR}${TOOL_NAME}_species_frequencies.qzv" \
+        --o-visualization "${TAXONOMY_DIR}species_frequencies.qzv" \
         --verbose
 
     else
@@ -509,7 +509,7 @@ find . \
 
             ALPHA_METRIC_DIR_NAME="${FILE%.*}/";
 
-            BASE_NAME="${TOOL_NAME}_$(basename "${ALPHA_METRIC_DIR_NAME}")";
+            BASE_NAME="$(basename "${ALPHA_METRIC_DIR_NAME}")";
 
             mkdir -p "${ALPHA_METRIC_DIR_NAME}";
 
@@ -543,7 +543,7 @@ find . \
 log "Summarize statistics"
 
 export SAMPLE_FREQUENCY_DETAILS_DIR="${TOOL_DIR}sample_frequency_details/"
-export SUMMARY_STATISTICS_QZV="${SAMPLE_FREQUENCY_DETAILS_DIR}${TOOL_NAME}_frequency_table.qzv"
+export SUMMARY_STATISTICS_QZV="${SAMPLE_FREQUENCY_DETAILS_DIR}frequency_table.qzv"
 
 md "${SAMPLE_FREQUENCY_DETAILS_CSV}"
 
@@ -588,7 +588,7 @@ export MAX_FPS="$(tail -n 1 "${SAMPLE_FREQUENCY_VALUES}")"
 log "Generate interactive alpha rarefaction curves"
 
 # The first 2 lines are '# Constructed from biom file' and header
-export ALPHA_RAREFACTION="${CORE_METRICS_DIR}${TOOL_NAME}_alpha_rarefaction.qzv"
+export ALPHA_RAREFACTION="${CORE_METRICS_DIR}alpha_rarefaction.qzv"
 export ALPHA_RAREFACTION_LOG="${LOG_DIR}diversity alpha-rarefaction.log"
 
 
@@ -639,7 +639,7 @@ if [[ ! -s "${ALPHA_RAREFACTION}" ]]
 log "Visualize beta diversity"
 
 export UNIFRAC_MATRIX="${CORE_METRICS_DIR}unweighted_unifrac_distance_matrix.qza"
-export BETA_GROUP_SIGNIFICANCE="${CORE_METRICS_DIR}${TOOL_NAME}_unweighted_unifrac_significance_by_${GROUPING_COLUMN_NAME}.qzv"
+export BETA_GROUP_SIGNIFICANCE="${CORE_METRICS_DIR}unweighted_unifrac_significance_by_${GROUPING_COLUMN_NAME}.qzv"
 
 if [[ ! -s "${BETA_GROUP_SIGNIFICANCE}" ]]
     then
@@ -648,7 +648,7 @@ if [[ ! -s "${BETA_GROUP_SIGNIFICANCE}" ]]
         --i-distance-matrix "${UNIFRAC_MATRIX}" \
         --m-metadata-file "${METADATA_TSV}" \
         --m-metadata-column "SampleSource" \
-        --o-visualization "${CORE_METRICS_DIR}${TOOL_NAME}_unweighted_unifrac_SampleSource_significance.qzv" \
+        --o-visualization "${CORE_METRICS_DIR}unweighted_unifrac_SampleSource_significance.qzv" \
         --p-pairwise \
         --verbose \
     |& tee "${LOG_DIR}diversity beta-group-significance SampleSource.log"
@@ -683,7 +683,7 @@ qiime composition ancom \
     --i-table "${ANCOM_PSEUDOCOUNT_FREQUENCY_TABLE}" \
     --m-metadata-file "${METADATA_TSV}" \
     --m-metadata-column "${PREV_CONTROL_COLUMN}" \
-    --o-visualization "${ANCOM_DIR}${TOOL_NAME}_ancom_by_${PREV_CONTROL_COLUMN}.qzv" \
+    --o-visualization "${ANCOM_DIR}ancom_by_${PREV_CONTROL_COLUMN}.qzv" \
     --verbose
 
 
