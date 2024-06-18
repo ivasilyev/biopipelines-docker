@@ -21,9 +21,6 @@ function md {
 
 # Required variables begin
 export QIIME2_DIR="$(realpath "${QIIME2_DIR}")/"
-export QIIME2_FEATURES_BIOM="$(realpath "${QIIME2_FEATURES_BIOM}")"
-export QIIME2_FEATURES_FASTA="$(realpath "${QIIME2_FEATURES_FASTA}")"
-export QIIME2_OTU_TABLE="$(realpath "${QIIME2_OTU_TABLE}")"
 
 export SAMPLEDATA_CSV="$(realpath "${SAMPLEDATA_CSV}")"
 export METADATA_TSV="$(realpath "${METADATA_TSV}")"

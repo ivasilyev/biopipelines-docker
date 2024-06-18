@@ -22,8 +22,6 @@ function md {
 # Required variables begin
 export QIIME2_DIR="$(realpath "${QIIME2_DIR}")/"
 export QIIME2_FEATURES_BIOM="$(realpath "${QIIME2_FEATURES_BIOM}")"
-export QIIME2_OTU_ASV_MAPPER="$(realpath "${QIIME2_OTU_ASV_MAPPER}")"
-export QIIME2_ASV_TABLE="$(realpath "${QIIME2_ASV_TABLE}")"
 
 export SAMPLEDATA_CSV="$(realpath "${SAMPLEDATA_CSV}")"
 export METADATA_TSV="$(realpath "${METADATA_TSV}")"
@@ -256,14 +254,6 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
         "${TAXONOMY_DIR}taxonomy.tsv" \
     > "${OTU_ASV_MAPPER}"
 
-    log "Export unannotated denormalized frequencies to use in report"
-
-    ln \
-        --symbolic \
-        --verbose \
-        "${OTU_ASV_MAPPER}" \
-        "${QIIME2_OTU_ASV_MAPPER}"
-
     qiime metadata tabulate \
         --m-input-file "${CLASSIFIED_TAXONOMY}" \
         --o-visualization "${TAXONOMY_DIR}classified_taxonomy.qzv" \
@@ -348,14 +338,6 @@ if [[ ! -s "${BIOM_RAW}" ]]
         '/^\# .*/d' \
         --in-place \
         "${TSV_RAW}"
-
-    log "Export unannotated denormalized frequencies to use in report"
-
-    ln \
-        --symbolic \
-        --verbose \
-        "${TSV_RAW}" \
-        "${QIIME2_ASV_TABLE}"
 
     log "Annotate denormalized biom with taxonomy data"
 
