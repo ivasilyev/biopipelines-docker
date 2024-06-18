@@ -13,8 +13,6 @@ function log {
 
 # Required variables start
 export PICRUST2_DIR="$(realpath "${PICRUST2_DIR}")/"
-# Will be symlinked
-export PICRUST2_RESULTS_DIR="$(realpath "${PICRUST2_DIR}")"
 
 export QIIME2_FEATURES_BIOM="$(realpath "${QIIME2_FEATURES_BIOM}")"
 export QIIME2_FEATURES_FASTA="$(realpath "${QIIME2_FEATURES_FASTA}")"
@@ -122,15 +120,6 @@ add_descriptions.py  \
     --map_type METACYC \
     --output "${TABLES_DIR}pathways_abun_unstrat_described.tsv" \
 |& tee "${LOG_DIR}add_descriptions-METACYC.log"
-
-
-
-log "Export output table to use in report"
-
-ln \
-    -sv \
-    "${TABLES_DIR}" \
-    "${PICRUST2_RESULTS_DIR}"
 
 
 
