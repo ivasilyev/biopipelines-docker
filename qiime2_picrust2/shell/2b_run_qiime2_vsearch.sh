@@ -213,7 +213,7 @@ if [[ ! -s "${CHIMERIC_SEQUENCES}" ]]
 
     qiime metadata tabulate \
         --m-input-file "${DECHIMERIZATION_STATS}" \
-        --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_dechimerization_statistics.qzv"
+        --o-visualization "${DECHIMERIZATION_DIR}dechimerization_statistics.qzv"
 
     else
         echo "Skip"
@@ -237,7 +237,7 @@ if [[ ! -s "${NON_CHIMERIC_FREQUENCIES}" ]]
 
     qiime feature-table summarize \
         --i-table "${NON_CHIMERIC_FREQUENCIES}" \
-        --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_table_nonchimeric.qzv"
+        --o-visualization "${DECHIMERIZATION_DIR}table_nonchimeric.qzv"
 
     else
         echo "Skip"
@@ -282,7 +282,7 @@ if [[ ! -s "${BORDERLINE_CHIMERIC_FREQUENCIES}" ]]
 
     qiime feature-table summarize \
         --i-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
-        --o-visualization "${DECHIMERIZATION_DIR}${TOOL_NAME}_table_borderline_chimeric.qzv"
+        --o-visualization "${DECHIMERIZATION_DIR}table_borderline_chimeric.qzv"
 
     log "Exclude chimeras but retain borderline chimeras from feature sequences"
 
@@ -361,7 +361,7 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     qiime quality-control decontam-score-viz \
         --i-decontam-scores "${DECONTAMINATION_SCORES}" \
         --i-table "${FREQUENCY_TABLE}" \
-        --o-visualization "${DECONTAMINATION_DIR}${TOOL_NAME}_decontamination_scores_by_prevalence.qzv" \
+        --o-visualization "${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qzv" \
         --verbose \
     |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
@@ -447,7 +447,7 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
 
     qiime metadata tabulate \
         --m-input-file "${SPECIES_FREQUENCY_TABLE}" \
-        --o-visualization "${TAXONOMY_DIR}${TOOL_NAME}_species_frequencies.qzv" \
+        --o-visualization "${TAXONOMY_DIR}species_frequencies.qzv" \
         --verbose
 
     else
