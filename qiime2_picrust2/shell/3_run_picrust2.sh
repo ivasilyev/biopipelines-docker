@@ -125,7 +125,7 @@ add_descriptions.py  \
 
 log "Completed running PICRUSt2 in '${PICRUST2_DIR}'"
 
-chmod -R 777 "$(pwd)"
+chmod -R 777 "${PICRUST2_DIR}"
 
 cd ..
 

@@ -690,7 +690,7 @@ qiime composition ancom \
 
 log "Completed running QIIME2 in ${QIIME2_DIR}"
 
-chmod -R 777 "$(pwd)"
+chmod -R 777 "${QIIME2_DIR}"
 
 cd ..
 
