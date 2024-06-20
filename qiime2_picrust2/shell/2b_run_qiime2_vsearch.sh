@@ -354,7 +354,6 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
         "${DECONTAMINATION_DIR}stats.tsv" \
         "${DECONTAMINATION_DIR}decontamination_stats.tsv"
 
-
     qiime quality-control decontam-score-viz \
         --i-decontam-scores "${DECONTAMINATION_SCORES}" \
         --i-table "${FREQUENCY_TABLE}" \
@@ -446,6 +445,22 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
         --m-input-file "${SPECIES_FREQUENCY_TABLE}" \
         --o-visualization "${TAXONOMY_DIR}species_frequencies.qzv" \
         --verbose
+
+    qiime metadata tabulate \
+        --m-input-file "${TAXA_REFERENCE_CLASSIFIER}" \
+        --o-visualization "${TAXONOMY_DIR}classified_taxonomy.qzv" \
+        --verbose \
+    |& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
+
+    log "Plot metagenome profile bar charts"
+
+    qiime taxa barplot \
+        --m-metadata-file "${METADATA_TSV}" \
+        --i-table "${FREQUENCY_TABLE}" \
+        --i-taxonomy "${TAXA_REFERENCE_CLASSIFIER}" \
+        --o-visualization "${TAXONOMY_DIR}taxonomy_barplots.qzv" \
+        --verbose \
+    |& tee "${LOG_DIR}taxa barplot.log"
 
     else
         echo "Skip"
