@@ -26,7 +26,6 @@ export SAMPLEDATA_CSV="$(realpath "${SAMPLEDATA_CSV}")"
 export METADATA_TSV="$(realpath "${METADATA_TSV}")"
 
 export TAXA_REFERENCE_FEATURES="$(realpath "${TAXA_REFERENCE_FEATURES}")"
-export TAXA_REFERENCE_CLASSIFIER="$(realpath "${TAXA_REFERENCE_CLASSIFIER}")"
 export TAXA_REFERENCE_SEQUENCES="$(realpath "${TAXA_REFERENCE_SEQUENCES}")"
 export TAXA_REFERENCE_HEADER="$(realpath "${TAXA_REFERENCE_HEADER}")"
 # Required variables end
@@ -447,7 +446,7 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
         --verbose
 
     qiime metadata tabulate \
-        --m-input-file "${TAXA_REFERENCE_CLASSIFIER}" \
+        --m-input-file "${TAXA_REFERENCE_FEATURES}" \
         --o-visualization "${TAXONOMY_DIR}classified_taxonomy.qzv" \
         --verbose \
     |& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
@@ -457,7 +456,7 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
     qiime taxa barplot \
         --m-metadata-file "${METADATA_TSV}" \
         --i-table "${FREQUENCY_TABLE}" \
-        --i-taxonomy "${TAXA_REFERENCE_CLASSIFIER}" \
+        --i-taxonomy "${TAXA_REFERENCE_FEATURES}" \
         --o-visualization "${TAXONOMY_DIR}taxonomy_barplots.qzv" \
         --verbose \
     |& tee "${LOG_DIR}taxa barplot.log"
