@@ -503,11 +503,6 @@ find . \
                 --o-visualization "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}_significance.qzv" \
                 --verbose;
 
-            qiime metadata tabulate \
-                --m-input-file "${FILE}" \
-                --o-visualization "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}_tabulated.qzv" \
-                --verbose;
-
             # Output: alpha-diversity.tsv
             qiime tools export \
                 --input-path "${FILE}" \
@@ -517,7 +512,7 @@ find . \
             mv \
                 --verbose \
                 "${ALPHA_METRIC_DIR_NAME}alpha-diversity.tsv" \
-                "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}.tsv";
+                "${ALPHA_METRIC_DIR_NAME}${BASE_NAME}_alpha_diversity.tsv";
         '
 
 
@@ -620,33 +615,44 @@ if [[ ! -s "${ALPHA_RAREFACTION}" ]]
 
 log "Visualize beta diversity"
 
-export UNIFRAC_MATRIX="${CORE_METRICS_DIR}unweighted_unifrac_distance_matrix.qza"
-export BETA_GROUP_SIGNIFICANCE="${CORE_METRICS_DIR}unweighted_unifrac_significance_by_${GROUPING_COLUMN_NAME}.qzv"
+find . \
+    -type f \
+    -name "*_distance_matrix.qza" \
+    -print0 \
+| xargs \
+    -0 \
+    --max-procs "$(nproc)" \
+    -I "{}" \
+        bash -c '
+            FILE="{}";
 
-if [[ ! -s "${BETA_GROUP_SIGNIFICANCE}" ]]
-    then
+            BETA_METRIC_DIR_NAME="${FILE%.*}/";
 
-    qiime diversity beta-group-significance \
-        --i-distance-matrix "${UNIFRAC_MATRIX}" \
-        --m-metadata-file "${METADATA_TSV}" \
-        --m-metadata-column "SampleSource" \
-        --o-visualization "${CORE_METRICS_DIR}unweighted_unifrac_SampleSource_significance.qzv" \
-        --p-pairwise \
-        --verbose \
-    |& tee "${LOG_DIR}diversity beta-group-significance SampleSource.log"
+            BASE_NAME="$(basename "${BETA_METRIC_DIR_NAME}")";
 
-    qiime diversity beta-group-significance \
-        --i-distance-matrix "${UNIFRAC_MATRIX}" \
-        --m-metadata-file "${METADATA_TSV}" \
-        --m-metadata-column "${GROUPING_COLUMN_NAME}" \
-        --o-visualization "${BETA_GROUP_SIGNIFICANCE}" \
-        --p-pairwise \
-        --verbose \
-    |& tee "${LOG_DIR}diversity beta-group-significance ${GROUPING_COLUMN_NAME}.log"
+            mkdir -p "${BETA_METRIC_DIR_NAME}";
 
-    else
-        echo "Skip"
-    fi
+            echo "Visualize beta diversity data for \`${FILE}\`";
+
+            qiime diversity beta-group-significance \
+                --i-distance-matrix "${FILE}" \
+                --m-metadata-file "${METADATA_TSV}" \
+                --m-metadata-column "${PREV_CONTROL_COLUMN}" \
+                --o-visualization "${BETA_METRIC_DIR_NAME}${BASE_NAME}_${PREV_CONTROL_COLUMN}_significance.qzv" \
+                --p-pairwise \
+                --verbose;
+
+            # Output: distance-matrix.tsv
+            qiime tools export \
+                --input-path "${FILE}" \
+                --output-format DistanceMatrixDirectoryFormat \
+                --output-path "${BETA_METRIC_DIR_NAME}";
+
+            mv \
+                --verbose \
+                "${BETA_METRIC_DIR_NAME}distance-matrix.tsv" \
+                "${BETA_METRIC_DIR_NAME}${BASE_NAME}_beta_diversity.tsv";
+        '
 
 
 

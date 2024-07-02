@@ -394,7 +394,7 @@ if [[ -s "${DECONTAMINATION_TABLE}" ]]
 
 
 
-log "Export the denoised sequences to use in PCRUSt2"
+log "Export the processed sequences to use in PCRUSt2"
 
 export FASTA_DIR="${TOOL_DIR}fasta/"
 export FASTA="${FASTA_DIR}dna-sequences.fasta"
