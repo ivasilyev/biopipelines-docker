@@ -76,7 +76,6 @@ export TAXA_REFERENCE_SEQUENCES="${REFERENCE_DIR}${REFERENCE_NAME}-${REFERENCE_V
 export TAXA_REFERENCE_HEADER="${REFERENCE_DIR}${REFERENCE_NAME}_${REFERENCE_VERSION}_taxonomy_headed.tsv"
 
 export PICRUST2_DIR="${ROOT_DIR}picrust2/"
-export PICRUST2_RESULTS_DIR="${RESULT_DIR}picrust2/"
 export PICRUST2_SCRIPT="${PICRUST2_DIR}picrust2.sh"
 
 cd "${ROOT_DIR}" || exit 1
@@ -89,7 +88,6 @@ mkdir \
     "${PICRUST2_DIR}" \
     "${QIIME2_DIR}" \
     "${QZV_DIR}" \
-    "${RESULT_DIR}" \
     "${SCRIPT_DIR}"
 
 
