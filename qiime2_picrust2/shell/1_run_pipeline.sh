@@ -141,7 +141,7 @@ log "Run QIIME2"
 # export IMG="$(compose_quay_img qiime2 core)"
 # The latest QIIME2 Docker image can be retrieved safely but it already has the `latest` tag:
 # https://quay.io/repository/qiime2/core?tab=tags
-export IMG="quay.io/qiime2/core:latest"
+export IMG="quay.io/qiime2/core:2023.9"
 force_docker_pull "${IMG}"
 
 docker run \
@@ -193,7 +193,7 @@ cd "${PICRUST2_DIR}" || exit 1
 log "Run PICRUSt2"
 
 # export IMG="$(compose_quay_img biocontainers picrust2)"
-# The PICRUSt2 repository cannot be uodated safely because it has a mess in tag versions
+# The PICRUSt2 repository cannot be updated safely because it has a mess in tag versions
 # E.g. 2.5.2 is built earlier than 2.0.3 by an unknown reason:
 # https://quay.io/repository/biocontainers/picrust2?tab=tags
 export IMG="quay.io/biocontainers/picrust2:2.5.2--pyhdfd78af_0"
