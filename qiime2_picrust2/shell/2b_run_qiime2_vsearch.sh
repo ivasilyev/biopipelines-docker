@@ -77,7 +77,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
     |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -101,7 +101,7 @@ if [[ ! -s "${MERGED_READS}" ]]
         --verbose
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -126,7 +126,7 @@ if [[ ! -s "${QUALITY_FILTERED_SEQUENCES}" ]]
     |& tee "${LOG_DIR}quality-filter q-score.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -152,7 +152,7 @@ if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
     |& tee "${LOG_DIR}vsearch dereplicate-sequences.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -180,7 +180,7 @@ if [[ ! -s "${CLUSTERED_SEQUENCES}" && ! -s "${CLUSTERED_FREQUENCIES}" ]]
     |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -212,7 +212,7 @@ if [[ ! -s "${CHIMERIC_SEQUENCES}" ]]
         --o-visualization "${DECHIMERIZATION_DIR}dechimerization_statistics.qzv"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -236,7 +236,7 @@ if [[ ! -s "${NON_CHIMERIC_FREQUENCIES}" ]]
         --o-visualization "${DECHIMERIZATION_DIR}table_nonchimeric.qzv"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -256,7 +256,7 @@ if [[ ! -s "${NON_CHIMERIC_SEQUENCES}" ]]
         --verbose
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -290,7 +290,7 @@ if [[ ! -s "${BORDERLINE_CHIMERIC_FREQUENCIES}" ]]
         --verbose
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -298,7 +298,7 @@ if [[ ! -s "${BORDERLINE_CHIMERIC_FREQUENCIES}" ]]
 if [[ -s "${BORDERLINE_CHIMERIC_SEQUENCES}" && -s "${BORDERLINE_CHIMERIC_FREQUENCIES}" ]]
     then
 
-        echo \
+        log \
             "The dechimerization was successful, use the output" \
             "representative sequences: '${BORDERLINE_CHIMERIC_SEQUENCES}'" \
             "and frequency table: '${BORDERLINE_CHIMERIC_FREQUENCIES}'"
@@ -309,7 +309,7 @@ if [[ -s "${BORDERLINE_CHIMERIC_SEQUENCES}" && -s "${BORDERLINE_CHIMERIC_FREQUEN
 
     else
 
-        echo \
+        log \
             "The dechimerization was unsuccessful, keep use the input" \
             "representative sequences: '${CLUSTERED_SEQUENCES}'" \
             "and frequency table: '${CLUSTERED_FREQUENCIES}'"
@@ -361,7 +361,7 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -379,17 +379,17 @@ if [[ ! -s "${DECONTAMINATION_TABLE}" ]]
     |& tee "${LOG_DIR}quality-control decontam-remove.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
 
 if [[ -s "${DECONTAMINATION_TABLE}" ]]
     then
-        echo "The decontamination was successful, use the output file: '${DECONTAMINATION_TABLE}'"
+        log "The decontamination was successful, use the output file: '${DECONTAMINATION_TABLE}'"
         export FREQUENCY_TABLE="${DECONTAMINATION_TABLE}"
     else
-        echo "The decontamination was unsuccessful, keep use the input file: '${FREQUENCY_TABLE}'"
+        log "The decontamination was unsuccessful, keep use the input file: '${FREQUENCY_TABLE}'"
     fi
 
 
@@ -418,7 +418,7 @@ if [[ ! -s "${FASTA}" ]]
         "${QIIME2_FEATURES_FASTA}"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -462,7 +462,7 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
     |& tee "${LOG_DIR}taxa barplot.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -535,7 +535,7 @@ if [[ ! -s "${BIOM_DENORMALIZED}" ]]
         "${QIIME2_FEATURES_BIOM}"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -601,7 +601,7 @@ if [[ ! -s "${BIOM_NORMALIZED}" ]]
         "${QIIME2_OTU_TABLE}"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 

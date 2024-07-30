@@ -21,7 +21,8 @@ export QIIME2_FEATURES_FASTA="$(realpath "${QIIME2_FEATURES_FASTA}")"
 log "Run PATHWAYS in '${PICRUST2_DIR}'"
 
 export LOG_DIR="${PICRUST2_DIR}logs/"
-export PIPELINE_DIR="${PICRUST2_DIR}main_pipeline/"
+export MAIN_PIPELINE_DIR="${PICRUST2_DIR}main_pipeline/"
+export PATHWAY_PIPELINE_DIR="${MAIN_PIPELINE_DIR}pathways_out/"
 export TABLES_DIR="${PICRUST2_DIR}described_tables/"
 export NPROC="$(grep -c '^processor' "/proc/cpuinfo")"
 
@@ -33,63 +34,70 @@ mkdir \
     "${LOG_DIR}"
 
 cd "${PICRUST2_DIR}" || exit 1
-log "Ensure that the output directory does not exist"
-rm -rf "${PIPELINE_DIR}"
 
 
 
 log "Run the PICRUSt2 pipeline"
 
-export EC_METAGENOMES="${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz"
-export KO_METAGENOMES="${PIPELINE_DIR}KO_metagenome_out/pred_metagenome_unstrat.tsv.gz"
-export PATHWAYS="${PIPELINE_DIR}pathways_out/path_abun_unstrat.tsv.gz"
+export EC_METAGENOMES="${MAIN_PIPELINE_DIR}EC_metagenome_out/pred_metagenome_unstrat.tsv.gz"
+export KO_METAGENOMES="${MAIN_PIPELINE_DIR}KO_metagenome_out/pred_metagenome_unstrat.tsv.gz"
+export PATHWAYS="${MAIN_PIPELINE_DIR}pathways_out/path_abun_unstrat.tsv.gz"
+if [ ! -d "${MAIN_PIPELINE_DIR}" ]
+    then
+        log "Ensured that the output directory does not exist: '${MAIN_PIPELINE_DIR}'"
 
-# PICRUSt2 drops too many sequences if the BIOM and the FASTA are from DADA2.
-# After dropping ASV, very few sequences are left.
-# So it is practically better to use the BIOM and the FASTA obtained from
-# `vsearch cluster-features-closed-reference`, all preceded by
-# basic quality-score-based filtering and followed by chimera filtering
-# and aggressive OTU filtering (the treacherous trio, a.k.a. the Bokulich method)
-picrust2_pipeline.py \
-    --coverage \
-    --hsp_method mp \
-    --input "${QIIME2_FEATURES_BIOM}" \
-    --processes "${NPROC}" \
-    --study_fasta "${QIIME2_FEATURES_FASTA}" \
-    --output "${PIPELINE_DIR}" \
-    --stratified \
-    --verbose \
-|& tee "${LOG_DIR}picrust2_pipeline.log"
+        # PICRUSt2 drops too many sequences if the BIOM and the FASTA are from DADA2.
+        # After dropping ASV, very few sequences are left.
+        # So it is practically better to use the BIOM and the FASTA obtained from
+        # `vsearch cluster-features-closed-reference`, all preceded by
+        # basic quality-score-based filtering and followed by chimera filtering
+        # and aggressive OTU filtering (the treacherous trio, a.k.a. the Bokulich method)
+        picrust2_pipeline.py \
+            --coverage \
+            --hsp_method mp \
+            --input "${QIIME2_FEATURES_BIOM}" \
+            --processes "${NPROC}" \
+            --study_fasta "${QIIME2_FEATURES_FASTA}" \
+            --output "${MAIN_PIPELINE_DIR}" \
+            --stratified \
+            --verbose \
+        |& tee "${LOG_DIR}picrust2_pipeline.log"
 
+        log "Run the PICRUSt2 pathway pipeline"
 
+        pathway_pipeline.py \
+            --input "${EC_METAGENOMES}" \
+            --intermediate "${PATHWAY_PIPELINE_DIR}intermediate" \
+            --out_dir "${PATHWAY_PIPELINE_DIR}" \
+            --processes "${NPROC}" \
+            --verbose \
+        |& tee "${LOG_DIR}pathway_pipeline.log"
 
-log "Run the PICRUSt2 pathway pipeline"
-
-pathway_pipeline.py \
-    --input "${EC_METAGENOMES}" \
-    --intermediate "${PIPELINE_DIR}pathways_out/intermediate" \
-    --out_dir "${PIPELINE_DIR}pathways_out" \
-    --processes "${NPROC}" \
-    --verbose \
-|& tee "${LOG_DIR}pathway_pipeline.log"
+    else
+        log "Skip"
+    fi
 
 
 
 log "Convert tables"
 
-mkdir -p "${TABLES_DIR}"
+mkdir \
+    --mode 0777 \
+    --parents \
+    --verbose \
+    "${TABLES_DIR}"
 
-export LEGASY_TSV="${TABLES_DIR}EC_pred_metagenome_contrib_legacy.tsv"
-export LEGASY_GZIP="${LEGASY_TSV}.gz"
+export LEGACY_TSV="${TABLES_DIR}EC_pred_metagenome_contrib_legacy.tsv"
+export LEGASY_GZIP="${LEGACY_TSV}.gz"
 
 convert_table.py \
-    "${PIPELINE_DIR}EC_metagenome_out/pred_metagenome_contrib.tsv.gz" \
+    "${MAIN_PIPELINE_DIR}EC_metagenome_out/pred_metagenome_contrib.tsv.gz" \
     --conversion contrib_to_legacy \
     --output "${LEGASY_GZIP}" \
 |& tee "${LOG_DIR}convert_table.log"
 
 # The output file is too large and does not have clear purpose
-# zcat "${LEGASY_GZIP}" > "${LEGASY_TSV}"
+# zcat "${LEGASY_GZIP}" > "${LEGACY_TSV}"
 
 
 

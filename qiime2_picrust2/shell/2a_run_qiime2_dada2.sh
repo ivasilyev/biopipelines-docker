@@ -79,7 +79,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
     |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -112,7 +112,7 @@ if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
     |& tee "${LOG_DIR}dada2 denoise-paired.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -178,7 +178,7 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -196,7 +196,7 @@ if [[ ! -s "${DECONTAMINATION_TABLE}" ]]
     |& tee "${LOG_DIR}quality-control decontam-remove.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -271,7 +271,7 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
     |& tee "${LOG_DIR}taxa barplot.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -296,7 +296,7 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
         --verbose
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -360,7 +360,7 @@ if [[ ! -s "${BIOM_RAW}" ]]
     |& tee "${LOG_DIR}biom convert json.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -382,7 +382,7 @@ if [[ ! -s "${ALIGNMENTS_RAW}" ]]
     |& tee "${LOG_DIR}alignment mafft.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -403,7 +403,7 @@ if [[ ! -s "${ALIGNMENTS_MASKED}" ]]
     |& tee "${LOG_DIR}alignment mask.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -425,7 +425,7 @@ if [[ ! -s "${UNROOTED_TREE}" ]]
     |& tee "${LOG_DIR}phylogeny fasttree.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -446,7 +446,7 @@ if [[ ! -s "${ROOTED_TREE}" ]]
     |& tee "${LOG_DIR}phylogeny midpoint-root.log"
 
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
@@ -608,7 +608,7 @@ if [[ ! -s "${ALPHA_RAREFACTION}" ]]
             echo "Alpha rarefaction wss successful from the first attempt"
         fi
     else
-        echo "Skip"
+        log "Skip"
     fi
 
 
