@@ -8,6 +8,12 @@ function log {
     _LOG_COUNTER=$((_LOG_COUNTER + 1))
 }
 
+
+function log_skip {
+    printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][Pipeline][OP#$(printf "%02d" ${_LOG_COUNTER})] Skip\n\n${LINE}\n\n"
+}
+
+
 function md {
     for i in "${@}"
         do
@@ -18,6 +24,7 @@ function md {
             "$(dirname "${i}")"
         done
 }
+
 
 # Required variables begin
 export QIIME2_DIR="$(realpath "${QIIME2_DIR}")/"
@@ -79,7 +86,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
     |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -112,7 +119,7 @@ if [[ ! -s "${REPRESENTATIVE_SEQUENCES}" ]]
     |& tee "${LOG_DIR}dada2 denoise-paired.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -178,7 +185,7 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -196,7 +203,7 @@ if [[ ! -s "${DECONTAMINATION_TABLE}" ]]
     |& tee "${LOG_DIR}quality-control decontam-remove.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -271,7 +278,7 @@ if [[ ! -s "${CLASSIFIED_TAXONOMY}" ]]
     |& tee "${LOG_DIR}taxa barplot.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -296,7 +303,7 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
         --verbose
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -360,7 +367,7 @@ if [[ ! -s "${BIOM_RAW}" ]]
     |& tee "${LOG_DIR}biom convert json.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -382,7 +389,7 @@ if [[ ! -s "${ALIGNMENTS_RAW}" ]]
     |& tee "${LOG_DIR}alignment mafft.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -403,7 +410,7 @@ if [[ ! -s "${ALIGNMENTS_MASKED}" ]]
     |& tee "${LOG_DIR}alignment mask.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -425,7 +432,7 @@ if [[ ! -s "${UNROOTED_TREE}" ]]
     |& tee "${LOG_DIR}phylogeny fasttree.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -446,7 +453,7 @@ if [[ ! -s "${ROOTED_TREE}" ]]
     |& tee "${LOG_DIR}phylogeny midpoint-root.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -608,7 +615,7 @@ if [[ ! -s "${ALPHA_RAREFACTION}" ]]
             echo "Alpha rarefaction wss successful from the first attempt"
         fi
     else
-        log "Skip"
+        log_skip
     fi
 
 

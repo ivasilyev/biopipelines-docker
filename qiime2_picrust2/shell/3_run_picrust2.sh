@@ -11,6 +11,11 @@ function log {
 }
 
 
+function log_skip {
+    printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][Pipeline][OP#$(printf "%02d" ${_LOG_COUNTER})] Skip\n\n${LINE}\n\n"
+}
+
+
 # Required variables start
 export PICRUST2_DIR="$(realpath "${PICRUST2_DIR}")/"
 
@@ -74,7 +79,7 @@ if [ ! -d "${MAIN_PIPELINE_DIR}" ]
         |& tee "${LOG_DIR}pathway_pipeline.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 

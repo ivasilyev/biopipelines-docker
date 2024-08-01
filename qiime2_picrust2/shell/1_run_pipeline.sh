@@ -9,6 +9,11 @@ function log {
 }
 
 
+function log_skip {
+    printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][Pipeline][OP#$(printf "%02d" ${_LOG_COUNTER})] Skip\n\n${LINE}\n\n"
+}
+
+
 force_curl () {
     while true
     do
@@ -120,6 +125,7 @@ if [ ! -s "${SAMPLEDATA_CSV}" ] && [ ! -s "${METADATA_TSV}" ]
     |& tee "${LOG_DIR}qiime2_sample_data.log"
 else
     log "QIIME2 sampledata does exist"
+    log_skip
 fi
 
 

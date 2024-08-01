@@ -8,6 +8,12 @@ function log {
     _LOG_COUNTER=$((_LOG_COUNTER + 1))
 }
 
+
+function log_skip {
+    printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][Pipeline][OP#$(printf "%02d" ${_LOG_COUNTER})] Skip\n\n${LINE}\n\n"
+}
+
+
 function md {
     for i in "${@}"
         do
@@ -18,6 +24,7 @@ function md {
             "$(dirname "${i}")"
         done
 }
+
 
 # Required variables begin
 export QIIME2_DIR="$(realpath "${QIIME2_DIR}")/"
@@ -77,7 +84,7 @@ if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
     |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -101,7 +108,7 @@ if [[ ! -s "${MERGED_READS}" ]]
         --verbose
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -126,7 +133,7 @@ if [[ ! -s "${QUALITY_FILTERED_SEQUENCES}" ]]
     |& tee "${LOG_DIR}quality-filter q-score.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -152,7 +159,7 @@ if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
     |& tee "${LOG_DIR}vsearch dereplicate-sequences.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -180,7 +187,7 @@ if [[ ! -s "${CLUSTERED_SEQUENCES}" && ! -s "${CLUSTERED_FREQUENCIES}" ]]
     |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -212,7 +219,7 @@ if [[ ! -s "${CHIMERIC_SEQUENCES}" ]]
         --o-visualization "${DECHIMERIZATION_DIR}dechimerization_statistics.qzv"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -236,7 +243,7 @@ if [[ ! -s "${NON_CHIMERIC_FREQUENCIES}" ]]
         --o-visualization "${DECHIMERIZATION_DIR}table_nonchimeric.qzv"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -256,7 +263,7 @@ if [[ ! -s "${NON_CHIMERIC_SEQUENCES}" ]]
         --verbose
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -290,7 +297,7 @@ if [[ ! -s "${BORDERLINE_CHIMERIC_FREQUENCIES}" ]]
         --verbose
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -361,7 +368,7 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
     |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -379,7 +386,7 @@ if [[ ! -s "${DECONTAMINATION_TABLE}" ]]
     |& tee "${LOG_DIR}quality-control decontam-remove.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -418,7 +425,7 @@ if [[ ! -s "${FASTA}" ]]
         "${QIIME2_FEATURES_FASTA}"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -462,7 +469,7 @@ if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
     |& tee "${LOG_DIR}taxa barplot.log"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -535,7 +542,7 @@ if [[ ! -s "${BIOM_DENORMALIZED}" ]]
         "${QIIME2_FEATURES_BIOM}"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
@@ -601,7 +608,7 @@ if [[ ! -s "${BIOM_NORMALIZED}" ]]
         "${QIIME2_OTU_TABLE}"
 
     else
-        log "Skip"
+        log_skip
     fi
 
 
