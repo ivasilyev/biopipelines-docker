@@ -1,3 +1,3 @@
 # Description
 
-This repository contains scripts for biological data analysis pipelines image build 
+This repository contains scripts to build Docker images for biological data analysis.
