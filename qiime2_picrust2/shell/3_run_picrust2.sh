@@ -18,6 +18,7 @@ function log_skip {
 
 # Required variables start
 export PICRUST2_DIR="$(realpath "${PICRUST2_DIR}")/"
+export PICRUST2_RESULTS_DIR="$(realpath "${PICRUST2_RESULTS_DIR}")/"
 
 export QIIME2_FEATURES_BIOM="$(realpath "${QIIME2_FEATURES_BIOM}")"
 export QIIME2_FEATURES_FASTA="$(realpath "${QIIME2_FEATURES_FASTA}")"
@@ -28,7 +29,6 @@ log "Run PATHWAYS in '${PICRUST2_DIR}'"
 export LOG_DIR="${PICRUST2_DIR}logs/"
 export MAIN_PIPELINE_DIR="${PICRUST2_DIR}main_pipeline/"
 export PATHWAY_PIPELINE_DIR="${MAIN_PIPELINE_DIR}pathways_out/"
-export TABLES_DIR="${PICRUST2_DIR}described_tables/"
 export NPROC="$(grep -c '^processor' "/proc/cpuinfo")"
 
 mkdir \
@@ -90,9 +90,9 @@ mkdir \
     --mode 0777 \
     --parents \
     --verbose \
-    "${TABLES_DIR}"
+    "${PICRUST2_RESULTS_DIR}"
 
-export LEGACY_TSV="${TABLES_DIR}EC_pred_metagenome_contrib_legacy.tsv"
+export LEGACY_TSV="${PICRUST2_RESULTS_DIR}EC_pred_metagenome_contrib_legacy.tsv"
 export LEGASY_GZIP="${LEGACY_TSV}.gz"
 
 convert_table.py \
@@ -111,7 +111,7 @@ log "Add KEGG ENZYME descriptions"
 add_descriptions.py \
     --input "${EC_METAGENOMES}" \
     --map_type EC \
-    --output "${TABLES_DIR}EC_pred_metagenome_unstrat_described.tsv" \
+    --output "${PICRUST2_RESULTS_DIR}EC_pred_metagenome_unstrat_described.tsv" \
 |& tee "${LOG_DIR}add_descriptions-EC.log"
 
 
@@ -121,7 +121,7 @@ log "Add KEGG ORTHOLOGY descriptions"
 add_descriptions.py \
     --input "${KO_METAGENOMES}" \
     --map_type KO \
-    --output "${TABLES_DIR}KO_pred_metagenome_unstrat_described.tsv" \
+    --output "${PICRUST2_RESULTS_DIR}KO_pred_metagenome_unstrat_described.tsv" \
 |& tee "${LOG_DIR}add_descriptions-KO.log"
 
 
@@ -131,7 +131,7 @@ log "Add MetaCyc descriptions"
 add_descriptions.py  \
     --input "${PATHWAYS}" \
     --map_type METACYC \
-    --output "${TABLES_DIR}pathways_abun_unstrat_described.tsv" \
+    --output "${PICRUST2_RESULTS_DIR}pathways_abun_unstrat_described.tsv" \
 |& tee "${LOG_DIR}add_descriptions-METACYC.log"
 
 

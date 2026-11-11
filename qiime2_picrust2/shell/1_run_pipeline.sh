@@ -68,9 +68,10 @@ export SAMPLEDATA_CSV="${SAMPLEDATA_DIR}qiime2_sample_data.csv"
 export METADATA_TSV="${SAMPLEDATA_DIR}qiime2_meta_data.tsv"
 
 export QIIME2_DIR="${ROOT_DIR}qiime2/"
-export QIIME2_FEATURES_BIOM="${QIIME2_DIR}feature-table.biom"
-export QIIME2_FEATURES_FASTA="${QIIME2_DIR}dna-sequences.fasta"
-export QIIME2_OTU_TABLE="${QIIME2_DIR}otu_table.tsv"
+export QIIME2_RESULTS_DIR="${ROOT_DIR}results/"
+export QIIME2_FEATURES_BIOM="${QIIME2_RESULTS_DIR}feature-table.biom"
+export QIIME2_FEATURES_FASTA="${QIIME2_RESULTS_DIR}dna-sequences.fasta"
+export QIIME2_OTU_TABLE="${QIIME2_RESULTS_DIR}otu_table.tsv"
 
 export QIIME2_SCRIPT_1="${SCRIPT_DIR}qiime2_1.sh"
 export QIIME2_SCRIPT_2="${SCRIPT_DIR}qiime2_2.sh"
@@ -85,6 +86,7 @@ export TAXA_REFERENCE_SEQUENCES="${REFERENCE_DIR}${REFERENCE_NAME}-${REFERENCE_V
 export TAXA_REFERENCE_HEADER="${REFERENCE_DIR}${REFERENCE_NAME}_${REFERENCE_VERSION}_taxonomy_headed.tsv"
 
 export PICRUST2_DIR="${ROOT_DIR}picrust2/"
+export PICRUST2_RESULTS_DIR="${PICRUST2_DIR}results/"
 export PICRUST2_SCRIPT="${PICRUST2_DIR}picrust2.sh"
 
 cd "${ROOT_DIR}" || exit 1
@@ -95,7 +97,9 @@ mkdir \
     --verbose \
     "${LOG_DIR}" \
     "${PICRUST2_DIR}" \
+    "${PICRUST2_RESULTS_DIR}" \
     "${QIIME2_DIR}" \
+    "${QIIME2_RESULTS_DIR}" \
     "${QZV_DIR}" \
     "${SCRIPT_DIR}"
 
@@ -224,6 +228,7 @@ docker run \
     --env QIIME2_FEATURES_FASTA="${QIIME2_FEATURES_FASTA}" \
     --env PICRUST2_DIR="${PICRUST2_DIR}" \
     --env PICRUST2_RESULTS_DIR="${PICRUST2_RESULTS_DIR}" \
+    --env PICRUST2_SCRIPT="${PICRUST2_SCRIPT}" \
     --memory "${TOTAL_RAM}g" \
     --memory-swappiness 100 \
     --net host \
