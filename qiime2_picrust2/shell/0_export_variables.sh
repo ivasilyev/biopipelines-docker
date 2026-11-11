@@ -8,8 +8,19 @@ export SCRIPT_DIR="${ROOT_DIR}scripts/"
 export PIPELINE_SCRIPT="${SCRIPT_DIR}1_run_pipeline"
 
 # sudo rm -rf "${ROOT_DIR}"
-mkdir -p "${ROOT_DIR}" "${SCRIPT_DIR}"
-chmod -R a+rw "${ROOT_DIR}"
+mkdir \
+    --mode 0777 \
+    --parents \
+    "${ROOT_DIR}" \
+    "${SCRIPT_DIR}"
+
+chmod \
+    --recursive \
+    --verbose \
+    0777 \
+    "${ROOT_DIR}" \
+    "${SCRIPT_DIR}"
+
 cd "${ROOT_DIR}" || exit 1
 
 curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/master/qiime2_picrust2/shell/1_run_pipeline.sh" \
@@ -17,4 +28,7 @@ curl -fsSL "https://raw.githubusercontent.com/ivasilyev/biopipelines-docker/mast
 
 bash "${PIPELINE_SCRIPT}"
 
-rm -f "$(realpath "${0}")"
+rm \
+    --force \
+    --verbose \
+    "$(realpath "${0}")"
