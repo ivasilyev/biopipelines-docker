@@ -70,6 +70,8 @@ export METADATA_TSV="${SAMPLEDATA_DIR}qiime2_meta_data.tsv"
 export QIIME2_DIR="${ROOT_DIR}qiime2/"
 export QIIME2_FEATURES_BIOM="${QIIME2_DIR}feature-table.biom"
 export QIIME2_FEATURES_FASTA="${QIIME2_DIR}dna-sequences.fasta"
+export QIIME2_OTU_TABLE="${QIIME2_DIR}otu_table.tsv"
+
 export QIIME2_SCRIPT_1="${SCRIPT_DIR}qiime2_1.sh"
 export QIIME2_SCRIPT_2="${SCRIPT_DIR}qiime2_2.sh"
 
@@ -158,7 +160,6 @@ docker run \
     --env QIIME2_SCRIPT_2="${QIIME2_SCRIPT_2}" \
     --env QIIME2_FEATURES_BIOM="${QIIME2_FEATURES_BIOM}" \
     --env QIIME2_FEATURES_FASTA="${QIIME2_FEATURES_FASTA}" \
-    --env QIIME2_OTU_ASV_MAPPER="${QIIME2_OTU_ASV_MAPPER}" \
     --env QIIME2_OTU_TABLE="${QIIME2_OTU_TABLE}" \
     --env SAMPLEDATA_CSV="${SAMPLEDATA_CSV}" \
     --env METADATA_TSV="${METADATA_TSV}" \
