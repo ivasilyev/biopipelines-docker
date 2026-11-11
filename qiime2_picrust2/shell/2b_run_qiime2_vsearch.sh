@@ -533,7 +533,7 @@ if [[ ! -s "${BIOM_DENORMALIZED}" ]]
         --in-place \
         "${TSV_DENORMALIZED_ANNOTATED}"
 
-    log "Export the denormalized frequencies to use in PCRUSt2"
+    log "Export the denormalized frequencies to use in PICRUSt2"
 
     ln \
         --symbolic \
@@ -604,7 +604,7 @@ if [[ ! -s "${BIOM_NORMALIZED}" ]]
     ln \
         --symbolic \
         --verbose \
-        "${TSV_ANNOTATED}" \
+        "${TSV_NORMALIZED_ANNOTATED}" \
         "${QIIME2_OTU_TABLE}"
 
     else

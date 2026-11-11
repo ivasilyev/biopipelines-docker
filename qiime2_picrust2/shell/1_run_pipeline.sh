@@ -176,7 +176,8 @@ docker run \
     --workdir="${QIIME2_DIR}" \
     "${IMG}" \
     bash -c '
-        bash "${QIIME2_SCRIPT_1}" \
+        printenv \
+        && bash "${QIIME2_SCRIPT_1}" \
         && bash "${QIIME2_SCRIPT_2}"
     ' \
 |& tee "${LOG_DIR}qiime2.log"
@@ -234,7 +235,10 @@ docker run \
     --volume /data04:/data04 \
     --workdir="${PICRUST2_DIR}" \
     "${IMG}" \
-    bash "${PICRUST2_SCRIPT}" \
+    bash -c '
+        printenv \
+        && bash "${PICRUST2_SCRIPT}"
+    ' \
 |& tee "${LOG_DIR}$(basename "${PICRUST2_SCRIPT}").log"
 
 rm -f "${PICRUST2_SCRIPT}"
