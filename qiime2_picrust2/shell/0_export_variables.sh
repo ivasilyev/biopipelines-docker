@@ -6,6 +6,9 @@ export RAW_DIR=""
 export SAMPLEDATA_DIR="${ROOT_DIR}sample_data/"
 export SCRIPT_DIR="${ROOT_DIR}scripts/"
 export PIPELINE_SCRIPT="${SCRIPT_DIR}1_run_pipeline"
+export GROUPING_COLUMN_NAME="SubjectID"
+export PREV_CONTROL_COLUMN="Subgroup"
+export PREV_CONTROL_INDICATOR="ControlNegative"
 
 # sudo rm -rf "${ROOT_DIR}"
 mkdir \

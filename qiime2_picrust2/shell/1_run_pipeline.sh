@@ -58,6 +58,10 @@ compose_quay_img() {
 export ROOT_DIR="$(realpath "${ROOT_DIR}")/"
 export SAMPLEDATA_DIR="$(realpath "${SAMPLEDATA_DIR}")/"
 export SCRIPT_DIR="$(realpath "${SCRIPT_DIR}")/"
+
+export GROUPING_COLUMN_NAME="${GROUPING_COLUMN_NAME}"
+export PREV_CONTROL_COLUMN="${PREV_CONTROL_COLUMN}"
+export PREV_CONTROL_INDICATOR="${PREV_CONTROL_INDICATOR}"
 # Required variables end
 
 log "Create environment in ${ROOT_DIR}"
@@ -165,6 +169,9 @@ docker run \
     --env QIIME2_FEATURES_BIOM="${QIIME2_FEATURES_BIOM}" \
     --env QIIME2_FEATURES_FASTA="${QIIME2_FEATURES_FASTA}" \
     --env QIIME2_OTU_TABLE="${QIIME2_OTU_TABLE}" \
+    --env GROUPING_COLUMN_NAME="${GROUPING_COLUMN_NAME}" \
+    --env PREV_CONTROL_COLUMN="${PREV_CONTROL_COLUMN}" \
+    --env PREV_CONTROL_INDICATOR="${PREV_CONTROL_INDICATOR}" \
     --env SAMPLEDATA_CSV="${SAMPLEDATA_CSV}" \
     --env METADATA_TSV="${METADATA_TSV}" \
     --env TAXA_REFERENCE_FEATURES="${TAXA_REFERENCE_FEATURES}" \
@@ -229,6 +236,9 @@ docker run \
     --env PICRUST2_DIR="${PICRUST2_DIR}" \
     --env PICRUST2_RESULTS_DIR="${PICRUST2_RESULTS_DIR}" \
     --env PICRUST2_SCRIPT="${PICRUST2_SCRIPT}" \
+    --env GROUPING_COLUMN_NAME="${GROUPING_COLUMN_NAME}" \
+    --env PREV_CONTROL_COLUMN="${PREV_CONTROL_COLUMN}" \
+    --env PREV_CONTROL_INDICATOR="${PREV_CONTROL_INDICATOR}" \
     --memory "${TOTAL_RAM}g" \
     --memory-swappiness 100 \
     --net host \

@@ -35,6 +35,10 @@ export METADATA_TSV="$(realpath "${METADATA_TSV}")"
 export TAXA_REFERENCE_FEATURES="$(realpath "${TAXA_REFERENCE_FEATURES}")"
 export TAXA_REFERENCE_SEQUENCES="$(realpath "${TAXA_REFERENCE_SEQUENCES}")"
 export TAXA_REFERENCE_HEADER="$(realpath "${TAXA_REFERENCE_HEADER}")"
+
+export GROUPING_COLUMN_NAME="${GROUPING_COLUMN_NAME}"
+export PREV_CONTROL_COLUMN="${PREV_CONTROL_COLUMN}"
+export PREV_CONTROL_INDICATOR="${PREV_CONTROL_INDICATOR}"
 # Required variables end
 
 log "Run QIIME2 in ${QIIME2_DIR}"
@@ -43,9 +47,6 @@ export TOOL_NAME="vsearch"
 export TOOL_DIR="${QIIME2_DIR}${TOOL_NAME}/"
 export LOG_DIR="${TOOL_DIR}logs/"
 export CONSENSUS_THRESHOLD=97
-export GROUPING_COLUMN_NAME="SubjectID"
-export PREV_CONTROL_COLUMN="Subgroup"
-export PREV_CONTROL_INDICATOR="ControlNegative"
 export TAXA_COLUMN_NAME="taxonomy"
 export NPROC="$(grep -c '^processor' "/proc/cpuinfo")"
 
