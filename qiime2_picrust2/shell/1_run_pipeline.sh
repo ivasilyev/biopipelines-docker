@@ -112,8 +112,8 @@ if [ ! -s "${SAMPLEDATA_CSV}" ] && [ ! -s "${METADATA_TSV}" ]
         --net host \
         --rm \
         --volume /data:/data \
-        --volume /data1:/data1 \
-        --volume /data2:/data2 \
+        --volume /data01:/data01 \
+        --volume /data02:/data02 \
         --volume /data03:/data03 \
         --volume /data04:/data04 \
         "${IMG}" \
@@ -169,7 +169,8 @@ docker run \
     --net host \
     --rm \
     --volume /data:/data \
-    --volume /data1:/data1 \
+    --volume /data01:/data01 \
+    --volume /data02:/data02 \
     --volume /data03:/data03 \
     --volume /data04:/data04 \
     --workdir="${QIIME2_DIR}" \
@@ -227,7 +228,8 @@ docker run \
     --oom-kill-disable \
     --rm \
     --volume /data:/data \
-    --volume /data1:/data1 \
+    --volume /data01:/data01 \
+    --volume /data02:/data02 \
     --volume /data03:/data03 \
     --volume /data04:/data04 \
     --workdir="${PICRUST2_DIR}" \
