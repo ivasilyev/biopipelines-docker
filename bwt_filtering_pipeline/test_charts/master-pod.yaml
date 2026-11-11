@@ -15,9 +15,9 @@ spec:
       volumeMounts:
         - mountPath: /data
           name: data
-        - mountPath: /data1
+        - mountPath: /data01
           name: data1
-        - mountPath: /data2
+        - mountPath: /data02
           name: data2
   volumes:
     - name: data
@@ -25,8 +25,8 @@ spec:
         path: /data
     - name: data1
       hostPath:
-        path: /data1
+        path: /data01
     - name: data2
       hostPath:
-        path: /data2
+        path: /data02
   restartPolicy: Never

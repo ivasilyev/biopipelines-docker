@@ -428,7 +428,7 @@ class Handler:
         # Sample launch:
         export IMG=quay.io/biocontainers/fastqc:0.11.9--hdfd78af_1 && \
         docker pull "${IMG}" && \
-        docker run --rm -v /data1:/data1 --net=host -it "${IMG}" bash
+        docker run --rm -v /data01:/data01 --net=host -it "${IMG}" bash
         """
         cmd = f"""
         bash -c '
@@ -521,7 +521,7 @@ class Handler:
                 -phred33 \
                 {sampledata.reads_string} \
                 {trimmed_reads[0]} {untrimmed_reads[0]} {trimmed_reads[1]} {untrimmed_reads[1]} \
-                ILLUMINACLIP:/data2/bio/ecoli_komfi/adapters.fasta:2:30:10 \
+                ILLUMINACLIP:/data02/bio/ecoli_komfi/adapters.fasta:2:30:10 \
                 LEADING:3 \
                 TRAILING:3 \
                 SLIDINGWINDOW:4:15 \
@@ -2177,7 +2177,7 @@ class Utils:
     def run_image(
             img_name: str, container_cmd: str, bad_phrases: list = (), attempts: int = 5
     ):
-        _PERSISTENT_STORAGE_POINTS = ("/data", "/data1", "/data2", "/data03", "/data04")
+        _PERSISTENT_STORAGE_POINTS = ("/data", "/data01", "/data02", "/data03", "/data04")
         persistent_storage_line = " ".join([f"-v {i}:{i}" for i in _PERSISTENT_STORAGE_POINTS])
         _DOCKER_RUN_CMD = f"docker run --rm {persistent_storage_line} --net=host -it"
         _COMMON_PHRASES = ["Error response from daemon", ]
