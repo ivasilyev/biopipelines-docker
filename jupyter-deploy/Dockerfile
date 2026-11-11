@@ -45,7 +45,7 @@ RUN echo "Update packages" && \
     apt-get purge && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN echo "Install Python packages" && \
+RUN echo "Install primary Python packages" && \
     cd /tmp/ && \
     pip3 install --upgrade --no-cache-dir pip setuptools wheel && \
     # Deliberately download the files to avoid leftovers
