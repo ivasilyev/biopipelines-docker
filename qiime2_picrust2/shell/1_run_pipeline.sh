@@ -15,26 +15,25 @@ function log_skip {
 
 
 force_curl () {
-    curl -fsSL "${1}" -o "${2}"
-#    while true
-#    do
-#      if curl -fsSL "${1}" -o "${2}"
-#      then
-#        return
-#      fi
-#    done
+    while true
+    do
+      if curl -fsSL "${1}" -o "${2}"
+      then
+        return
+      fi
+    done
 }
 
 
 force_docker_pull () {
     docker pull "${1}"
-#    while true
-#    do
-#      if docker pull "${1}"
-#      then
-#        return
-#      fi
-#    done
+    while true
+    do
+      if docker pull "${1}"
+      then
+        return
+      fi
+    done
 }
 
 
