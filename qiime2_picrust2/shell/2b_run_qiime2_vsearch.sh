@@ -62,29 +62,26 @@ log "Import and convert pre-demultiplexed paired-end FASTQ files to QIIME2 artif
 export DEMULTIPLEXED_DIR="${QIIME2_DIR}demultiplexed_reads/"
 export DEMULTIPLEXED_READS="${DEMULTIPLEXED_DIR}demultiplexed_PE_reads.qza"
 
-md "${DEMULTIPLEXED_READS}"
-
-if [[ ! -s "${DEMULTIPLEXED_READS}" ]]
+if [[ -s "${DEMULTIPLEXED_READS}" ]]
     then
-
-    qiime tools import \
-        --input-format PairedEndFastqManifestPhred33 \
-        --input-path "${SAMPLEDATA_CSV}" \
-        --output-path "${DEMULTIPLEXED_READS}" \
-        --type 'SampleData[PairedEndSequencesWithQuality]' \
-    |& tee "${LOG_DIR}tools import.log"
-
-    log "Create summary statistics for raw sequences"
-
-    qiime demux summarize \
-        --i-data "${DEMULTIPLEXED_READS}" \
-        --o-visualization "${DEMULTIPLEXED_DIR}_demultiplexed_PE_reads.qzv" \
-        --verbose \
-    |& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
-
-    else
         log_skip
+    else
+        md "${DEMULTIPLEXED_READS}"
+
+        qiime tools import \
+            --input-format PairedEndFastqManifestPhred33 \
+            --input-path "${SAMPLEDATA_CSV}" \
+            --output-path "${DEMULTIPLEXED_READS}" \
+            --type 'SampleData[PairedEndSequencesWithQuality]' \
+        |& tee "${LOG_DIR}tools import.log"
     fi
+
+log "Create summary statistics for raw sequences"
+qiime demux summarize \
+    --i-data "${DEMULTIPLEXED_READS}" \
+    --o-visualization "${DEMULTIPLEXED_DIR}_demultiplexed_PE_reads.qzv" \
+    --verbose \
+|& tee "${LOG_DIR}demux summarize demux_PE_reads.log"
 
 
 
@@ -94,20 +91,18 @@ export MERGED_READS="${TOOL_DIR}merged_reads/merged_PE_reads.qza"
 
 md "${MERGED_READS}"
 
-if [[ ! -s "${MERGED_READS}" ]]
+if [[ -s "${MERGED_READS}" ]]
     then
-
-    # --p-threads INTEGER Range(0, 8, inclusive_end=True)
-    # The number of threads to use for computation. Does not scale much past 4 threads.
-    qiime vsearch merge-pairs \
-        --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
-        --o-merged-sequences "${MERGED_READS}" \
-        --p-allowmergestagger \
-        --p-threads 8 \
-        --verbose
-
-    else
         log_skip
+    else
+        # --p-threads INTEGER Range(0, 8, inclusive_end=True)
+        # The number of threads to use for computation. Does not scale much past 4 threads.
+        qiime vsearch merge-pairs \
+            --i-demultiplexed-seqs "${DEMULTIPLEXED_READS}" \
+            --o-merged-sequences "${MERGED_READS}" \
+            --p-allowmergestagger \
+            --p-threads 8 \
+            --verbose
     fi
 
 
@@ -119,20 +114,18 @@ export QUALITY_FILTERED_SEQUENCES="${QUALITY_FILTER_DIR}q_scoring_sequences.qza"
 
 md "${QUALITY_FILTERED_SEQUENCES}"
 
-if [[ ! -s "${QUALITY_FILTERED_SEQUENCES}" ]]
+if [[ -s "${QUALITY_FILTERED_SEQUENCES}" ]]
     then
-
-    md "${QUALITY_FILTERED_SEQUENCES}"
-
-    qiime quality-filter q-score \
-        --i-demux "${MERGED_READS}" \
-        --o-filtered-sequences "${QUALITY_FILTERED_SEQUENCES}" \
-        --o-filter-stats "${QUALITY_FILTER_DIR}q_scoring_statistics.qza" \
-        --verbose \
-    |& tee "${LOG_DIR}quality-filter q-score.log"
-
-    else
         log_skip
+    else
+        md "${QUALITY_FILTERED_SEQUENCES}"
+
+        qiime quality-filter q-score \
+            --i-demux "${MERGED_READS}" \
+            --o-filtered-sequences "${QUALITY_FILTERED_SEQUENCES}" \
+            --o-filter-stats "${QUALITY_FILTER_DIR}q_scoring_statistics.qza" \
+            --verbose \
+        |& tee "${LOG_DIR}quality-filter q-score.log"
     fi
 
 
@@ -145,20 +138,18 @@ export DEREPLICATED_FREQUENCIES="${DEREPLICATED_DIR}dereplicated_frequency_table
 
 md "${DEREPLICATED_SEQUENCES}"
 
-if [[ ! -s "${DEREPLICATED_SEQUENCES}" ]]
+if [[ -s "${DEREPLICATED_SEQUENCES}" ]]
     then
-
-    md "${DEREPLICATED_SEQUENCES}"
-
-    qiime vsearch dereplicate-sequences \
-        --i-sequences "${QUALITY_FILTERED_SEQUENCES}" \
-        --o-dereplicated-sequences "${DEREPLICATED_SEQUENCES}" \
-        --o-dereplicated-table "${DEREPLICATED_FREQUENCIES}" \
-        --verbose \
-    |& tee "${LOG_DIR}vsearch dereplicate-sequences.log"
-
-    else
         log_skip
+    else
+        md "${DEREPLICATED_SEQUENCES}"
+
+        qiime vsearch dereplicate-sequences \
+            --i-sequences "${QUALITY_FILTERED_SEQUENCES}" \
+            --o-dereplicated-sequences "${DEREPLICATED_SEQUENCES}" \
+            --o-dereplicated-table "${DEREPLICATED_FREQUENCIES}" \
+            --verbose \
+        |& tee "${LOG_DIR}vsearch dereplicate-sequences.log"
     fi
 
 
@@ -168,25 +159,23 @@ export CLUSTERED_DIR="${TOOL_DIR}cluster_features/"
 export CLUSTERED_SEQUENCES="${CLUSTERED_DIR}closed_reference_clustered_sequences.qza"
 export CLUSTERED_FREQUENCIES="${CLUSTERED_DIR}closed_reference_clustered_table.qza"
 
-if [[ ! -s "${CLUSTERED_SEQUENCES}" && ! -s "${CLUSTERED_FREQUENCIES}" ]]
+if [[ -s "${CLUSTERED_SEQUENCES}" && -s "${CLUSTERED_FREQUENCIES}" ]]
     then
-
-    md "${CLUSTERED_SEQUENCES}"
-
-    qiime vsearch cluster-features-closed-reference \
-        --i-reference-sequences "${TAXA_REFERENCE_SEQUENCES}" \
-        --i-sequences "${DEREPLICATED_SEQUENCES}" \
-        --i-table "${DEREPLICATED_FREQUENCIES}" \
-        --o-clustered-sequences "${CLUSTERED_SEQUENCES}" \
-        --o-clustered-table "${CLUSTERED_FREQUENCIES}" \
-        --o-unmatched-sequences "${CLUSTERED_DIR}closed_reference_unmatched_sequences.qza" \
-        --p-perc-identity 0.${CONSENSUS_THRESHOLD} \
-        --p-threads "${NPROC}" \
-        --verbose \
-    |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
-
-    else
         log_skip
+    else
+        md "${CLUSTERED_SEQUENCES}"
+
+        qiime vsearch cluster-features-closed-reference \
+            --i-reference-sequences "${TAXA_REFERENCE_SEQUENCES}" \
+            --i-sequences "${DEREPLICATED_SEQUENCES}" \
+            --i-table "${DEREPLICATED_FREQUENCIES}" \
+            --o-clustered-sequences "${CLUSTERED_SEQUENCES}" \
+            --o-clustered-table "${CLUSTERED_FREQUENCIES}" \
+            --o-unmatched-sequences "${CLUSTERED_DIR}closed_reference_unmatched_sequences.qza" \
+            --p-perc-identity 0.${CONSENSUS_THRESHOLD} \
+            --p-threads "${NPROC}" \
+            --verbose \
+        |& tee "${LOG_DIR}vsearch cluster-features-closed-reference.log"
     fi
 
 
@@ -200,25 +189,23 @@ export DECHIMERIZATION_STATS="${DECHIMERIZATION_DIR}dechimerization_statistics.q
 
 md "${CHIMERIC_SEQUENCES}"
 
-if [[ ! -s "${CHIMERIC_SEQUENCES}" ]]
+if [[ -s "${CHIMERIC_SEQUENCES}" ]]
     then
-
-    qiime vsearch uchime-denovo \
-        --i-sequences "${CLUSTERED_SEQUENCES}" \
-        --i-table "${CLUSTERED_FREQUENCIES}" \
-        --o-chimeras "${CHIMERIC_SEQUENCES}" \
-        --o-nonchimeras "${CHIMERA_FILTERING_SEQUENCES}" \
-        --o-stats "${DECHIMERIZATION_STATS}" \
-        --verbose
-
-    log "Visualize chimera check summary"
-
-    qiime metadata tabulate \
-        --m-input-file "${DECHIMERIZATION_STATS}" \
-        --o-visualization "${DECHIMERIZATION_DIR}dechimerization_statistics.qzv"
-
-    else
         log_skip
+    else
+        qiime vsearch uchime-denovo \
+            --i-sequences "${CLUSTERED_SEQUENCES}" \
+            --i-table "${CLUSTERED_FREQUENCIES}" \
+            --o-chimeras "${CHIMERIC_SEQUENCES}" \
+            --o-nonchimeras "${CHIMERA_FILTERING_SEQUENCES}" \
+            --o-stats "${DECHIMERIZATION_STATS}" \
+            --verbose
+
+        log "Visualize chimera check summary"
+
+        qiime metadata tabulate \
+            --m-input-file "${DECHIMERIZATION_STATS}" \
+            --o-visualization "${DECHIMERIZATION_DIR}dechimerization_statistics.qzv"
     fi
 
 
@@ -227,22 +214,20 @@ log "Exclude chimeras and borderline chimeras from feature table"
 
 export NON_CHIMERIC_FREQUENCIES="${DECHIMERIZATION_DIR}table_nonchimeric.qza"
 
-if [[ ! -s "${NON_CHIMERIC_FREQUENCIES}" ]]
+if [[ -s "${NON_CHIMERIC_FREQUENCIES}" ]]
     then
-
-    qiime feature-table filter-features \
-        --i-table "${CLUSTERED_FREQUENCIES}" \
-        --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
-        --o-filtered-table "${NON_CHIMERIC_FREQUENCIES}" \
-        --p-no-exclude-ids \
-        --verbose
-
-    qiime feature-table summarize \
-        --i-table "${NON_CHIMERIC_FREQUENCIES}" \
-        --o-visualization "${DECHIMERIZATION_DIR}table_nonchimeric.qzv"
-
-    else
         log_skip
+    else
+        qiime feature-table filter-features \
+            --i-table "${CLUSTERED_FREQUENCIES}" \
+            --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
+            --o-filtered-table "${NON_CHIMERIC_FREQUENCIES}" \
+            --p-no-exclude-ids \
+            --verbose
+
+        qiime feature-table summarize \
+            --i-table "${NON_CHIMERIC_FREQUENCIES}" \
+            --o-visualization "${DECHIMERIZATION_DIR}table_nonchimeric.qzv"
     fi
 
 
@@ -251,18 +236,16 @@ log "Exclude chimeras and borderline chimeras from feature sequences"
 
 export NON_CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}representative_sequences_nonchimeric.qza"
 
-if [[ ! -s "${NON_CHIMERIC_SEQUENCES}" ]]
+if [[ -s "${NON_CHIMERIC_SEQUENCES}" ]]
     then
-
-    qiime feature-table filter-seqs \
-        --i-data "${CLUSTERED_SEQUENCES}" \
-        --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
-        --o-filtered-data "${NON_CHIMERIC_SEQUENCES}" \
-        --p-no-exclude-ids \
-        --verbose
-
-    else
         log_skip
+    else
+        qiime feature-table filter-seqs \
+            --i-data "${CLUSTERED_SEQUENCES}" \
+            --m-metadata-file "${CHIMERA_FILTERING_SEQUENCES}" \
+            --o-filtered-data "${NON_CHIMERIC_SEQUENCES}" \
+            --p-no-exclude-ids \
+            --verbose
     fi
 
 
@@ -272,32 +255,30 @@ log "Exclude chimeras but retain borderline chimeras from feature table"
 export BORDERLINE_CHIMERIC_FREQUENCIES="${DECHIMERIZATION_DIR}table_borderline_chimeric.qza"
 export BORDERLINE_CHIMERIC_SEQUENCES="${DECHIMERIZATION_DIR}representative_sequences_borderline_chimeric.qza"
 
-if [[ ! -s "${BORDERLINE_CHIMERIC_FREQUENCIES}" ]]
+if [[ -s "${BORDERLINE_CHIMERIC_FREQUENCIES}" ]]
     then
-
-    qiime feature-table filter-features \
-        --i-table "${CLUSTERED_FREQUENCIES}" \
-        --m-metadata-file "${CHIMERIC_SEQUENCES}" \
-        --o-filtered-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
-        --p-exclude-ids \
-        --verbose
-
-    qiime feature-table summarize \
-        --i-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
-        --o-visualization "${DECHIMERIZATION_DIR}table_borderline_chimeric.qzv"
-
-    log "Exclude chimeras but retain borderline chimeras from feature sequences"
-
-    qiime feature-table filter-seqs \
-        --i-data "${CLUSTERED_SEQUENCES}" \
-        --m-metadata-file "${CHIMERIC_SEQUENCES}" \
-        --o-filtered-data "${BORDERLINE_CHIMERIC_SEQUENCES}" \
-        --p-exclude-ids \
-        --verbose
-
-    else
         log_skip
+    else
+        qiime feature-table filter-features \
+            --i-table "${CLUSTERED_FREQUENCIES}" \
+            --m-metadata-file "${CHIMERIC_SEQUENCES}" \
+            --o-filtered-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
+            --p-exclude-ids \
+            --verbose
     fi
+
+qiime feature-table summarize \
+    --i-table "${BORDERLINE_CHIMERIC_FREQUENCIES}" \
+    --o-visualization "${DECHIMERIZATION_DIR}table_borderline_chimeric.qzv"
+
+log "Exclude chimeras but retain borderline chimeras from feature sequences"
+
+qiime feature-table filter-seqs \
+    --i-data "${CLUSTERED_SEQUENCES}" \
+    --m-metadata-file "${CHIMERIC_SEQUENCES}" \
+    --o-filtered-data "${BORDERLINE_CHIMERIC_SEQUENCES}" \
+    --p-exclude-ids \
+    --verbose
 
 
 
@@ -330,45 +311,43 @@ if [[ -s "${BORDERLINE_CHIMERIC_SEQUENCES}" && -s "${BORDERLINE_CHIMERIC_FREQUEN
 export DECONTAMINATION_DIR="${TOOL_DIR}decontam/"
 export DECONTAMINATION_SCORES="${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qza"
 
-if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
+if [[ -s "${DECONTAMINATION_SCORES}" ]]
     then
+        log_skip
+    else
+        md "${DECONTAMINATION_SCORES}"
+
+        qiime quality-control decontam-identify \
+            --i-table "${FREQUENCY_TABLE}" \
+            --m-metadata-file "${METADATA_TSV}" \
+            --o-decontam-scores "${DECONTAMINATION_SCORES}" \
+            --p-method prevalence \
+            --p-prev-control-column "${PREV_CONTROL_COLUMN}" \
+            --p-prev-control-indicator "${PREV_CONTROL_INDICATOR}" \
+            --verbose \
+        |& tee "${LOG_DIR}quality-control decontam-identify.log"
+    fi
 
     log "Trying to decontaminate frequency table"
 
-    md "${DECONTAMINATION_SCORES}"
+# Output: 'stats.tsv'
+qiime tools export \
+    --input-path "${DECONTAMINATION_SCORES}" \
+    --output-format DecontamScoreDirFmt \
+    --output-path "${DECONTAMINATION_DIR}" \
+|& tee "${LOG_DIR}tools export decontam.log"
 
-    qiime quality-control decontam-identify \
-        --i-table "${FREQUENCY_TABLE}" \
-        --m-metadata-file "${METADATA_TSV}" \
-        --o-decontam-scores "${DECONTAMINATION_SCORES}" \
-        --p-method prevalence \
-        --p-prev-control-column "${PREV_CONTROL_COLUMN}" \
-        --p-prev-control-indicator "${PREV_CONTROL_INDICATOR}" \
-        --verbose \
-    |& tee "${LOG_DIR}quality-control decontam-identify.log"
+mv \
+    --verbose \
+    "${DECONTAMINATION_DIR}stats.tsv" \
+    "${DECONTAMINATION_DIR}decontamination_stats.tsv"
 
-    # Output: 'stats.tsv'
-    qiime tools export \
-        --input-path "${DECONTAMINATION_SCORES}" \
-        --output-format DecontamScoreDirFmt \
-        --output-path "${DECONTAMINATION_DIR}" \
-    |& tee "${LOG_DIR}tools export decontam.log"
-
-    mv \
-        --verbose \
-        "${DECONTAMINATION_DIR}stats.tsv" \
-        "${DECONTAMINATION_DIR}decontamination_stats.tsv"
-
-    qiime quality-control decontam-score-viz \
-        --i-decontam-scores "${DECONTAMINATION_SCORES}" \
-        --i-table "${FREQUENCY_TABLE}" \
-        --o-visualization "${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qzv" \
-        --verbose \
-    |& tee "${LOG_DIR}quality-control decontam-score-viz.log"
-
-    else
-        log_skip
-    fi
+qiime quality-control decontam-score-viz \
+    --i-decontam-scores "${DECONTAMINATION_SCORES}" \
+    --i-table "${FREQUENCY_TABLE}" \
+    --o-visualization "${DECONTAMINATION_DIR}decontamination_scores_by_prevalence.qzv" \
+    --verbose \
+|& tee "${LOG_DIR}quality-control decontam-score-viz.log"
 
 
 
@@ -417,12 +396,12 @@ if [[ -s "${FASTA}" ]]
             --output-format DNASequencesDirectoryFormat \
             --output-path "${FASTA_DIR}" \
         |& tee "${LOG_DIR}tools export fasta.log"
-
-        cp \
-            --verbose \
-            "${FASTA}" \
-            "${QIIME2_FEATURES_FASTA}"
     fi
+
+cp \
+    --verbose \
+    "${FASTA}" \
+    "${QIIME2_FEATURES_FASTA}"
 
 
 
@@ -437,14 +416,12 @@ if [[ -s "${SPECIES_FREQUENCY_TABLE}" ]]
     then
         log_skip
     else
-
         qiime taxa collapse \
             --i-table "${FREQUENCY_TABLE}" \
             --i-taxonomy "${TAXA_REFERENCE_FEATURES}" \
             --p-level 7 \
             --o-collapsed-table "${SPECIES_FREQUENCY_TABLE}" \
             --verbose
-
     fi
 
 qiime metadata tabulate \
