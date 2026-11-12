@@ -419,8 +419,7 @@ if [[ ! -s "${FASTA}" ]]
         --output-path "${FASTA_DIR}" \
     |& tee "${LOG_DIR}tools export fasta.log"
 
-    ln \
-        --symbolic \
+    cp \
         --verbose \
         "${FASTA}" \
         "${QIIME2_FEATURES_FASTA}"
@@ -536,8 +535,7 @@ if [[ ! -s "${BIOM_DENORMALIZED}" ]]
 
     log "Export the denormalized frequencies to use in PICRUSt2"
 
-    ln \
-        --symbolic \
+    cp \
         --verbose \
         "${BIOM_DENORMALIZED_ANNOTATED}" \
         "${QIIME2_FEATURES_BIOM}"
@@ -602,8 +600,7 @@ if [[ ! -s "${BIOM_NORMALIZED}" ]]
 
     log "Export normalized frequencies to use in report"
 
-    ln \
-        --symbolic \
+    cp \
         --verbose \
         "${TSV_NORMALIZED_ANNOTATED}" \
         "${QIIME2_OTU_TABLE}"
