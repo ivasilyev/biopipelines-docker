@@ -29,14 +29,17 @@ log "Run PATHWAYS in '${PICRUST2_DIR}'"
 export LOG_DIR="${PICRUST2_DIR}logs/"
 export MAIN_PIPELINE_DIR="${PICRUST2_DIR}main_pipeline/"
 export PATHWAY_PIPELINE_DIR="${MAIN_PIPELINE_DIR}pathways_out/"
+export TABLES_DIR="${PICRUST2_DIR}described_tables/"
 export NPROC="$(grep -c '^processor' "/proc/cpuinfo")"
 
 mkdir \
     --mode 0777 \
     --parents \
     --verbose \
+    "${LOG_DIR}" \
     "${PICRUST2_DIR}" \
-    "${LOG_DIR}"
+    "${PICRUST2_RESULTS_DIR}" \
+    "${TABLES_DIR}"
 
 cd "${PICRUST2_DIR}" || exit 1
 
@@ -86,13 +89,7 @@ if [ ! -d "${MAIN_PIPELINE_DIR}" ]
 
 log "Convert tables"
 
-mkdir \
-    --mode 0777 \
-    --parents \
-    --verbose \
-    "${PICRUST2_RESULTS_DIR}"
-
-export LEGACY_TSV="${PICRUST2_RESULTS_DIR}EC_pred_metagenome_contrib_legacy.tsv"
+export LEGACY_TSV="${TABLES_DIR}EC_pred_metagenome_contrib_legacy.tsv"
 export LEGASY_GZIP="${LEGACY_TSV}.gz"
 
 convert_table.py \
@@ -108,31 +105,55 @@ convert_table.py \
 
 log "Add KEGG ENZYME descriptions"
 
+export KEGG_ENZYME_TABLE="${TABLES_DIR}EC_pred_metagenome_unstrat_described.tsv"
+
 add_descriptions.py \
     --input "${EC_METAGENOMES}" \
     --map_type EC \
-    --output "${PICRUST2_RESULTS_DIR}EC_pred_metagenome_unstrat_described.tsv" \
+    --output "${KEGG_ENZYME_TABLE}" \
 |& tee "${LOG_DIR}add_descriptions-EC.log"
 
 
 
 log "Add KEGG ORTHOLOGY descriptions"
 
+export KEGG_ORTHOLOGY_TABLE="${TABLES_DIR}KO_pred_metagenome_unstrat_described.tsv"
+
 add_descriptions.py \
     --input "${KO_METAGENOMES}" \
     --map_type KO \
-    --output "${PICRUST2_RESULTS_DIR}KO_pred_metagenome_unstrat_described.tsv" \
+    --output "${KEGG_ORTHOLOGY_TABLE}" \
 |& tee "${LOG_DIR}add_descriptions-KO.log"
 
 
 
 log "Add MetaCyc descriptions"
 
+export METACYC_TABLE="${TABLES_DIR}pathways_abun_unstrat_described.tsv"
+
 add_descriptions.py  \
     --input "${PATHWAYS}" \
     --map_type METACYC \
-    --output "${PICRUST2_RESULTS_DIR}pathways_abun_unstrat_described.tsv" \
+    --output "${METACYC_TABLE}" \
 |& tee "${LOG_DIR}add_descriptions-METACYC.log"
+
+
+log "Export PICRUSt2 results"
+
+cp \
+    --verbose \
+    "${KEGG_ENZYME_TABLE}" \
+    "${PICRUST2_RESULTS_DIR}kegg_enzyme.tsv"
+
+cp \
+    --verbose \
+    "${KEGG_ORTHOLOGY_TABLE}" \
+    "${PICRUST2_RESULTS_DIR}kegg_orthology.tsv"
+
+cp \
+    --verbose \
+    "${METACYC_TABLE}" \
+    "${PICRUST2_RESULTS_DIR}metacyc.tsv"
 
 
 
