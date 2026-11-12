@@ -407,23 +407,21 @@ export FASTA="${FASTA_DIR}dna-sequences.fasta"
 
 md "${FASTA}"
 
-if [[ ! -s "${FASTA}" ]]
+if [[ -s "${FASTA}" ]]
     then
-
-    # Output: 'dna-sequences.fasta'
-    qiime tools export \
-        --input-path "${REPRESENTATIVE_SEQUENCES}" \
-        --output-format DNASequencesDirectoryFormat \
-        --output-path "${FASTA_DIR}" \
-    |& tee "${LOG_DIR}tools export fasta.log"
-
-    cp \
-        --verbose \
-        "${FASTA}" \
-        "${QIIME2_FEATURES_FASTA}"
-
-    else
         log_skip
+    else
+        # Output: 'dna-sequences.fasta'
+        qiime tools export \
+            --input-path "${REPRESENTATIVE_SEQUENCES}" \
+            --output-format DNASequencesDirectoryFormat \
+            --output-path "${FASTA_DIR}" \
+        |& tee "${LOG_DIR}tools export fasta.log"
+
+        cp \
+            --verbose \
+            "${FASTA}" \
+            "${QIIME2_FEATURES_FASTA}"
     fi
 
 
@@ -435,40 +433,40 @@ export SPECIES_FREQUENCY_TABLE="${TAXONOMY_DIR}species_frequencies.qza"
 
 md "${SPECIES_FREQUENCY_TABLE}"
 
-if [[ ! -s "${SPECIES_FREQUENCY_TABLE}" ]]
+if [[ -s "${SPECIES_FREQUENCY_TABLE}" ]]
     then
-
-    qiime taxa collapse \
-        --i-table "${FREQUENCY_TABLE}" \
-        --i-taxonomy "${TAXA_REFERENCE_FEATURES}" \
-        --p-level 7 \
-        --o-collapsed-table "${SPECIES_FREQUENCY_TABLE}" \
-        --verbose
-
-    qiime metadata tabulate \
-        --m-input-file "${SPECIES_FREQUENCY_TABLE}" \
-        --o-visualization "${TAXONOMY_DIR}species_frequencies.qzv" \
-        --verbose
-
-    qiime metadata tabulate \
-        --m-input-file "${TAXA_REFERENCE_FEATURES}" \
-        --o-visualization "${TAXONOMY_DIR}classified_taxonomy.qzv" \
-        --verbose \
-    |& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
-
-    log "Plot metagenome profile bar charts"
-
-    qiime taxa barplot \
-        --m-metadata-file "${METADATA_TSV}" \
-        --i-table "${FREQUENCY_TABLE}" \
-        --i-taxonomy "${TAXA_REFERENCE_FEATURES}" \
-        --o-visualization "${TAXONOMY_DIR}taxonomy_barplots.qzv" \
-        --verbose \
-    |& tee "${LOG_DIR}taxa barplot.log"
-
-    else
         log_skip
+    else
+
+        qiime taxa collapse \
+            --i-table "${FREQUENCY_TABLE}" \
+            --i-taxonomy "${TAXA_REFERENCE_FEATURES}" \
+            --p-level 7 \
+            --o-collapsed-table "${SPECIES_FREQUENCY_TABLE}" \
+            --verbose
+
     fi
+
+qiime metadata tabulate \
+    --m-input-file "${SPECIES_FREQUENCY_TABLE}" \
+    --o-visualization "${TAXONOMY_DIR}species_frequencies.qzv" \
+    --verbose
+
+qiime metadata tabulate \
+    --m-input-file "${TAXA_REFERENCE_FEATURES}" \
+    --o-visualization "${TAXONOMY_DIR}classified_taxonomy.qzv" \
+    --verbose \
+|& tee "${LOG_DIR}metadata tabulate classified_taxonomy.log"
+
+log "Plot metagenome profile bar charts"
+
+qiime taxa barplot \
+    --m-metadata-file "${METADATA_TSV}" \
+    --i-table "${FREQUENCY_TABLE}" \
+    --i-taxonomy "${TAXA_REFERENCE_FEATURES}" \
+    --o-visualization "${TAXONOMY_DIR}taxonomy_barplots.qzv" \
+    --verbose \
+|& tee "${LOG_DIR}taxa barplot.log"
 
 
 
@@ -482,65 +480,63 @@ export TSV_DENORMALIZED_ANNOTATED="${BIOM_DIR}OTU_denormalized_with_taxa.tsv"
 
 md "${BIOM_DENORMALIZED}"
 
-if [[ ! -s "${BIOM_DENORMALIZED}" ]]
+if [[ -s "${BIOM_DENORMALIZED}" ]]
     then
-
-    # Output: 'feature-table.biom'
-    qiime tools export \
-        --input-path "${FREQUENCY_TABLE}" \
-        --output-format BIOMV210DirFmt \
-        --output-path "${BIOM_DIR}" \
-    |& tee "${LOG_DIR}tools export feature-table.biom.log"
-
-    mv \
-        --verbose \
-        "${BIOM_RAW}" \
-        "${BIOM_DENORMALIZED}"
-
-    log "Annotate denormalized biom file with taxonomy data"
-
-    biom add-metadata \
-        --sc-separated "taxonomy" \
-        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
-        --sample-metadata-fp "${METADATA_TSV}" \
-        --input-fp "${BIOM_DENORMALIZED}" \
-        --output-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
-    |& tee "${LOG_DIR}biom add-metadata.log"
-
-    log "Convert denormalized biom to JSON"
-
-    biom convert \
-        --to-json \
-        --input-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
-        --output-fp "${BIOM_DIR}OTU_with_taxa.json" \
-    |& tee "${LOG_DIR}biom convert json.log"
-
-    log "Convert denormalized biom file to TSV"
-
-    biom convert \
-        --to-tsv \
-        --input-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
-        --output-fp "${TSV_DENORMALIZED_ANNOTATED}" \
-        --header-key "taxonomy" \
-    |& tee "${LOG_DIR}biom convert taxa tsv.log"
-
-    log "Fix denormalized OTU file"
-
-    sed \
-        '/^\# .*/d' \
-        --in-place \
-        "${TSV_DENORMALIZED_ANNOTATED}"
-
-    log "Export the denormalized frequencies to use in PICRUSt2"
-
-    cp \
-        --verbose \
-        "${BIOM_DENORMALIZED_ANNOTATED}" \
-        "${QIIME2_FEATURES_BIOM}"
-
-    else
         log_skip
+    else
+        # Output: 'feature-table.biom'
+        qiime tools export \
+            --input-path "${FREQUENCY_TABLE}" \
+            --output-format BIOMV210DirFmt \
+            --output-path "${BIOM_DIR}" \
+        |& tee "${LOG_DIR}tools export feature-table.biom.log"
+
+        mv \
+            --verbose \
+            "${BIOM_RAW}" \
+            "${BIOM_DENORMALIZED}"
     fi
+
+log "Annotate denormalized biom file with taxonomy data"
+
+biom add-metadata \
+    --sc-separated "taxonomy" \
+    --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
+    --sample-metadata-fp "${METADATA_TSV}" \
+    --input-fp "${BIOM_DENORMALIZED}" \
+    --output-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
+|& tee "${LOG_DIR}biom add-metadata.log"
+
+log "Convert denormalized biom to JSON"
+
+biom convert \
+    --to-json \
+    --input-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
+    --output-fp "${BIOM_DIR}OTU_with_taxa.json" \
+|& tee "${LOG_DIR}biom convert json.log"
+
+log "Convert denormalized biom file to TSV"
+
+biom convert \
+    --to-tsv \
+    --input-fp "${BIOM_DENORMALIZED_ANNOTATED}" \
+    --output-fp "${TSV_DENORMALIZED_ANNOTATED}" \
+    --header-key "taxonomy" \
+|& tee "${LOG_DIR}biom convert taxa tsv.log"
+
+log "Fix denormalized OTU file"
+
+sed \
+    '/^\# .*/d' \
+    --in-place \
+    "${TSV_DENORMALIZED_ANNOTATED}"
+
+log "Export the denormalized frequencies to use in PICRUSt2"
+
+cp \
+    --verbose \
+    "${BIOM_DENORMALIZED_ANNOTATED}" \
+    "${QIIME2_FEATURES_BIOM}"
 
 
 
@@ -551,61 +547,60 @@ export BIOM_NORMALIZED="${BIOM_DIR}OTU_normalized.biom"
 export BIOM_NORMALIZED_ANNOTATED="${BIOM_DIR}OTU_normalized_with_taxa.biom"
 export TSV_NORMALIZED_ANNOTATED="${BIOM_DIR}OTU_normalized_with_taxa.tsv"
 
-if [[ ! -s "${BIOM_NORMALIZED}" ]]
+if [[ -s "${BIOM_NORMALIZED}" ]]
     then
-
-    log "Normalize clustered features"
-
-    qiime feature-table relative-frequency \
-        --i-table "${FREQUENCY_TABLE}" \
-        --o-relative-frequency-table "${NORMALIZED_FREQUENCIES}" \
-        --verbose
-
-    # Output: 'feature-table.biom'
-    qiime tools export \
-        --input-path "${NORMALIZED_FREQUENCIES}" \
-        --output-format BIOMV210DirFmt \
-        --output-path "${BIOM_DIR}"
-
-    mv \
-        --verbose \
-        "${BIOM_RAW}" \
-        "${BIOM_NORMALIZED}"
-
-    log "Annotate normalized biom file with taxonomy data"
-
-    biom add-metadata \
-        --input-fp "${BIOM_NORMALIZED}" \
-        --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
-        --output-fp "${BIOM_NORMALIZED_ANNOTATED}" \
-        --sample-metadata-fp "${METADATA_TSV}" \
-        --sc-separated "taxonomy"
-
-    log "Convert normalized biom file to TSV"
-
-    biom convert \
-        --header-key "taxonomy" \
-        --input-fp "${BIOM_NORMALIZED_ANNOTATED}" \
-        --output-fp "${TSV_NORMALIZED_ANNOTATED}" \
-        --to-tsv
-
-    log "Fix normalized OTU TSV file"
-
-    sed \
-        '/^\# .*/d' \
-        --in-place \
-        "${TSV_NORMALIZED_ANNOTATED}"
-
-    log "Export normalized frequencies to use in report"
-
-    cp \
-        --verbose \
-        "${TSV_NORMALIZED_ANNOTATED}" \
-        "${QIIME2_OTU_TABLE}"
-
-    else
         log_skip
+    else
+        log "Normalize clustered features"
+
+        qiime feature-table relative-frequency \
+            --i-table "${FREQUENCY_TABLE}" \
+            --o-relative-frequency-table "${NORMALIZED_FREQUENCIES}" \
+            --verbose
+
+        # Output: 'feature-table.biom'
+        qiime tools export \
+            --input-path "${NORMALIZED_FREQUENCIES}" \
+            --output-format BIOMV210DirFmt \
+            --output-path "${BIOM_DIR}"
+
+        mv \
+            --verbose \
+            "${BIOM_RAW}" \
+            "${BIOM_NORMALIZED}"
+
     fi
+
+log "Annotate normalized biom file with taxonomy data"
+
+biom add-metadata \
+    --input-fp "${BIOM_NORMALIZED}" \
+    --observation-metadata-fp "${TAXA_REFERENCE_HEADER}" \
+    --output-fp "${BIOM_NORMALIZED_ANNOTATED}" \
+    --sample-metadata-fp "${METADATA_TSV}" \
+    --sc-separated "taxonomy"
+
+log "Convert normalized biom file to TSV"
+
+biom convert \
+    --header-key "taxonomy" \
+    --input-fp "${BIOM_NORMALIZED_ANNOTATED}" \
+    --output-fp "${TSV_NORMALIZED_ANNOTATED}" \
+    --to-tsv
+
+log "Fix normalized OTU TSV file"
+
+sed \
+    '/^\# .*/d' \
+    --in-place \
+    "${TSV_NORMALIZED_ANNOTATED}"
+
+log "Export normalized frequencies to use in report"
+
+cp \
+    --verbose \
+    "${TSV_NORMALIZED_ANNOTATED}" \
+    "${QIIME2_OTU_TABLE}"
 
 
 
