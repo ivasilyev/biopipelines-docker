@@ -548,8 +548,8 @@ find . \
             qiime diversity beta-group-significance \
                 --i-distance-matrix "${FILE}" \
                 --m-metadata-file "${METADATA_TSV}" \
-                --m-metadata-column "${CONTROL_COLUMN_NAME}" \
-                --o-visualization "${BETA_METRICS_DIR_NAME}${BASE_NAME}_${CONTROL_COLUMN_NAME}_significance.qzv" \
+                --m-metadata-column "${PREV_CONTROL_COLUMN}" \
+                --o-visualization "${BETA_METRICS_DIR_NAME}${BASE_NAME}_${PREV_CONTROL_COLUMN}_significance.qzv" \
                 --p-pairwise \
                 --verbose;
             # Output: distance-matrix.tsv
