@@ -36,7 +36,6 @@ export TAXA_REFERENCE_CLASSIFIER="$(realpath "${TAXA_REFERENCE_CLASSIFIER}")"
 export TAXA_REFERENCE_SEQUENCES="$(realpath "${TAXA_REFERENCE_SEQUENCES}")"
 export TAXA_REFERENCE_HEADER="$(realpath "${TAXA_REFERENCE_HEADER}")"
 
-export GROUPING_COLUMN_NAME="${GROUPING_COLUMN_NAME}"
 export PREV_CONTROL_COLUMN="${PREV_CONTROL_COLUMN}"
 export PREV_CONTROL_INDICATOR="${PREV_CONTROL_INDICATOR}"
 # Required variables end
@@ -141,8 +140,8 @@ if [[ ! -s "${DECONTAMINATION_SCORES}" ]]
         --m-metadata-file "${METADATA_TSV}" \
         --o-decontam-scores "${DECONTAMINATION_SCORES}" \
         --p-method prevalence \
-        --p-prev-control-column "${CONTROL_COLUMN_NAME}" \
-        --p-prev-control-indicator "${CONTROL_INDICATOR_VALUE}" \
+        --p-prev-control-column "${PREV_CONTROL_COLUMN}" \
+        --p-prev-control-indicator "${PREV_CONTROL_INDICATOR}" \
         --verbose \
     |& tee "${LOG_DIR}quality-control decontam-identify.log"
     # Output: 'stats.tsv'
@@ -579,8 +578,8 @@ echo "qiime composition ancom"
 qiime composition ancom \
     --i-table "${ANCOM_PSEUDOCOUNT_FREQUENCY_TABLE}" \
     --m-metadata-file "${METADATA_TSV}" \
-    --m-metadata-column "${CONTROL_COLUMN_NAME}" \
-    --o-visualization "${ANCOM_DIR}ancom_by_${CONTROL_COLUMN_NAME}.qzv" \
+    --m-metadata-column "${PREV_CONTROL_COLUMN}" \
+    --o-visualization "${ANCOM_DIR}ancom_by_${PREV_CONTROL_COLUMN}.qzv" \
     --verbose
 
 log "Completed running QIIME2 in ${QIIME2_DIR}"
