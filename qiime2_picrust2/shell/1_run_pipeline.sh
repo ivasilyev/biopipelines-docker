@@ -3,15 +3,17 @@
 export LINE="=========================================="
 export _LOG_COUNTER=1
 
-function log {
+log() {
     printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][Pipeline][OP#$(printf "%02d" ${_LOG_COUNTER})] ${*}\n\n${LINE}\n\n"
     _LOG_COUNTER=$((_LOG_COUNTER + 1))
 }
+export -f log
 
 
-function log_skip {
+log_skip() {
     printf "\n${LINE}\n\n[$(date '+%d-%m-%Y %H:%M:%S.%N')][Pipeline][OP#$(printf "%02d" ${_LOG_COUNTER})] Skip\n\n${LINE}\n\n"
 }
+export -f log_skip
 
 
 force_curl () {
@@ -23,6 +25,7 @@ force_curl () {
       fi
     done
 }
+export -f force_curl
 
 
 force_docker_pull () {
@@ -35,6 +38,7 @@ force_docker_pull () {
       fi
     done
 }
+export -f force_docker_pull
 
 
 get_latest_quay_tag() {
@@ -46,11 +50,13 @@ get_latest_quay_tag() {
             '(?<=\"tags\": {\")[^\"]*(?=\":)'
     )"
 }
+export -f get_latest_quay_tag
 
 
 compose_quay_img() {
     echo "quay.io/${1}/${2}:$(get_latest_quay_tag ${1} ${2})"
 }
+export -f compose_quay_img
 
 
 # Required variables begin
@@ -64,6 +70,9 @@ export PREV_CONTROL_INDICATOR="${PREV_CONTROL_INDICATOR}"
 
 export PICRUST2_IMG="${PICRUST2_IMG}"
 export QIIME2_IMG="${QIIME2_IMG}"
+
+export REFERENCE_NAME="${REFERENCE_NAME}"
+export REFERENCE_VERSION="${REFERENCE_VERSION}"
 # Required variables end
 
 log "Create environment in ${ROOT_DIR}"
@@ -81,9 +90,6 @@ export QIIME2_OTU_TABLE="${QIIME2_RESULTS_DIR}otu_table.tsv"
 
 export QIIME2_SCRIPT_1="${SCRIPT_DIR}qiime2_1.sh"
 export QIIME2_SCRIPT_2="${SCRIPT_DIR}qiime2_2.sh"
-
-export REFERENCE_NAME="SILVA"
-export REFERENCE_VERSION="138.1"
 
 export REFERENCE_DIR="/data/reference/${REFERENCE_NAME}/${REFERENCE_NAME}_v${REFERENCE_VERSION}/"
 export TAXA_REFERENCE_FEATURES="${REFERENCE_DIR}${REFERENCE_NAME}-${REFERENCE_VERSION}-full-length-seq-taxonomy.qza"
