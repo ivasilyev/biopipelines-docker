@@ -10,6 +10,9 @@ export GROUPING_COLUMN_NAME="SubjectID"
 export PREV_CONTROL_COLUMN="Subgroup"
 export PREV_CONTROL_INDICATOR="ControlNegative"
 
+export PICRUST2_IMG="quay.io/biocontainers/picrust2:2.5.2--pyhdfd78af_0"
+export QIIME2_IMG="quay.io/qiime2/core:2023.9"
+
 # sudo rm -rf "${ROOT_DIR}"
 mkdir \
     --mode 0777 \
